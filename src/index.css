@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #0B0D10;
+  color: #F2F4F7;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Light mode overrides for tasks page */
+html:not(.dark) body {
+  background: #f0f0f5;
+  color: #1a1a28;
+}
+
+::selection {
+  background: rgba(45, 107, 255, 0.25);
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+html:not(.dark) ::-webkit-scrollbar-thumb { background: #ccc; }
+html:not(.dark) ::-webkit-scrollbar-thumb:hover { background: #aaa; }
+
+/* Grain texture */
+.grain { position: relative; }
+.grain::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 1;
+}
+.grain > * { position: relative; z-index: 2; }
+
+/* Subtle scrollbar variant */
+.subtle-scroll::-webkit-scrollbar { width: 4px; }
+.subtle-scroll::-webkit-scrollbar-track { background: transparent; }
+.subtle-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+.subtle-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+.subtle-scroll { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent; }
+
+/* Dark sidebar scroll */
+.dark-scroll::-webkit-scrollbar-thumb { background: #3a3a5a; }
+.dark-scroll::-webkit-scrollbar-thumb:hover { background: #4a4a6a; }
+
+/* Kanban horizontal scroll */
+.kanban-scroll { -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: #ccc transparent; }
+html.dark .kanban-scroll { scrollbar-color: #2d2d3d transparent; }
+.kanban-scroll::-webkit-scrollbar { height: 6px; width: 6px; }
+.kanban-scroll::-webkit-scrollbar-track { background: transparent; }
+.kanban-scroll::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+.kanban-scroll::-webkit-scrollbar-thumb:hover { background: #aaa; }
+.dark .kanban-scroll::-webkit-scrollbar-thumb, html.dark .kanban-scroll::-webkit-scrollbar-thumb { background: #2d2d3d; }
+.dark .kanban-scroll::-webkit-scrollbar-thumb:hover, html.dark .kanban-scroll::-webkit-scrollbar-thumb:hover { background: #3d3d4d; }
+
+/* Drag cursor */
+body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
+body.is-dragging [data-task-id] { will-change: transform; backface-visibility: hidden; }
+
+/* Select styling */
+.select-styled {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px;
+  padding-right: 2rem;
+}
+
+/* Mobile landscape: hide top bar, compact controls */
+@media (orientation: landscape) and (max-height: 500px) {
+  .landscape-hide { display: none !important; }
+  .landscape-compact { padding-top: 0.25rem !important; padding-bottom: 0.25rem !important; }
+  .landscape-compact button { width: 2.25rem !important; height: 2.25rem !important; }
+  .landscape-compact svg { width: 1rem !important; height: 1rem !important; }
+  .landscape-pip { bottom: 2.75rem !important; width: 5rem !important; }
+}
