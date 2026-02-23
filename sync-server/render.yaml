@@ -1,0 +1,13 @@
+# Render Blueprint for sync server
+# Deploy: Connect repo, Render will use this config
+services:
+  - type: web
+    name: whiteboard-sync
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false

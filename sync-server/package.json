@@ -1,0 +1,19 @@
+{
+  "name": "whiteboard-sync-server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  },
+"dependencies": {
+    "dotenv": "^16.4.7",
+    "@fastify/cors": "^11.2.0",
+    "ws": "^8.16.0",
+    "@supabase/supabase-js": "^2.95.3",
+    "@tldraw/sync-core": "^4.3.0",
+    "@tldraw/tlschema": "^4.3.0",
+    "fastify": "^5.7.4"
+  }
+}
