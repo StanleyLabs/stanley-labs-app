@@ -38,7 +38,8 @@ export function useWebRTC({
   useEffect(() => {
     if (!localStream) return
 
-    const socket = io()
+    const serverUrl = import.meta.env.VITE_SIGNALING_SERVER_URL || undefined
+    const socket = io(serverUrl)
     socketRef.current = socket
 
     socket.on('connect', () => {
