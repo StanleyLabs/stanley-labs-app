@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 
 const navItems = [
   { to: "/tasks", label: "Tasks", icon: TasksIcon },
@@ -8,17 +8,10 @@ const navItems = [
 ];
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation();
-  const isHome = pathname === "/";
-
-  // Boards (tldraw) needs full screen - hide the nav bar
-  const isBoards = pathname.startsWith("/boards");
-
   return (
     <div className="flex h-full flex-col bg-ink">
       {/* Top navigation bar */}
-      {!isBoards && (
-        <nav className="shrink-0 border-b border-white/[0.06] bg-ink/80 backdrop-blur-xl">
+      <nav className="shrink-0 border-b border-white/[0.06] bg-ink/80 backdrop-blur-xl z-50">
           <div className="mx-auto flex h-14 max-w-screen-2xl items-center px-4 sm:px-6">
             {/* Logo */}
             <NavLink
@@ -66,23 +59,9 @@ export function Shell({ children }: { children: ReactNode }) {
             </div>
           </div>
         </nav>
-      )}
-
-      {/* Boards: floating nav button to get back */}
-      {isBoards && (
-        <NavLink
-          to="/"
-          className="fixed left-3 top-3 z-[9999] flex h-9 w-9 items-center justify-center rounded-lg bg-ink/80 backdrop-blur-md border border-white/[0.06] text-fog/60 hover:text-paper hover:bg-ink transition-all shadow-lg"
-          title="Back to Stanley Labs"
-        >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5M12 5l-7 7 7 7" />
-          </svg>
-        </NavLink>
-      )}
 
       {/* Main content */}
-      <main className={`flex-1 min-h-0 ${isHome ? "" : ""}`}>
+      <main className="flex-1 min-h-0">
         {children}
       </main>
     </div>

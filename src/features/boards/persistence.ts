@@ -141,7 +141,7 @@ export function setTheme(theme: 'dark' | 'light'): void {
 // Shared pages use path-based URLs: /id (e.g. /abc123) instead of ?p=id.
 
 function getBasePath(): string {
-	return (import.meta.env?.BASE_URL ?? '/').replace(/\/$/, '') || ''
+	return '/boards'
 }
 
 export function getShareIdFromUrl(): string | null {

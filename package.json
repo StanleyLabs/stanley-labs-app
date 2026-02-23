@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently \"vite\" \"node server/server.js\"",
+    "dev:client": "vite",
     "dev:server": "node server/server.js",
-    "dev:all": "concurrently \"vite\" \"node server/server.js\"",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint ."
