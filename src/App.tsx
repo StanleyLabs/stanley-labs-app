@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Shell } from "./components/Shell";
 import { ThemeProvider } from "./features/tasks/theme";
+import { usePageMeta } from "./hooks/usePageMeta";
 import Home from "./pages/Home";
 
 const TasksApp = lazy(() => import("./features/tasks/TasksApp"));
@@ -17,6 +18,8 @@ function Loading() {
 }
 
 export default function App() {
+  usePageMeta();
+
   return (
     <ThemeProvider>
       <Shell>
