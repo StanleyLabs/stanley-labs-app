@@ -117,14 +117,14 @@ export function Sidebar({
           <div className="shrink-0 px-4 pb-3">
             {useMockData ? (
               <Link
-                to="/"
+                to="/tasks"
                 className="block w-full rounded-lg border border-sidebar-border bg-sidebar-hover/50 px-3 py-2 text-center text-xs font-medium text-white hover:bg-sidebar-hover transition-colors"
               >
                 Exit demo
               </Link>
             ) : (
               <Link
-                to="/demo"
+                to="/tasks/demo"
                 className="block w-full rounded-lg border border-sidebar-border bg-sidebar-hover/50 px-3 py-2 text-center text-xs font-medium text-white hover:bg-sidebar-hover transition-colors"
               >
                 View demo with sample data
