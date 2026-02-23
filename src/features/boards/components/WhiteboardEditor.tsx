@@ -135,7 +135,7 @@ export function WhiteboardEditor({ orchestration }: WhiteboardEditorProps) {
 	)
 
 	return (
-		<div style={{ position: 'fixed', inset: 0 }}>
+		<div style={{ position: 'absolute', inset: 0 }}>
 			<Tldraw
 				store={store}
 				licenseKey={licenseKey}
