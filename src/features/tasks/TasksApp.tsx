@@ -199,7 +199,7 @@ export default function App() {
   }, [tasksApi]);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-full overflow-hidden">
       <Sidebar
         projects={projectsApi.projects ?? []}
         activeId={activeProjectId}

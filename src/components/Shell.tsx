@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 
 const navItems = [
   { to: "/tasks", label: "Tasks", icon: TasksIcon },
@@ -8,10 +8,13 @@ const navItems = [
 ];
 
 export function Shell({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  const isChat = pathname.startsWith("/chat");
+
   return (
     <div className="flex h-full flex-col bg-ink">
-      {/* Top navigation bar */}
-      <nav className="shrink-0 border-b border-white/[0.06] bg-ink/80 backdrop-blur-xl z-50">
+      {/* Top navigation bar - hidden in mobile landscape on chat */}
+      <nav className={`shrink-0 border-b border-white/[0.06] bg-ink/80 backdrop-blur-xl z-50${isChat ? " landscape-hide" : ""}`}>
           <div className="mx-auto flex h-14 max-w-screen-2xl items-center px-4 sm:px-6">
             {/* Logo */}
             <NavLink
