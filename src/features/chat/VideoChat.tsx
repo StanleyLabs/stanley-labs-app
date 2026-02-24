@@ -88,6 +88,11 @@ export default function VideoChat({ roomId, onLeave }: VideoChatProps) {
   const [state, send] = useMachine(roomMachine, { input: { roomId } })
   const { localStream, peerList, spotlightPeerId, isAudioMuted, isVideoMuted, error } = state.context
 
+  // Clean up on unmount (e.g. navigating away from /chat)
+  useEffect(() => {
+    return () => { send({ type: 'LEAVE' }) }
+  }, [send])
+
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const pipRef = useRef<HTMLDivElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
