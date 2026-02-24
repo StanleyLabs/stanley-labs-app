@@ -8,6 +8,7 @@ import { getContentAsJsonDoc } from './sharePage'
 import { isSupabaseConfigured, createSharedPage } from './supabase'
 import { setShareIdForPage, setShareIdInUrl, buildShareUrl } from './persistence'
 import { useMachineCtx } from './MachineContext'
+import { useAuth } from '../../lib/AuthContext'
 import {
 	ArrangeMenuSubmenu,
 	ClipboardMenuGroup,
@@ -126,6 +127,7 @@ function CreateLinkMenuItem() {
 	const editor = useEditor()
 	const toasts = useToasts()
 	const { send } = useMachineCtx()
+	const { user } = useAuth()
 	const onSelect = useCallback(
 		async (_source: TLUiEventSource) => {
 			const loadingId = toasts.addToast({ title: 'Creating link…', severity: 'info', keepOpen: true })
@@ -137,7 +139,7 @@ function CreateLinkMenuItem() {
 					toasts.addToast({ title: 'Share page unavailable', description: 'No content on page.', severity: 'error' })
 					return
 				}
-				const result = await createSharedPage(doc)
+				const result = await createSharedPage(doc, user?.id)
 				toasts.removeToast(loadingId)
 				if (!result) {
 					toasts.addToast({ title: 'Share page unavailable', description: 'Supabase is not configured.', severity: 'error' })

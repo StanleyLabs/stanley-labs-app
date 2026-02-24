@@ -7,7 +7,7 @@
  * Logged in + shared: dialog with "Remove from my pages" / "Delete everywhere"
  */
 
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { TLPageId } from '@tldraw/tlschema'
 import {
 	PageRecordType,
@@ -27,7 +27,7 @@ import {
 import { getShareIdForPage, removeShareIdForPage } from '../../persistence'
 import { DeletePageDialog } from '../../DeletePageDialog'
 import { ConfirmDeleteDialog } from '../../ConfirmDeleteDialog'
-import { deleteSharedPage } from '../../supabase'
+import { deleteSharedPage, sharedPageHasOwner } from '../../supabase'
 import { deletePage as deleteCloudPage } from '../../cloudPersistence'
 import { useAuth } from '../../../../lib/AuthContext'
 import { onMovePage } from './onMovePage'
@@ -57,6 +57,15 @@ export function CustomPageItemSubmenu({
 	const shareId = getShareIdForPage(item.id)
 	const isShared = Boolean(shareId)
 	const isLoggedIn = Boolean(user)
+	const [hasOwner, setHasOwner] = useState(false)
+
+	// Check if the shared page was created by a logged-in user
+	useEffect(() => {
+		if (!isShared || isLoggedIn || !shareId) { setHasOwner(false); return }
+		let cancelled = false
+		void sharedPageHasOwner(shareId).then((v) => { if (!cancelled) setHasOwner(v) })
+		return () => { cancelled = true }
+	}, [isShared, isLoggedIn, shareId])
 
 	const onDuplicate = useCallback(() => {
 		editor.markHistoryStoppingPoint('creating page')
@@ -133,7 +142,15 @@ export function CustomPageItemSubmenu({
 			return
 		}
 
-		// Shared page: show dialog with options
+		// Logged-out user viewing a shared page owned by a logged-in user:
+		// can only remove locally, not delete from database
+		if (!isLoggedIn && hasOwner) {
+			performRemoveOnly()
+			toasts.addToast({ title: 'Page removed', severity: 'success' })
+			return
+		}
+
+		// Shared page (own or unowned): show dialog with options
 		dialogs.addDialog({
 			component: (props: { onClose: () => void }) => (
 				<DeletePageDialog
@@ -146,7 +163,7 @@ export function CustomPageItemSubmenu({
 				/>
 			),
 		})
-	}, [dialogs, item.name, shareId, isShared, isLoggedIn, performRemoveOnly, performDeleteFromDatabase, toasts])
+	}, [dialogs, item.name, shareId, isShared, isLoggedIn, hasOwner, performRemoveOnly, performDeleteFromDatabase, toasts])
 
 	return (
 		<TldrawUiDropdownMenuRoot id={`page item submenu ${index}`}>
@@ -186,7 +203,7 @@ export function CustomPageItemSubmenu({
 							/>
 						)}
 					</TldrawUiMenuGroup>
-					{listSize > 1 && !(isShared && !isLoggedIn) && (
+					{listSize > 1 && (
 						<TldrawUiMenuGroup id="delete">
 							<TldrawUiMenuItem id="delete" onSelect={onDelete} label="page-menu.submenu.delete" />
 						</TldrawUiMenuGroup>

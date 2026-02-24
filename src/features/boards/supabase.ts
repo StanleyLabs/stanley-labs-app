@@ -78,20 +78,36 @@ export async function saveSharedPage(shareId: string, snapshot: ShareSnapshot): 
 	}
 }
 
-export async function createSharedPage(snapshot: ShareSnapshot): Promise<{ id: string } | null> {
+export async function createSharedPage(snapshot: ShareSnapshot, userId?: string | null): Promise<{ id: string } | null> {
 	const sb = client ?? (await initSupabase())
 	if (!sb) return null
 	const id = generateShareId()
-	const { error } = await sb.from(SHARE_TABLE).insert({
+	const row: Record<string, unknown> = {
 		id,
 		snapshot,
 		created_at: new Date().toISOString(),
-	})
+	}
+	if (userId) row.user_id = userId
+	const { error } = await sb.from(SHARE_TABLE).insert(row)
 	if (error) {
 		console.error('[supabase] createSharedPage failed:', error.message)
 		throw new Error(error.message)
 	}
 	return { id }
+}
+
+/** Check if a shared page was created by a logged-in user. */
+export async function sharedPageHasOwner(shareId: string): Promise<boolean> {
+	if (!shareId.trim()) return false
+	const sb = client ?? (await initSupabase())
+	if (!sb) return false
+	const { data, error } = await sb
+		.from(SHARE_TABLE)
+		.select('user_id')
+		.eq('id', shareId)
+		.single()
+	if (error || !data) return false
+	return Boolean(data.user_id)
 }
 
 /** Delete a shared page from the database. Returns true on success. */
