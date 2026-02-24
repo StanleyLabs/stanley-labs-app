@@ -26,6 +26,7 @@ import {
 } from 'tldraw'
 import { getShareIdForPage, removeShareIdForPage } from '../../persistence'
 import { DeletePageDialog } from '../../DeletePageDialog'
+import { ConfirmDeleteDialog } from '../../ConfirmDeleteDialog'
 import { deleteSharedPage } from '../../supabase'
 import { deletePage as deleteCloudPage } from '../../cloudPersistence'
 import { useAuth } from '../../../../lib/AuthContext'
@@ -114,16 +115,21 @@ export function CustomPageItemSubmenu({
 	}, [editor, item.id, shareId, isLoggedIn, toasts, trackEvent])
 
 	const onDelete = useCallback(() => {
-		// Not shared + not logged in: instant local delete, no dialog
-		if (!isShared && !isLoggedIn) {
-			performRemoveOnly()
-			return
-		}
-
-		// Not shared + logged in: instant delete from local + cloud, no dialog
-		if (!isShared && isLoggedIn) {
-			performRemoveOnly()
-			toasts.addToast({ title: 'Page deleted', severity: 'success' })
+		// Not shared: show simple confirmation dialog
+		if (!isShared) {
+			dialogs.addDialog({
+				component: (props: { onClose: () => void }) => (
+					<ConfirmDeleteDialog
+						onClose={() => props.onClose()}
+						pageName={item.name}
+						isLoggedIn={isLoggedIn}
+						onConfirm={() => {
+							performRemoveOnly()
+							toasts.addToast({ title: 'Page deleted', severity: 'success' })
+						}}
+					/>
+				),
+			})
 			return
 		}
 
