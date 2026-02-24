@@ -30,8 +30,8 @@ export function Sidebar({
   activeId: string | null;
   onSelect: (id: string) => void;
   onAdd: () => void;
-  onEdit: (p: Project) => void;
-  onDelete: (id: string) => void;
+  onEdit?: (p: Project) => void;
+  onDelete?: (id: string) => void;
   onReorder: (ids: string[]) => void;
   collapsed: boolean;
   onToggle: () => void;
@@ -97,8 +97,8 @@ export function Sidebar({
                     project={p}
                     isActive={p.id === activeId}
                     onSelect={() => onSelect(p.id)}
-                    onEdit={() => onEdit(p)}
-                    onDelete={() => onDelete(p.id)}
+                    onEdit={onEdit ? () => onEdit(p) : undefined}
+                    onDelete={onDelete ? () => onDelete(p.id) : undefined}
                   />
                 ))}
                 {projects.length === 0 && (

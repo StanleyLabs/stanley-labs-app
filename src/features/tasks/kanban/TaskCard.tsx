@@ -14,8 +14,8 @@ export function SortableTaskCard({
 }: {
   task: Task;
   isActive?: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: task.id });
 
@@ -40,8 +40,8 @@ export function TaskCardInner({
   overlay,
 }: {
   task: Task;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
   dragProps?: Record<string, unknown>;
   overlay?: boolean;
 }) {
@@ -62,14 +62,20 @@ export function TaskCardInner({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100 leading-snug select-none sm:select-text">{task.title}</p>
-            <div className="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={stopProp}>
-              <button onClick={onEdit} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-border hover:text-gray-600 dark:hover:text-gray-200">
-                <IconEdit className="h-3 w-3" />
-              </button>
-              <button onClick={onDelete} className="rounded p-1 text-gray-400 hover:bg-red-50 dark:hover:bg-red-500/20 hover:text-red-500 dark:hover:text-red-400">
-                <IconTrash className="h-3 w-3" />
-              </button>
-            </div>
+            {(onEdit || onDelete) && (
+              <div className="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={stopProp}>
+                {onEdit && (
+                  <button onClick={onEdit} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-border hover:text-gray-600 dark:hover:text-gray-200">
+                    <IconEdit className="h-3 w-3" />
+                  </button>
+                )}
+                {onDelete && (
+                  <button onClick={onDelete} className="rounded p-1 text-gray-400 hover:bg-red-50 dark:hover:bg-red-500/20 hover:text-red-500 dark:hover:text-red-400">
+                    <IconTrash className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           {task.description && (
             <p className="mt-1 text-xs text-gray-500 line-clamp-2 leading-relaxed">{task.description}</p>

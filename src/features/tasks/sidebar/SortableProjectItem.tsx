@@ -15,8 +15,8 @@ export function SortableProjectItem({
   project: Project;
   isActive: boolean;
   onSelect: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: project.id });
   const style: React.CSSProperties = {
@@ -52,22 +52,28 @@ export function SortableProjectItem({
         <IconFolder className="h-3.5 w-3.5" />
       </span>
       <span className="flex-1 truncate">{project.name}</span>
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={stopProp}>
-        <button
-          onClick={onEdit}
-          className="rounded p-1 text-sidebar-muted hover:bg-sidebar-hover hover:text-white"
-          title="Edit project"
-        >
-          <IconEdit className="h-3 w-3" />
-        </button>
-        <button
-          onClick={onDelete}
-          className="rounded p-1 text-sidebar-muted hover:bg-red-500/20 hover:text-red-400"
-          title="Delete project"
-        >
-          <IconTrash className="h-3 w-3" />
-        </button>
-      </div>
+      {(onEdit || onDelete) && (
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={stopProp}>
+          {onEdit && (
+            <button
+              onClick={onEdit}
+              className="rounded p-1 text-sidebar-muted hover:bg-sidebar-hover hover:text-white"
+              title="Edit project"
+            >
+              <IconEdit className="h-3 w-3" />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              className="rounded p-1 text-sidebar-muted hover:bg-red-500/20 hover:text-red-400"
+              title="Delete project"
+            >
+              <IconTrash className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

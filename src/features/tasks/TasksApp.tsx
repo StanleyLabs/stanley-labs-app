@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
-import type { Project, Task, TaskPriority, TaskStatus, ViewMode } from "./types";
+import type { MemberRole, Project, Task, TaskPriority, TaskStatus, ViewMode } from "./types";
 import { PROJECT_COLORS } from "./types";
+import { getUserRole } from "./memberStorage";
 import { useDashboardRepo, useProjects, useTasks } from "./store";
 import { useAuth } from "../../lib/AuthContext";
 import { nameToInitials, cn } from "./utils";
@@ -48,6 +49,21 @@ export default function App() {
   } | null>(null);
 
   const activeProject = projectsApi.projects?.find((p) => p.id === activeProjectId) ?? null;
+
+  // Track user's role on the active project (null = owner of project or not using supabase)
+  const [myRole, setMyRole] = useState<MemberRole | null>(null);
+  useEffect(() => {
+    if (!activeProjectId || !user?.id || useMockData) { setMyRole(null); return; }
+    let cancelled = false;
+    getUserRole(activeProjectId, user.id).then((role) => {
+      if (!cancelled) setMyRole(role);
+    });
+    return () => { cancelled = true; };
+  }, [activeProjectId, user?.id, useMockData]);
+
+  // Permission helpers
+  const canEdit = myRole !== "viewer"; // owners, editors, and non-members (own projects) can edit
+  const canManageProject = myRole === null || myRole === "owner"; // only owners and project creators
 
   useEffect(() => {
     projectsApi.refresh();
@@ -207,8 +223,8 @@ export default function App() {
         activeId={activeProjectId}
         onSelect={setActiveProjectId}
         onAdd={() => setProjectModal({ mode: "create" })}
-        onEdit={(p) => setProjectModal({ mode: "edit", project: p })}
-        onDelete={handleDeleteProject}
+        onEdit={canManageProject ? (p) => setProjectModal({ mode: "edit", project: p }) : undefined}
+        onDelete={canManageProject ? handleDeleteProject : undefined}
         onReorder={(ids) => projectsApi.reorder(ids)}
         collapsed={!sidebarOpen}
         onToggle={() => setSidebarOpen((v) => !v)}
@@ -270,13 +286,15 @@ export default function App() {
 
             <ThemeToggle />
 
-            <button
-              onClick={() => setTaskModal({ mode: "create", defaultStatus: "todo" })}
-              className="flex items-center gap-1.5 rounded-lg bg-accent px-2 py-1.5 sm:px-3 text-xs font-medium text-white hover:bg-accent-dark transition-colors"
-            >
-              <IconPlus className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">New Task</span>
-            </button>
+            {canEdit && (
+              <button
+                onClick={() => setTaskModal({ mode: "create", defaultStatus: "todo" })}
+                className="flex items-center gap-1.5 rounded-lg bg-accent px-2 py-1.5 sm:px-3 text-xs font-medium text-white hover:bg-accent-dark transition-colors"
+              >
+                <IconPlus className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">New Task</span>
+              </button>
+            )}
           </div>
         </header>
 
@@ -319,17 +337,17 @@ export default function App() {
           ) : view === "kanban" ? (
             <KanbanBoard
               tasks={filteredTasks}
-              onEditTask={(t) => setTaskModal({ mode: "edit", task: t })}
-              onDeleteTask={handleDeleteTask}
-              onAddTask={(status) => setTaskModal({ mode: "create", defaultStatus: status })}
-              onReorder={handleReorder}
+              onEditTask={canEdit ? (t) => setTaskModal({ mode: "edit", task: t }) : undefined}
+              onDeleteTask={canEdit ? handleDeleteTask : undefined}
+              onAddTask={canEdit ? (status) => setTaskModal({ mode: "create", defaultStatus: status }) : undefined}
+              onReorder={canEdit ? handleReorder : undefined}
             />
           ) : (
             <ListView
               tasks={filteredTasks}
-              onEditTask={(t) => setTaskModal({ mode: "edit", task: t })}
-              onDeleteTask={handleDeleteTask}
-              onReorder={handleReorder}
+              onEditTask={canEdit ? (t) => setTaskModal({ mode: "edit", task: t }) : undefined}
+              onDeleteTask={canEdit ? handleDeleteTask : undefined}
+              onReorder={canEdit ? handleReorder : undefined}
             />
           )}
         </main>

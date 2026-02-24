@@ -19,9 +19,9 @@ export function KanbanColumn({
   icon: string;
   tasks: Task[];
   activeTaskId: string | null;
-  onAddTask: () => void;
-  onEditTask: (t: Task) => void;
-  onDeleteTask: (t: Task) => void;
+  onAddTask?: () => void;
+  onEditTask?: (t: Task) => void;
+  onDeleteTask?: (t: Task) => void;
 }) {
   const { setNodeRef } = useDroppable({
     id: `column-${status}`,
@@ -41,13 +41,15 @@ export function KanbanColumn({
             {tasks.length}
           </span>
         </div>
-        <button
-          onClick={onAddTask}
-          className="rounded-lg p-1 text-gray-400 hover:bg-gray-200/80 hover:text-gray-600 transition-colors"
-          title={`Add task to ${label}`}
-        >
-          <IconPlus className="h-3.5 w-3.5" />
-        </button>
+        {onAddTask && (
+          <button
+            onClick={onAddTask}
+            className="rounded-lg p-1 text-gray-400 hover:bg-gray-200/80 hover:text-gray-600 transition-colors"
+            title={`Add task to ${label}`}
+          >
+            <IconPlus className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
       <div className="flex-1 space-y-2 px-2 pt-3 pb-2 min-h-[60px]">
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
@@ -56,8 +58,8 @@ export function KanbanColumn({
               key={t.id}
               task={t}
               isActive={t.id === activeTaskId}
-              onEdit={() => onEditTask(t)}
-              onDelete={() => onDeleteTask(t)}
+              onEdit={onEditTask ? () => onEditTask(t) : undefined}
+              onDelete={onDeleteTask ? () => onDeleteTask(t) : undefined}
             />
           ))}
         </SortableContext>

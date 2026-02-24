@@ -24,10 +24,10 @@ export function KanbanBoard({
   onReorder,
 }: {
   tasks: Task[];
-  onEditTask: (t: Task) => void;
-  onDeleteTask: (t: Task) => void;
-  onAddTask: (status: TaskStatus) => void;
-  onReorder: (taskId: string, newStatus: TaskStatus, newIndex: number) => void;
+  onEditTask?: (t: Task) => void;
+  onDeleteTask?: (t: Task) => void;
+  onAddTask?: (status: TaskStatus) => void;
+  onReorder?: (taskId: string, newStatus: TaskStatus, newIndex: number) => void;
 }) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeWidth, setActiveWidth] = useState<number | null>(null);
@@ -134,7 +134,7 @@ export function KanbanBoard({
 
     if (!finalStatus) return;
 
-    onReorder(activeId, finalStatus, finalIndex);
+    onReorder?.(activeId, finalStatus, finalIndex);
   }
 
   function handleDragCancel() {
@@ -163,7 +163,7 @@ export function KanbanBoard({
                 icon={col.icon}
                 tasks={liveColumns[col.key]}
                 activeTaskId={activeTask?.id ?? null}
-                onAddTask={() => onAddTask(col.key)}
+                onAddTask={onAddTask ? () => onAddTask(col.key) : undefined}
                 onEditTask={onEditTask}
                 onDeleteTask={onDeleteTask}
               />

@@ -17,8 +17,8 @@ export function ListStatusGroup({
   icon: string;
   tasks: Task[];
   activeTaskId: string | null;
-  onEditTask: (t: Task) => void;
-  onDeleteTask: (t: Task) => void;
+  onEditTask?: (t: Task) => void;
+  onDeleteTask?: (t: Task) => void;
 }) {
   const { setNodeRef } = useDroppable({
     id: `list-group-${status}`,
@@ -44,8 +44,8 @@ export function ListStatusGroup({
               key={t.id}
               task={t}
               isActive={t.id === activeTaskId}
-              onEdit={() => onEditTask(t)}
-              onDelete={() => onDeleteTask(t)}
+              onEdit={onEditTask ? () => onEditTask(t) : undefined}
+              onDelete={onDeleteTask ? () => onDeleteTask(t) : undefined}
             />
           ))}
         </SortableContext>

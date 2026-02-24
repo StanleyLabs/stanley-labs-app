@@ -24,9 +24,9 @@ export function ListView({
   onReorder,
 }: {
   tasks: Task[];
-  onEditTask: (t: Task) => void;
-  onDeleteTask: (t: Task) => void;
-  onReorder: (taskId: string, newStatus: TaskStatus, newIndex: number) => void;
+  onEditTask?: (t: Task) => void;
+  onDeleteTask?: (t: Task) => void;
+  onReorder?: (taskId: string, newStatus: TaskStatus, newIndex: number) => void;
 }) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeWidth, setActiveWidth] = useState<number | null>(null);
@@ -113,7 +113,7 @@ export function ListView({
     const activeId = active.id as string;
     for (const [status, items] of Object.entries(liveColumns)) {
       const idx = items.findIndex((t) => t.id === activeId);
-      if (idx !== -1) { onReorder(activeId, status as TaskStatus, idx); return; }
+      if (idx !== -1) { onReorder?.(activeId, status as TaskStatus, idx); return; }
     }
   }
 

@@ -80,3 +80,16 @@ export async function removeProjectMember(memberId: string): Promise<void> {
   const { error } = await supabase.from("project_members").delete().eq("id", memberId);
   if (error) throw new Error(error.message);
 }
+
+/** Get the current user's role on a project. Returns null if not a member. */
+export async function getUserRole(projectId: string, userId: string): Promise<MemberRole | null> {
+  const { data, error } = await supabase
+    .from("project_members")
+    .select("role")
+    .eq("project_id", projectId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) return null;
+  if (!data) return null;
+  return (data as any).role as MemberRole;
+}

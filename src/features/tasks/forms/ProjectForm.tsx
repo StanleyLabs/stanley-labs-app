@@ -3,7 +3,23 @@ import { useAuth } from "../../../lib/AuthContext";
 import type { MemberRole, ProjectMember } from "../types";
 import { PROJECT_COLORS } from "../types";
 import { addProjectMember, listProjectMembers, removeProjectMember, updateMemberRole } from "../memberStorage";
+import { CustomSelect } from "../ui/CustomSelect";
 import { cn } from "../utils";
+
+const ROLE_OPTIONS: { value: MemberRole; label: string }[] = [
+  { value: "viewer", label: "Viewer" },
+  { value: "editor", label: "Editor" },
+  { value: "owner", label: "Owner" },
+];
+
+function renderRoleOption(opt: { value: MemberRole; label: string }) {
+  const colors: Record<MemberRole, string> = {
+    owner: "text-purple-600 dark:text-purple-300",
+    editor: "text-blue-600 dark:text-blue-300",
+    viewer: "text-gray-600 dark:text-gray-300",
+  };
+  return <span className={cn("text-xs font-medium", colors[opt.value])}>{opt.label}</span>;
+}
 
 function rolePill(role: MemberRole) {
   const base = "inline-flex items-center rounded-full border px-2 py-0.5 text-2xs font-medium";
@@ -169,23 +185,21 @@ export function ProjectForm({
 
                       {canEditThis && (
                         <div className="flex items-center gap-2">
-                          <select
-                            value={m.role}
-                            onChange={async (e) => {
-                              const next = e.target.value as MemberRole;
-                              try {
-                                await updateMemberRole(m.id, next);
-                                setMembers((prev) => prev.map((x) => (x.id === m.id ? { ...x, role: next } : x)));
-                              } catch (err) {
-                                setMembersError(err instanceof Error ? err.message : String(err));
-                              }
-                            }}
-                            className="h-8 rounded-lg border border-gray-200 dark:border-dark-border bg-raised dark:bg-dark-raised px-2 text-xs text-gray-900 dark:text-gray-100 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
-                          >
-                            <option value="viewer">Viewer</option>
-                            <option value="editor">Editor</option>
-                            <option value="owner">Owner</option>
-                          </select>
+                          <div className="w-28">
+                            <CustomSelect
+                              value={m.role}
+                              onChange={async (next) => {
+                                try {
+                                  await updateMemberRole(m.id, next as MemberRole);
+                                  setMembers((prev) => prev.map((x) => (x.id === m.id ? { ...x, role: next as MemberRole } : x)));
+                                } catch (err) {
+                                  setMembersError(err instanceof Error ? err.message : String(err));
+                                }
+                              }}
+                              options={ROLE_OPTIONS}
+                              renderOption={(opt) => renderRoleOption(opt as { value: MemberRole; label: string })}
+                            />
+                          </div>
                           <button
                             type="button"
                             onClick={async () => {
@@ -218,15 +232,14 @@ export function ProjectForm({
                     placeholder="email@company.com"
                     className="h-8 w-full rounded-lg border border-gray-200 dark:border-dark-border bg-raised dark:bg-dark-raised px-3 text-xs text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
                   />
-                  <select
-                    value={addRole}
-                    onChange={(e) => setAddRole(e.target.value as MemberRole)}
-                    className="h-8 w-full sm:w-32 rounded-lg border border-gray-200 dark:border-dark-border bg-raised dark:bg-dark-raised px-2 text-xs text-gray-900 dark:text-gray-100 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
-                  >
-                    <option value="viewer">Viewer</option>
-                    <option value="editor">Editor</option>
-                    <option value="owner">Owner</option>
-                  </select>
+                  <div className="w-full sm:w-32">
+                    <CustomSelect
+                      value={addRole}
+                      onChange={(v) => setAddRole(v as MemberRole)}
+                      options={ROLE_OPTIONS}
+                      renderOption={(opt) => renderRoleOption(opt as { value: MemberRole; label: string })}
+                    />
+                  </div>
                   <button
                     type="button"
                     disabled={addBusy || !addEmail.trim()}
