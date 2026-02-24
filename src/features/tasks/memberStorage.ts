@@ -81,6 +81,20 @@ export async function removeProjectMember(memberId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/** Get the current user's roles on all their projects. Returns a map of projectId -> role. */
+export async function getUserRoles(userId: string): Promise<Map<string, MemberRole>> {
+  const { data, error } = await supabase
+    .from("project_members")
+    .select("project_id,role")
+    .eq("user_id", userId);
+  if (error) return new Map();
+  const map = new Map<string, MemberRole>();
+  for (const row of data ?? []) {
+    map.set((row as any).project_id, (row as any).role as MemberRole);
+  }
+  return map;
+}
+
 /** Get the current user's role on a project. Returns null if not a member. */
 export async function getUserRole(projectId: string, userId: string): Promise<MemberRole | null> {
   const { data, error } = await supabase

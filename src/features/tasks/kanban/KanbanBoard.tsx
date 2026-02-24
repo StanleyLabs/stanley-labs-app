@@ -48,9 +48,8 @@ export function KanbanBoard({
     setLiveColumns(baseByStatus);
   }, [baseByStatus]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-  );
+  const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 5 } });
+  const sensors = useSensors(onReorder ? pointerSensor : undefined);
 
   function findColumn(cols: Record<TaskStatus, Task[]>, id: string): TaskStatus | null {
     if (typeof id === "string" && id.startsWith("column-"))

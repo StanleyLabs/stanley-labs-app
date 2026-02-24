@@ -44,8 +44,8 @@ export function ListView({
   const lastOverIdRef = useRef<string | null>(null);
   useEffect(() => { setLiveColumns(baseByStatus); }, [baseByStatus]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 5 } });
+  const sensors = useSensors(onReorder ? pointerSensor : undefined
   );
 
   function findColumn(cols: Record<TaskStatus, Task[]>, id: string): TaskStatus | null {

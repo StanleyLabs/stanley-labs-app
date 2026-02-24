@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import type { MemberRole, Project, Task, TaskPriority, TaskStatus, ViewMode } from "./types";
 import { PROJECT_COLORS } from "./types";
-import { getUserRole } from "./memberStorage";
+import { getUserRoles } from "./memberStorage";
 import { useDashboardRepo, useProjects, useTasks } from "./store";
 import { useAuth } from "../../lib/AuthContext";
 import { nameToInitials, cn } from "./utils";
@@ -50,20 +50,24 @@ export default function App() {
 
   const activeProject = projectsApi.projects?.find((p) => p.id === activeProjectId) ?? null;
 
-  // Track user's role on the active project (null = owner of project or not using supabase)
-  const [myRole, setMyRole] = useState<MemberRole | null>(null);
+  // Track user's roles across all projects
+  const [roleMap, setRoleMap] = useState<Map<string, MemberRole>>(new Map());
   useEffect(() => {
-    if (!activeProjectId || !user?.id || useMockData) { setMyRole(null); return; }
+    if (!user?.id || useMockData) { setRoleMap(new Map()); return; }
     let cancelled = false;
-    getUserRole(activeProjectId, user.id).then((role) => {
-      if (!cancelled) setMyRole(role);
+    getUserRoles(user.id).then((map) => {
+      if (!cancelled) setRoleMap(map);
     });
     return () => { cancelled = true; };
-  }, [activeProjectId, user?.id, useMockData]);
+  }, [user?.id, useMockData, projectsApi.projects]);
 
-  // Permission helpers
+  // Permission helpers for the active project
+  const myRole = activeProjectId ? (roleMap.get(activeProjectId) ?? null) : null;
   const canEdit = myRole !== "viewer"; // owners, editors, and non-members (own projects) can edit
-  const canManageProject = myRole === null || myRole === "owner"; // only owners and project creators
+  const canManageProject = (id: string) => {
+    const role = roleMap.get(id);
+    return role === undefined || role === 'owner'; // no membership = own project, or explicit owner
+  };
 
   useEffect(() => {
     projectsApi.refresh();
@@ -223,8 +227,9 @@ export default function App() {
         activeId={activeProjectId}
         onSelect={setActiveProjectId}
         onAdd={() => setProjectModal({ mode: "create" })}
-        onEdit={canManageProject ? (p) => setProjectModal({ mode: "edit", project: p }) : undefined}
-        onDelete={canManageProject ? handleDeleteProject : undefined}
+        onEdit={(p) => setProjectModal({ mode: "edit", project: p })}
+        onDelete={handleDeleteProject}
+        canManageProject={canManageProject}
         onReorder={(ids) => projectsApi.reorder(ids)}
         collapsed={!sidebarOpen}
         onToggle={() => setSidebarOpen((v) => !v)}

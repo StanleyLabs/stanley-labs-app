@@ -7,12 +7,14 @@ export function CustomSelect<T extends string>({
   options,
   placeholder,
   renderOption,
+  className,
 }: {
   value: T;
   onChange: (v: T) => void;
   options: { value: T; label: string }[];
   placeholder?: string;
   renderOption?: (opt: { value: T; label: string }, isSelected: boolean) => React.ReactNode;
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -41,6 +43,7 @@ export function CustomSelect<T extends string>({
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "flex w-full items-center justify-between rounded-lg border bg-white dark:bg-dark-raised px-3 py-2 text-left text-sm transition-colors",
+          className,
           open ? "border-accent ring-2 ring-accent/25" : "border-gray-200 dark:border-dark-border hover:border-gray-300 dark:hover:border-gray-600"
         )}
       >

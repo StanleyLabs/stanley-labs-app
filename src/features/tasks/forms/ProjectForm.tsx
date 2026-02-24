@@ -198,6 +198,7 @@ export function ProjectForm({
                               }}
                               options={ROLE_OPTIONS}
                               renderOption={(opt) => renderRoleOption(opt as { value: MemberRole; label: string })}
+                              className="h-8 py-0"
                             />
                           </div>
                           <button
@@ -238,6 +239,7 @@ export function ProjectForm({
                       onChange={(v) => setAddRole(v as MemberRole)}
                       options={ROLE_OPTIONS}
                       renderOption={(opt) => renderRoleOption(opt as { value: MemberRole; label: string })}
+                      className="h-8 py-0"
                     />
                   </div>
                   <button

@@ -25,6 +25,7 @@ export function Sidebar({
   collapsed,
   onToggle,
   useMockData,
+  canManageProject,
 }: {
   projects: Project[];
   activeId: string | null;
@@ -36,6 +37,7 @@ export function Sidebar({
   collapsed: boolean;
   onToggle: () => void;
   useMockData: boolean;
+  canManageProject?: (id: string) => boolean;
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -97,8 +99,8 @@ export function Sidebar({
                     project={p}
                     isActive={p.id === activeId}
                     onSelect={() => onSelect(p.id)}
-                    onEdit={onEdit ? () => onEdit(p) : undefined}
-                    onDelete={onDelete ? () => onDelete(p.id) : undefined}
+                    onEdit={onEdit && (!canManageProject || canManageProject(p.id)) ? () => onEdit(p) : undefined}
+                    onDelete={onDelete && (!canManageProject || canManageProject(p.id)) ? () => onDelete(p.id) : undefined}
                   />
                 ))}
                 {projects.length === 0 && (
