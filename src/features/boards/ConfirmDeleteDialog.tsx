@@ -34,8 +34,8 @@ export function ConfirmDeleteDialog(props: ConfirmDeleteDialogProps) {
 			<TldrawUiDialogBody className="delete-page-dialog__body">
 				<p className="delete-page-dialog__subtitle">
 					{isLoggedIn
-						? <>Are you sure you want to delete &quot;{pageName}&quot;? This will permanently remove it from your account.</>
-						: <>Are you sure you want to delete &quot;{pageName}&quot;? This will remove it from this browser.</>
+						? <>Are you sure you want to delete &quot;{pageName}&quot;?<br />This will permanently remove it from your account.</>
+						: <>Are you sure you want to delete &quot;{pageName}&quot;?<br />This will remove it from this browser.</>
 					}
 				</p>
 				<div className="delete-page-dialog__actions">
