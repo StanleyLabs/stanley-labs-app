@@ -64,7 +64,7 @@ export default function Home() {
             <Link
               key={to}
               to={to}
-              className={`group relative flex flex-col rounded-xl border bg-graphite/50 p-6 transition-all hover:bg-graphite ${borderColor}`}
+              className={`group relative flex flex-col justify-between rounded-xl border bg-graphite/50 p-6 transition-all hover:bg-graphite ${borderColor}`}
             >
               <div
                 className={`mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br ${color} text-white shadow-lg`}
