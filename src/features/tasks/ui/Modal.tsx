@@ -19,41 +19,56 @@ export function Modal({
   const mouseDownOnOverlay = useRef(false);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      document.body.style.overflow = "";
+      return;
+    }
+    // Prevent background scrolling
+    document.body.style.overflow = "hidden";
+    
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      const active = document.activeElement;
-      if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT")) {
-        (active as HTMLElement).blur();
-        e.stopPropagation();
-        return;
+      if (e.key === "Escape") {
+        onClose();
       }
-      onClose();
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
   }, [open, onClose]);
 
   if (!open) return null;
 
   return (
     <div
-      ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-start justify-center bg-sidebar/60 backdrop-blur-sm px-4 pt-[15vh] animate-fade-in"
-      onMouseDown={(e) => { mouseDownOnOverlay.current = e.target === overlayRef.current; }}
-      onMouseUp={(e) => {
-        if (mouseDownOnOverlay.current && e.target === overlayRef.current) onClose();
-        mouseDownOnOverlay.current = false;
-      }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4 sm:p-6"
     >
-      <div className={cn("w-full rounded-2xl bg-white dark:bg-dark-surface shadow-overlay animate-scale-in border border-gray-200 dark:border-dark-border", width)}>
-        <div className="flex items-center justify-between border-b border-gray-100 dark:border-dark-border px-6 py-4">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
+      <div 
+        ref={overlayRef}
+        className="absolute inset-0 z-40"
+        onMouseDown={(e) => { mouseDownOnOverlay.current = e.target === overlayRef.current; }}
+        onMouseUp={(e) => {
+          if (mouseDownOnOverlay.current && e.target === overlayRef.current) onClose();
+          mouseDownOnOverlay.current = false;
+        }}
+      />
+      
+      <div 
+        className={cn(
+          "relative z-50 w-full max-h-[90vh] flex flex-col rounded-2xl bg-white dark:bg-dark-surface shadow-xl animate-scale-in border border-gray-200 dark:border-dark-border", 
+          width
+        )}
+      >
+        <div className="flex items-center justify-between border-b border-gray-100 dark:border-dark-border px-6 py-4 shrink-0">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
           <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-border hover:text-gray-600 transition-colors">
-            <IconX />
+            <IconX className="w-5 h-5" />
           </button>
         </div>
-        <div className="px-6 py-5">{children}</div>
+        <div className="px-6 py-5 overflow-y-auto">
+          {children}
+        </div>
       </div>
     </div>
   );
