@@ -19,6 +19,7 @@ import { savePageSnapshot, loadUserPages } from '../cloudPersistence'
 import {
 	saveSnapshot as saveStorageSnapshot,
 	throttle,
+	setCloudPageIds,
 } from '../persistence'
 import { applyParsedSnapshot, syncGridRef } from '../lib/gridSnapshot'
 import type { GridRef, SnapshotParsed } from '../lib/gridSnapshot'
@@ -128,11 +129,18 @@ export function useCloudPersistence(
 				const snapshot = latest.snapshot as SnapshotParsed
 				applyParsedSnapshot(store, snapshot, gridRef)
 
+				// Track which page IDs came from the cloud
+				const storeObj = ((snapshot as Record<string, unknown>).document as Record<string, unknown> | undefined)?.store as Record<string, { typeName?: string; id?: string }> ?? {}
+				const cloudPageIds = Object.values(storeObj)
+					.filter((r) => r.typeName === 'page' && r.id)
+					.map((r) => r.id as string)
+				setCloudPageIds(cloudPageIds)
+
 				// Also save to localStorage so the local persistence layer stays in sync
 				const json = JSON.stringify(snapshot)
 				saveStorageSnapshot(json)
 
-				console.log('[cloud] Loaded whiteboard from Supabase')
+				console.log('[cloud] Loaded whiteboard from Supabase, tracked', cloudPageIds.length, 'cloud pages')
 			} catch (err) {
 				console.warn('[cloud] Failed to apply cloud snapshot:', err)
 			}
