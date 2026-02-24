@@ -74,6 +74,18 @@ function getMaxIdCounterFromIds(ids: string[]): number {
 }
 
 export function createSupabaseRepo(userId: string): DashboardRepo {
+  /** Get all project IDs this user can access (owned + member of) */
+  async function getAccessibleProjectIds(): Promise<string[]> {
+    const [{ data: owned }, { data: memberships }] = await Promise.all([
+      supabase.from("projects").select("id").eq("user_id", userId),
+      supabase.from("project_members").select("project_id").eq("user_id", userId),
+    ]);
+    const ids = new Set<string>();
+    for (const p of owned ?? []) ids.add((p as any).id);
+    for (const m of memberships ?? []) ids.add((m as any).project_id);
+    return [...ids];
+  }
+
   let uidCounter: number | null = null;
 
   async function ensureUidCounter() {
@@ -104,13 +116,38 @@ export function createSupabaseRepo(userId: string): DashboardRepo {
   return {
     async listProjects() {
       try {
-        const { data, error } = await supabase
+        // Fetch projects the user owns
+        const { data: owned, error: ownedErr } = await supabase
           .from("projects")
           .select("id,user_id,name,description,color,order,created_at,updated_at")
           .eq("user_id", userId)
           .order("order", { ascending: true });
-        if (error) throw error;
-        return (data ?? []).map((r: any) => mapProjectRow(r as ProjectRow));
+        if (ownedErr) throw ownedErr;
+
+        // Fetch projects the user is a member of (but doesn't own)
+        const { data: memberships, error: memErr } = await supabase
+          .from("project_members")
+          .select("project_id")
+          .eq("user_id", userId);
+        if (memErr) throw memErr;
+
+        const ownedIds = new Set((owned ?? []).map((p: any) => p.id));
+        const sharedIds = (memberships ?? [])
+          .map((m: any) => m.project_id as string)
+          .filter((id) => !ownedIds.has(id));
+
+        let shared: any[] = [];
+        if (sharedIds.length > 0) {
+          const { data: sharedData, error: sharedErr } = await supabase
+            .from("projects")
+            .select("id,user_id,name,description,color,order,created_at,updated_at")
+            .in("id", sharedIds)
+            .order("order", { ascending: true });
+          if (sharedErr) throw sharedErr;
+          shared = sharedData ?? [];
+        }
+
+        return [...(owned ?? []), ...shared].map((r: any) => mapProjectRow(r as ProjectRow));
       } catch (e) {
         logAndThrow("listProjects failed", e);
       }
@@ -205,12 +242,14 @@ export function createSupabaseRepo(userId: string): DashboardRepo {
 
     async listAllTasks() {
       try {
+        const projectIds = await getAccessibleProjectIds();
+        if (projectIds.length === 0) return [];
         const { data, error } = await supabase
           .from("tasks")
           .select(
             "id,project_id,user_id,title,description,status,priority,assignee,due,tags,order,created_at,updated_at"
           )
-          .eq("user_id", userId);
+          .in("project_id", projectIds);
         if (error) throw error;
         return (data ?? []).map((r: any) => mapTaskRow(r as TaskRow));
       } catch (e) {
@@ -225,7 +264,6 @@ export function createSupabaseRepo(userId: string): DashboardRepo {
           .select(
             "id,project_id,user_id,title,description,status,priority,assignee,due,tags,order,created_at,updated_at"
           )
-          .eq("user_id", userId)
           .eq("project_id", projectId)
           .order("order", { ascending: true });
         if (error) throw error;
@@ -286,7 +324,6 @@ export function createSupabaseRepo(userId: string): DashboardRepo {
           .from("tasks")
           .update(update)
           .eq("id", id)
-          .eq("user_id", userId)
           .select(
             "id,project_id,user_id,title,description,status,priority,assignee,due,tags,order,created_at,updated_at"
           )
@@ -300,7 +337,7 @@ export function createSupabaseRepo(userId: string): DashboardRepo {
 
     async deleteTask(id: string) {
       try {
-        const { error } = await supabase.from("tasks").delete().eq("id", id).eq("user_id", userId);
+        const { error } = await supabase.from("tasks").delete().eq("id", id);
         if (error) throw error;
       } catch (e) {
         logAndThrow("deleteTask failed", e);
@@ -316,7 +353,6 @@ export function createSupabaseRepo(userId: string): DashboardRepo {
             "id,project_id,user_id,title,description,status,priority,assignee,due,tags,order,created_at,updated_at"
           )
           .eq("id", id)
-          .eq("user_id", userId)
           .single();
         if (loadErr) throw loadErr;
         const task = mapTaskRow(taskRow as any);
@@ -326,7 +362,6 @@ export function createSupabaseRepo(userId: string): DashboardRepo {
         const { data: targetRows, error: targetErr } = await supabase
           .from("tasks")
           .select("id,order,status")
-          .eq("user_id", userId)
           .eq("project_id", task.projectId)
           .eq("status", newStatus)
           .neq("id", id)
@@ -345,7 +380,6 @@ export function createSupabaseRepo(userId: string): DashboardRepo {
               .from("tasks")
               .update({ order: i, status: newStatus, updated_at: now })
               .eq("id", t.id)
-              .eq("user_id", userId)
           )
         );
 
@@ -354,7 +388,6 @@ export function createSupabaseRepo(userId: string): DashboardRepo {
           const { data: oldRows, error: oldErr } = await supabase
             .from("tasks")
             .select("id")
-            .eq("user_id", userId)
             .eq("project_id", task.projectId)
             .eq("status", oldStatus)
             .order("order", { ascending: true });
@@ -366,7 +399,6 @@ export function createSupabaseRepo(userId: string): DashboardRepo {
                 .from("tasks")
                 .update({ order: i })
                 .eq("id", r.id as string)
-                .eq("user_id", userId)
             )
           );
         }
@@ -378,7 +410,6 @@ export function createSupabaseRepo(userId: string): DashboardRepo {
             "id,project_id,user_id,title,description,status,priority,assignee,due,tags,order,created_at,updated_at"
           )
           .eq("id", id)
-          .eq("user_id", userId)
           .single();
         if (updatedErr) throw updatedErr;
         return mapTaskRow(updatedRow as any);

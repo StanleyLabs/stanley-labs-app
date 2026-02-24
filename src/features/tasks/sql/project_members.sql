@@ -78,3 +78,59 @@ RETURNS TABLE(id uuid, project_id text, user_id uuid, role text, added_at timest
   JOIN auth.users u ON u.id = pm.user_id
   WHERE pm.project_id = p_project_id;
 $$ LANGUAGE sql SECURITY DEFINER;
+
+-- Allow project members to read tasks on projects they have access to
+-- (Run this after ensuring tasks table has RLS enabled)
+CREATE POLICY "Members can view project tasks"
+  ON tasks FOR SELECT
+  USING (
+    project_id IN (
+      SELECT pm.project_id FROM project_members pm WHERE pm.user_id = auth.uid()
+    )
+    OR user_id = auth.uid()
+  );
+
+-- Allow editors/owners to create tasks on shared projects
+CREATE POLICY "Editors can create tasks on shared projects"
+  ON tasks FOR INSERT
+  WITH CHECK (
+    user_id = auth.uid()
+    AND (
+      project_id IN (
+        SELECT pm.project_id FROM project_members pm
+        WHERE pm.user_id = auth.uid() AND pm.role IN ('editor', 'owner')
+      )
+    )
+  );
+
+-- Allow editors/owners to update tasks on shared projects
+CREATE POLICY "Editors can update tasks on shared projects"
+  ON tasks FOR UPDATE
+  USING (
+    project_id IN (
+      SELECT pm.project_id FROM project_members pm
+      WHERE pm.user_id = auth.uid() AND pm.role IN ('editor', 'owner')
+    )
+    OR user_id = auth.uid()
+  );
+
+-- Allow editors/owners to delete tasks on shared projects
+CREATE POLICY "Editors can delete tasks on shared projects"
+  ON tasks FOR DELETE
+  USING (
+    project_id IN (
+      SELECT pm.project_id FROM project_members pm
+      WHERE pm.user_id = auth.uid() AND pm.role IN ('editor', 'owner')
+    )
+    OR user_id = auth.uid()
+  );
+
+-- Allow project members to read shared projects
+CREATE POLICY "Members can view shared projects"
+  ON projects FOR SELECT
+  USING (
+    id IN (
+      SELECT pm.project_id FROM project_members pm WHERE pm.user_id = auth.uid()
+    )
+    OR user_id = auth.uid()
+  );
