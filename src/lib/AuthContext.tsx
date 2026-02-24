@@ -9,7 +9,6 @@ import type { User, Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import {
   SNAPSHOT_KEY,
-  getCloudPageIds,
   clearCloudPageIds,
 } from "../features/boards/persistence";
 
@@ -89,40 +88,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    // Remove only cloud-loaded pages from the whiteboard localStorage snapshot
+    // Clear entire whiteboard state on logout so cloud pages don't leak to logged-out users
     try {
-      const cloudPageIds = getCloudPageIds();
-      if (cloudPageIds.length > 0) {
-        const raw = localStorage.getItem(SNAPSHOT_KEY);
-        if (raw) {
-          const snapshot = JSON.parse(raw);
-          const store = snapshot?.document?.store;
-          if (store && typeof store === 'object') {
-            // Remove cloud page records and all records belonging to those pages
-            for (const [key, value] of Object.entries(store)) {
-              const rec = value as { typeName?: string; id?: string; pageId?: string };
-              // Remove the page record itself
-              if (rec.typeName === 'page' && rec.id && cloudPageIds.includes(rec.id)) {
-                delete store[key];
-              }
-              // Remove shapes, bindings, etc. on cloud pages
-              if (rec.pageId && cloudPageIds.includes(rec.pageId)) {
-                delete store[key];
-              }
-            }
-
-            // Also clean up session page states for removed pages
-            const session = snapshot?.session;
-            if (session?.pageStates) {
-              session.pageStates = session.pageStates.filter(
-                (ps: { pageId?: string }) => !ps.pageId || !cloudPageIds.includes(ps.pageId)
-              );
-            }
-
-            localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot));
-          }
-        }
-      }
+      localStorage.removeItem(SNAPSHOT_KEY);
       clearCloudPageIds();
     } catch { /* ignore errors - don't block sign out */ }
     await supabase.auth.signOut();
