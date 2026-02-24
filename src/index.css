@@ -78,7 +78,7 @@ body.is-dragging [data-task-id] { will-change: transform; backface-visibility: h
 /* Move tldraw toasts above floating nav */
 .tlui-toast__viewport {
   z-index: 10000 !important;
-  padding-bottom: 80px !important;
+  padding-bottom: 100px !important;
 }
 
 /* Select styling */
