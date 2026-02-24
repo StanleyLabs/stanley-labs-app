@@ -75,6 +75,11 @@ html.dark .kanban-scroll { scrollbar-color: #2d2d3d transparent; }
 body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 body.is-dragging [data-task-id] { will-change: transform; backface-visibility: hidden; }
 
+/* Ensure tldraw toasts render above floating nav */
+.tlui-toast__viewport {
+  z-index: 10000 !important;
+}
+
 /* Select styling */
 .select-styled {
   appearance: none;
