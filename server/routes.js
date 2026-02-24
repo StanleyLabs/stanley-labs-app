@@ -12,6 +12,10 @@ routes.get('/test', (req, res) => {
     res.send('😊')
 })
 
+routes.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() })
+})
+
 // SPA fallback
 routes.get('/{*splat}', (req, res) => {
     res.sendFile(resolve('dist', 'index.html'))
