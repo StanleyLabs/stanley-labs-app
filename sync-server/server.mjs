@@ -247,7 +247,14 @@ const app = fastify({
 		return server
 	},
 })
-app.register(cors, { origin: '*' })
+app.register(cors, {
+    origin: [
+        "https://app.stanleylabs.com",
+        "https://stanleylabs.com",
+        "http://localhost:5173",
+        "http://localhost:3000"
+    ]
+})
 
 app.get('/health', (_, reply) => {
 	reply.send({ ok: true })
