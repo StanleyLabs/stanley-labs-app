@@ -1,5 +1,6 @@
 import { type ReactNode, useState, useRef, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import { useAuth } from "../lib/AuthContext";
 
 const navItems = [
   { to: "/", label: "Home", icon: HomeIcon },
@@ -10,7 +11,9 @@ const navItems = [
 
 export function Shell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
+  const { user, signOut } = useAuth();
   const isHome = pathname === "/";
+  const isLogin = pathname === "/login";
   const isChat = pathname.startsWith("/chat");
   const isBoards = pathname.startsWith("/boards");
   const [open, setOpen] = useState(false);
@@ -36,7 +39,7 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full flex-col bg-ink">
       {/* Floating nav - centered at top */}
-      {!isHome && (
+      {!isHome && !isLogin && user && (
         <div
           ref={containerRef}
           className={`fixed right-4 z-[9999] flex items-end${isChat ? " landscape-hide" : ""} ${
@@ -96,6 +99,16 @@ export function Shell({ children }: { children: ReactNode }) {
                 <span>{label}</span>
               </NavLink>
             ))}
+
+            {/* Divider + Sign out */}
+            <div className="mx-2 my-1 h-px bg-white/[0.06]" />
+            <button
+              onClick={signOut}
+              className="flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium text-fog/50 hover:bg-white/[0.05] hover:text-signal transition-all duration-150"
+            >
+              <SignOutIcon className="h-4 w-4" />
+              <span>Sign out</span>
+            </button>
           </div>
         </div>
       )}
@@ -146,6 +159,16 @@ function ChatIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z" />
       <rect x="1" y="6" width="14" height="12" rx="2" />
+    </svg>
+  );
+}
+
+function SignOutIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   );
 }

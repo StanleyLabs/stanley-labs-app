@@ -5,6 +5,7 @@ const pageMeta: Record<string, { title: string; favicon: string }> = {
   "/tasks": { title: "Tasks - Stanley Labs", favicon: "/favicon-tasks.svg" },
   "/boards": { title: "Boards - Stanley Labs", favicon: "/favicon-boards.svg" },
   "/chat": { title: "Chat - Stanley Labs", favicon: "/favicon-chat.svg" },
+  "/login": { title: "Sign in - Stanley Labs", favicon: "/favicon.svg" },
 };
 
 const defaultMeta = { title: "Stanley Labs", favicon: "/favicon.svg" };
