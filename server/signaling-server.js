@@ -3,8 +3,14 @@ import { Server } from 'socket.io'
 export default function initSignaling(server) {
     const io = new Server(server, {
         cors: {
-            origin: '*',
-            methods: ['GET', 'POST'],
+            origin: [
+                "https://app.stanleylabs.com",
+                "https://stanleylabs.com",
+                "http://localhost:5173",
+                "http://localhost:3000"
+            ],
+            methods: ["GET", "POST"],
+            credentials: true
         },
     })
     const channels = {}
