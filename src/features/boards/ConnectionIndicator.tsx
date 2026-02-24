@@ -12,6 +12,7 @@ import { useEditor, useValue } from '@tldraw/editor'
 import { TldrawUiIcon } from 'tldraw'
 import { getSyncStatus, type SyncStatus } from './machine'
 import { useMachineCtx } from './MachineContext'
+import { useAuth } from '../../lib/AuthContext'
 
 const INDICATOR_DELAY_MS = 300
 const CONNECTION_TIMEOUT_MS = 10_000
@@ -76,8 +77,10 @@ function getTooltip(status: SyncStatus): string {
 /** Renders sync status (dot + text). Always visible. Must be inside Tldraw and ConnectionIndicatorProvider. */
 export function ConnectionIndicator() {
 	const ctx = useContext(ConnectionIndicatorContext)
+	const { user } = useAuth()
 	const { state } = useMachineCtx()
 	const status = getSyncStatus(state)
+
 	const editor = useEditor()
 	const isDarkMode = useValue('isDarkMode', () => editor.user.getIsDarkMode(), [editor])
 	const theme = isDarkMode ? 'dark' : 'light'
@@ -100,6 +103,9 @@ export function ConnectionIndicator() {
 	}, [statusKey])
 
 	if (!visible) return null
+
+	// Hide "local" indicator for logged-in users (their data is cloud-persisted)
+	if (status.status === 'local' && user) return null
 
 	const effectiveStatus: SyncStatus =
 		timedOut && isConnecting(status) ? { status: 'error' } : status
