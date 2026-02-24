@@ -38,12 +38,7 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/(signal|sync)\.stanleylabs\.com\/.*/i,
-            handler: 'NetworkOnly',
-          },
-        ],
+        navigateFallbackDenylist: [/^\/socket\.io/],
       },
     }),
   ],
