@@ -186,7 +186,7 @@ export function CustomPageItemSubmenu({
 							/>
 						)}
 					</TldrawUiMenuGroup>
-					{listSize > 1 && (
+					{listSize > 1 && !(isShared && !isLoggedIn) && (
 						<TldrawUiMenuGroup id="delete">
 							<TldrawUiMenuItem id="delete" onSelect={onDelete} label="page-menu.submenu.delete" />
 						</TldrawUiMenuGroup>
