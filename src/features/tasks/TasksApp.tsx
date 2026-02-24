@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import type { Project, Task, TaskPriority, TaskStatus, ViewMode } from "./types";
 import { PROJECT_COLORS } from "./types";
 import { useDashboardRepo, useProjects, useTasks } from "./store";
+import { useAuth } from "../../lib/AuthContext";
 import { nameToInitials, cn } from "./utils";
 import {
   Sidebar,
@@ -24,8 +25,9 @@ import type { KnownAssignee } from "./index";
 
 export default function App() {
   const { pathname } = useLocation();
+  const { user } = useAuth();
   const useMockData = pathname === "/tasks/demo" || pathname === "/demo";
-  const repo = useDashboardRepo(useMockData);
+  const repo = useDashboardRepo(useMockData, user?.id);
   const projectsApi = useProjects(repo);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const tasksApi = useTasks(repo, activeProjectId);

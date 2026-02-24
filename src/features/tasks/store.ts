@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { Project, Task, TaskStatus } from "./types";
 import { MOCK_PROJECTS, MOCK_TASKS } from "./mockData";
 import { loadProjects, loadTasks, saveDashboardData } from "./storage";
+import { createSupabaseRepo } from "./supabaseStorage";
 
 export type TaskCreate = Omit<Task, "id" | "createdAt" | "updatedAt">;
 export type TaskUpdate = Partial<Omit<Task, "id" | "createdAt" | "projectId">>;
@@ -171,11 +172,12 @@ function createLocalStorageRepo(): DashboardRepo {
   });
 }
 
-export function useDashboardRepo(useMockData = false) {
-  return useMemo(
-    () => (useMockData ? createMockRepo() : createLocalStorageRepo()),
-    [useMockData]
-  );
+export function useDashboardRepo(useMockData = false, userId?: string | null) {
+  return useMemo(() => {
+    if (useMockData) return createMockRepo();
+    if (userId) return createSupabaseRepo(userId);
+    return createLocalStorageRepo();
+  }, [useMockData, userId]);
 }
 
 export function useProjects(repo: DashboardRepo) {

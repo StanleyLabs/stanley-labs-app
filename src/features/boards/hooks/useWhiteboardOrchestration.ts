@@ -25,8 +25,10 @@ import { getShareIdFromUrl } from '../persistence'
 import { applyParsedSnapshot, type GridRef, type SnapshotParsed } from '../lib/gridSnapshot'
 import { usePageTracker } from './usePageTracker'
 import { usePersistence } from './usePersistence'
+import { useCloudPersistence } from './useCloudPersistence'
 import { useSharedPageConnect } from './useSharedPageConnect'
 import { useSupabaseSync } from './useSupabaseSync'
+import { useAuth } from '../../../lib/AuthContext'
 import type { SnapshotFrom } from 'xstate'
 
 type MachineState = SnapshotFrom<typeof whiteboardMachine>
@@ -90,8 +92,11 @@ export function useWhiteboardOrchestration(): WhiteboardOrchestrationResult {
 		})
 	}, [send])
 
+	const { user } = useAuth()
+
 	usePageTracker(store, send, stateRef)
 	usePersistence(store, gridRef, stateRef)
+	useCloudPersistence(store, gridRef, stateRef, user?.id ?? null)
 	useSharedPageConnect(store, state, send, gridRef)
 	useSupabaseSync(store, stateRef, editorRef, send)
 
