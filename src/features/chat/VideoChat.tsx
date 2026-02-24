@@ -82,15 +82,28 @@ function useGridFit(gridRef: RefObject<HTMLDivElement | null>, peerCount: number
 interface VideoChatProps {
   roomId: string
   onLeave: () => void
+  streamRef?: React.MutableRefObject<MediaStream | null>
 }
 
-export default function VideoChat({ roomId, onLeave }: VideoChatProps) {
+export default function VideoChat({ roomId, onLeave, streamRef }: VideoChatProps) {
   const [state, send] = useMachine(roomMachine, { input: { roomId } })
   const { localStream, peerList, spotlightPeerId, isAudioMuted, isVideoMuted, error } = state.context
 
-  // Clean up on unmount (e.g. navigating away from /chat)
+  // Keep parent's streamRef in sync so ChatApp can stop tracks on unmount
   useEffect(() => {
-    return () => { send({ type: 'LEAVE' }) }
+    if (streamRef) streamRef.current = localStream
+  }, [localStream, streamRef])
+
+  // Clean up on unmount (e.g. navigating away from /chat)
+  // Stop all media tracks directly - the machine/actor may already be stopped
+  // by the time useEffect cleanup runs, so we can't rely on send() alone.
+  const localStreamRef = useRef<MediaStream | null>(null)
+  localStreamRef.current = localStream
+  useEffect(() => {
+    return () => {
+      localStreamRef.current?.getTracks().forEach(t => t.stop())
+      try { send({ type: 'LEAVE' }) } catch { /* actor may be stopped */ }
+    }
   }, [send])
 
   const localVideoRef = useRef<HTMLVideoElement>(null)

@@ -1,5 +1,10 @@
 -- Project members / collaborators
--- Run this in Supabase SQL editor (or migrations).
+-- Run this in Supabase SQL editor.
+--
+-- If you already created the old policies, drop them first:
+--   DROP POLICY IF EXISTS "Members can view project members" ON project_members;
+--   DROP POLICY IF EXISTS "Creator can add self as owner" ON project_members;
+--   DROP POLICY IF EXISTS "Owners can manage members" ON project_members;
 
 CREATE TABLE IF NOT EXISTS project_members (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -12,14 +17,28 @@ CREATE TABLE IF NOT EXISTS project_members (
 
 ALTER TABLE project_members ENABLE ROW LEVEL SECURITY;
 
--- Users can see members of projects they belong to
-CREATE POLICY "Members can view project members"
-  ON project_members FOR SELECT
-  USING (project_id IN (
-    SELECT pm.project_id FROM project_members pm WHERE pm.user_id = auth.uid()
-  ));
+-- Helper: check if a user is an owner of a project (avoids recursive policy lookups)
+CREATE OR REPLACE FUNCTION is_project_owner(p_project_id text, p_user_id uuid)
+RETURNS boolean AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM project_members
+    WHERE project_id = p_project_id
+      AND user_id = p_user_id
+      AND role = 'owner'
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
 
--- Users can add themselves as owner of their own projects (bootstrap)
+-- SELECT: users can see rows where they ARE the member (no self-join needed)
+CREATE POLICY "Users can see own memberships"
+  ON project_members FOR SELECT
+  USING (user_id = auth.uid());
+
+-- SELECT: owners can see all members of their projects
+CREATE POLICY "Owners can see project members"
+  ON project_members FOR SELECT
+  USING (is_project_owner(project_id, auth.uid()));
+
+-- INSERT: project creator can bootstrap themselves as owner
 CREATE POLICY "Creator can add self as owner"
   ON project_members FOR INSERT
   WITH CHECK (
@@ -30,12 +49,20 @@ CREATE POLICY "Creator can add self as owner"
     )
   );
 
--- Only owners can manage other members (insert/update/delete)
-CREATE POLICY "Owners can manage members"
-  ON project_members FOR ALL
-  USING (project_id IN (
-    SELECT pm.project_id FROM project_members pm WHERE pm.user_id = auth.uid() AND pm.role = 'owner'
-  ));
+-- INSERT: owners can add other members
+CREATE POLICY "Owners can add members"
+  ON project_members FOR INSERT
+  WITH CHECK (is_project_owner(project_id, auth.uid()));
+
+-- UPDATE: owners can update member roles
+CREATE POLICY "Owners can update members"
+  ON project_members FOR UPDATE
+  USING (is_project_owner(project_id, auth.uid()));
+
+-- DELETE: owners can remove members
+CREATE POLICY "Owners can delete members"
+  ON project_members FOR DELETE
+  USING (is_project_owner(project_id, auth.uid()));
 
 -- RPC helpers (client cannot directly query auth.users)
 
