@@ -38,7 +38,7 @@ export function Shell({ children }: { children: ReactNode }) {
       {!isHome && (
         <div
           ref={containerRef}
-          className={`fixed top-4 left-1/2 -translate-x-1/2 z-[9999] flex flex-col items-center${isChat ? " landscape-hide" : ""}`}
+          className={`fixed bottom-4 right-4 z-[9999] flex flex-col-reverse items-end${isChat ? " landscape-hide" : ""}`}
         >
           {/* Main toggle button */}
           <button
@@ -67,7 +67,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
           {/* Dropdown pill below */}
           <div
-            className={`mt-2 flex flex-col items-stretch rounded-2xl border border-white/[0.08] bg-ink/90 backdrop-blur-xl shadow-lg overflow-hidden transition-all duration-300 ease-out origin-top ${
+            className={`mb-2 flex flex-col items-stretch rounded-2xl border border-white/[0.08] bg-ink/90 backdrop-blur-xl shadow-lg overflow-hidden transition-all duration-300 ease-out origin-bottom ${
               open
                 ? "max-h-[300px] opacity-100 scale-y-100 py-1.5 px-1.5"
                 : "max-h-0 opacity-0 scale-y-90 py-0 px-0"
