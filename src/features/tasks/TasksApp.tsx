@@ -347,6 +347,8 @@ export default function App() {
               description: projectModal.project?.description ?? "",
               color: projectModal.project?.color ?? PROJECT_COLORS[0],
             }}
+            projectId={projectModal.project?.id}
+            isLoggedIn={!!user && !useMockData}
             onSubmit={projectModal.mode === "create" ? handleCreateProject : handleUpdateProject}
             onCancel={() => setProjectModal(null)}
             submitLabel={projectModal.mode === "create" ? "Create Project" : "Save Changes"}

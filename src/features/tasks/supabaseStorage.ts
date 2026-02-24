@@ -146,6 +146,14 @@ export function createSupabaseRepo(userId: string): DashboardRepo {
           .select("id,user_id,name,description,color,order,created_at,updated_at")
           .single();
         if (error) throw error;
+
+        // Ensure the creator is an owner in project_members.
+        // Note: Depending on RLS policies, this may require an additional policy or a server-side insert.
+        const { error: memberErr } = await supabase
+          .from("project_members")
+          .insert({ project_id: id, user_id: userId, role: "owner" });
+        if (memberErr) throw memberErr;
+
         return mapProjectRow(inserted as any);
       } catch (e) {
         logAndThrow("createProject failed", e);
