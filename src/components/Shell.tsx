@@ -12,6 +12,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const isHome = pathname === "/";
   const isChat = pathname.startsWith("/chat");
+  const isBoards = pathname.startsWith("/boards");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -38,7 +39,11 @@ export function Shell({ children }: { children: ReactNode }) {
       {!isHome && (
         <div
           ref={containerRef}
-          className={`fixed bottom-4 right-4 z-[9999] flex flex-col-reverse items-end${isChat ? " landscape-hide" : ""}`}
+          className={`fixed right-4 z-[9999] flex items-end${isChat ? " landscape-hide" : ""} ${
+            isBoards
+              ? "top-4 flex-col sm:top-auto sm:bottom-12 sm:flex-col-reverse"
+              : "bottom-4 flex-col-reverse"
+          }`}
         >
           {/* Main toggle button */}
           <button
@@ -67,7 +72,9 @@ export function Shell({ children }: { children: ReactNode }) {
 
           {/* Dropdown pill below */}
           <div
-            className={`mb-2 flex flex-col items-stretch rounded-2xl border border-white/[0.08] bg-ink/90 backdrop-blur-xl shadow-lg overflow-hidden transition-all duration-300 ease-out origin-bottom ${
+            className={`flex flex-col items-stretch rounded-2xl border border-white/[0.08] bg-ink/90 backdrop-blur-xl shadow-lg overflow-hidden transition-all duration-300 ease-out ${
+              isBoards ? "mt-2 origin-top sm:mt-0 sm:mb-2 sm:origin-bottom" : "mb-2 origin-bottom"
+            } ${
               open
                 ? "max-h-[300px] opacity-100 scale-y-100 py-1.5 px-1.5"
                 : "max-h-0 opacity-0 scale-y-90 py-0 px-0"
