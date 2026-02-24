@@ -41,6 +41,7 @@ export function ProjectForm({
   submitLabel,
   projectId,
   isLoggedIn,
+  projectOwnerId,
 }: {
   initial: { name: string; description: string; color: string };
   onSubmit: (v: { name: string; description: string; color: string }) => void;
@@ -48,6 +49,7 @@ export function ProjectForm({
   submitLabel: string;
   projectId?: string;
   isLoggedIn?: boolean;
+  projectOwnerId?: string;
 }) {
   const { user } = useAuth();
 
@@ -171,12 +173,13 @@ export function ProjectForm({
                 members.map((m) => {
                   const pill = rolePill(m.role);
                   const isMe = user?.id && m.userId === user.id;
-                  const canEditThis = isOwner && !isMe;
+                  const isCreator = projectOwnerId && m.userId === projectOwnerId;
+                  const canEditThis = isOwner && !isMe && !isCreator;
                   return (
                     <div key={m.id} className="flex items-center gap-3 px-3 py-2.5">
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-xs font-medium text-gray-900 dark:text-gray-100">
-                          {m.email}{isMe ? " (you)" : ""}
+                          {m.email}{isMe ? " (you)" : ""}{isCreator && !isMe ? " (creator)" : ""}
                         </div>
                         <div className="mt-0.5">
                           <span className={pill.className}>{pill.label}</span>

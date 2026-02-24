@@ -456,6 +456,7 @@ export default function App() {
               color: projectModal.project?.color ?? PROJECT_COLORS[0],
             }}
             projectId={projectModal.project?.id}
+            projectOwnerId={projectModal.project?.ownerId}
             isLoggedIn={!!user && !useMockData}
             onSubmit={projectModal.mode === "create" ? handleCreateProject : handleUpdateProject}
             onCancel={() => setProjectModal(null)}
