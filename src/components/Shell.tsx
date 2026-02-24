@@ -34,65 +34,61 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-full flex-col bg-ink">
-      {/* Floating nav */}
+      {/* Floating nav - centered at top */}
       {!isHome && (
         <div
           ref={containerRef}
-          className={`fixed left-4 top-4 z-[9999]${isChat ? " landscape-hide" : ""}`}
+          className={`fixed top-4 left-1/2 -translate-x-1/2 z-[9999] flex flex-col items-center${isChat ? " landscape-hide" : ""}`}
         >
+          {/* Main toggle button */}
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className={`flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] bg-ink/90 backdrop-blur-xl shadow-lg transition-all duration-200 ${
+              open
+                ? "bg-white/[0.12] text-paper"
+                : "text-fog/60 hover:text-paper hover:bg-ink"
+            }`}
+            title="Stanley Labs"
+          >
+            <svg
+              className="h-[18px] w-[18px]"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+              <path d="M2 12l10 5 10-5" />
+            </svg>
+          </button>
+
+          {/* Dropdown pill below */}
           <div
-            className={`flex items-center gap-1 rounded-full border border-white/[0.08] bg-ink/90 backdrop-blur-xl shadow-lg transition-all duration-300 ease-out ${
-              open ? "px-2 py-1.5" : "px-0 py-0"
+            className={`mt-2 flex flex-col items-stretch rounded-2xl border border-white/[0.08] bg-ink/90 backdrop-blur-xl shadow-lg overflow-hidden transition-all duration-300 ease-out origin-top ${
+              open
+                ? "max-h-[300px] opacity-100 scale-y-100 py-1.5 px-1.5"
+                : "max-h-0 opacity-0 scale-y-90 py-0 px-0"
             }`}
           >
-            {/* Main toggle button (Stanley Labs logo) */}
-            <button
-              onClick={() => setOpen((v) => !v)}
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 ${
-                open
-                  ? "bg-white/[0.08] text-paper"
-                  : "text-fog/60 hover:text-paper"
-              }`}
-              title="Stanley Labs"
-            >
-              <svg
-                className={`h-4 w-4 transition-transform duration-300 ${open ? "rotate-90" : ""}`}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+            {navItems.map(({ to, label, icon: Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  `flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium transition-all duration-150 ${
+                    isActive
+                      ? "bg-white/[0.1] text-paper"
+                      : "text-fog/50 hover:bg-white/[0.05] hover:text-fog"
+                  }`
+                }
               >
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
-              </svg>
-            </button>
-
-            {/* Expandable nav items */}
-            <div
-              className={`flex items-center gap-1 overflow-hidden transition-all duration-300 ease-out ${
-                open ? "max-w-[400px] opacity-100" : "max-w-0 opacity-0"
-              }`}
-            >
-              {navItems.map(({ to, label, icon: Icon }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  className={({ isActive }) =>
-                    `flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
-                      isActive
-                        ? "bg-white/[0.1] text-paper"
-                        : "text-fog/50 hover:bg-white/[0.05] hover:text-fog"
-                    }`
-                  }
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  <span>{label}</span>
-                </NavLink>
-              ))}
-            </div>
+                <Icon className="h-4 w-4" />
+                <span>{label}</span>
+              </NavLink>
+            ))}
           </div>
         </div>
       )}
