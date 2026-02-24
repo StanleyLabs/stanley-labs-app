@@ -55,7 +55,7 @@ export function SortableProjectItem({
       </span>
       <span className="flex-1 truncate">{project.name}</span>
       {(onEdit || onDelete || onLeave) && (
-        <div className="mr-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={stopProp}>
+        <div className="mr-1 flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" onClick={stopProp}>
           {onEdit && (
             <button
               onClick={onEdit}
