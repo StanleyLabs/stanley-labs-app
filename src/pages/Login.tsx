@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useAuth } from "../lib/AuthContext";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function Login() {
   const { user, loading, signInWithEmail, signUpWithEmail, signInWithGoogle, signOut } = useAuth();
+  const navigate = useNavigate();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,36 +21,8 @@ export default function Login() {
   }
 
   if (user) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center p-6">
-        <div className="flex items-center gap-3 mb-4">
-          {user.user_metadata?.avatar_url ? (
-            <img src={user.user_metadata.avatar_url} alt="" className="h-10 w-10 rounded-full" />
-          ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-electric/20 text-sm font-medium text-electric">
-              {(user.email?.[0] ?? "?").toUpperCase()}
-            </div>
-          )}
-          <div>
-            <p className="text-sm font-medium text-paper">{user.user_metadata?.full_name ?? user.email}</p>
-            {user.user_metadata?.full_name && (
-              <p className="text-xs text-fog/40">{user.email}</p>
-            )}
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <Link to="/" className="rounded-lg bg-electric px-4 py-2 text-sm font-medium text-white hover:bg-electric/90 transition-colors">
-            Go to Home
-          </Link>
-          <button
-            onClick={async () => { await signOut(); }}
-            className="rounded-lg border border-white/[0.08] px-4 py-2 text-sm font-medium text-fog/60 hover:bg-white/[0.05] hover:text-paper transition-colors"
-          >
-            Sign out
-          </button>
-        </div>
-      </div>
-    );
+    navigate("/", { replace: true });
+    return null;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -67,7 +40,12 @@ export default function Login() {
       }
     } else {
       const { error } = await signInWithEmail(email, password);
-      if (error) setError(error);
+      if (error) {
+        setError(error);
+      } else {
+        navigate("/");
+        return;
+      }
     }
 
     setSubmitting(false);

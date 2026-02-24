@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
+import { SNAPSHOT_KEY, SHARE_MAP_KEY } from "../features/boards/persistence";
 
 interface AuthState {
   user: User | null;
@@ -84,6 +85,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    // Clear whiteboard localStorage so logged-in pages aren't visible after logout
+    try {
+      localStorage.removeItem(SNAPSHOT_KEY);
+      localStorage.removeItem(SHARE_MAP_KEY);
+    } catch { /* ignore */ }
     await supabase.auth.signOut();
   };
 

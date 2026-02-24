@@ -10,7 +10,7 @@ const SNAPSHOT_KEY = 'whiteboard-document'
 const SHARE_MAP_KEY = 'whiteboard-share-map'
 const THEME_KEY = 'whiteboard-theme'
 
-export { SNAPSHOT_KEY, THEME_KEY }
+export { SNAPSHOT_KEY, SHARE_MAP_KEY, THEME_KEY }
 
 // ── Throttle utility ───────────────────────────────────────────────────────────
 
