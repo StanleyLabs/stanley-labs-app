@@ -1,5 +1,10 @@
 /**
- * Page submenu with delete popup (remove-only vs delete-from-database).
+ * Page submenu with context-aware delete flow.
+ *
+ * Logged out + not shared: instant delete (no dialog)
+ * Logged out + shared: dialog with "Remove locally" / "Delete shared link"
+ * Logged in + not shared: instant delete from cloud + local (no dialog)
+ * Logged in + shared: dialog with "Remove from my pages" / "Delete everywhere"
  */
 
 import { useCallback } from 'react'
@@ -22,6 +27,8 @@ import {
 import { getShareIdForPage, removeShareIdForPage } from '../../persistence'
 import { DeletePageDialog } from '../../DeletePageDialog'
 import { deleteSharedPage } from '../../supabase'
+import { deletePage as deleteCloudPage } from '../../cloudPersistence'
+import { useAuth } from '../../../../lib/AuthContext'
 import { onMovePage } from './onMovePage'
 
 export interface CustomPageItemSubmenuProps {
@@ -45,7 +52,10 @@ export function CustomPageItemSubmenu({
 	const msg = useTranslation()
 	const dialogs = useDialogs()
 	const toasts = useToasts()
+	const { user } = useAuth()
 	const shareId = getShareIdForPage(item.id)
+	const isShared = Boolean(shareId)
+	const isLoggedIn = Boolean(user)
 
 	const onDuplicate = useCallback(() => {
 		editor.markHistoryStoppingPoint('creating page')
@@ -62,44 +72,75 @@ export function CustomPageItemSubmenu({
 		onMovePage(editor, item.id as TLPageId, index, index + 1, trackEvent)
 	}, [editor, item, index, trackEvent])
 
+	/** Remove page locally (and from cloud if logged in), but keep shared link alive */
 	const performRemoveOnly = useCallback(() => {
 		editor.markHistoryStoppingPoint('deleting page')
 		removeShareIdForPage(item.id)
 		editor.deletePage(item.id as TLPageId)
-		trackEvent('delete-page', { source: 'page-menu', fromDatabase: false })
-	}, [editor, item.id, trackEvent])
 
-	const performDeleteFromDatabase = useCallback(async () => {
-		if (!shareId) return
-		const ok = await deleteSharedPage(shareId)
-		if (!ok) {
-			toasts.addToast({
-				title: 'Delete failed',
-				description: 'Could not delete page from database.',
-				severity: 'error',
-			})
-			return
+		// If logged in, also remove from cloud storage
+		if (isLoggedIn) {
+			void deleteCloudPage(item.id)
 		}
+
+		trackEvent('delete-page', { source: 'page-menu', fromDatabase: false })
+	}, [editor, item.id, isLoggedIn, trackEvent])
+
+	/** Delete everything: local + cloud page + shared link */
+	const performDeleteFromDatabase = useCallback(async () => {
+		// Delete shared page from shared_pages table
+		if (shareId) {
+			const ok = await deleteSharedPage(shareId)
+			if (!ok) {
+				toasts.addToast({
+					title: 'Delete failed',
+					description: 'Could not delete shared page from database.',
+					severity: 'error',
+				})
+				return
+			}
+		}
+
+		// Delete from cloud storage if logged in
+		if (isLoggedIn) {
+			await deleteCloudPage(item.id)
+		}
+
 		removeShareIdForPage(item.id)
 		editor.markHistoryStoppingPoint('deleting page')
 		editor.deletePage(item.id as TLPageId)
 		trackEvent('delete-page', { source: 'page-menu', fromDatabase: true })
 		toasts.addToast({ title: 'Page deleted', severity: 'success' })
-	}, [editor, item.id, shareId, toasts, trackEvent])
+	}, [editor, item.id, shareId, isLoggedIn, toasts, trackEvent])
 
 	const onDelete = useCallback(() => {
+		// Not shared + not logged in: instant local delete, no dialog
+		if (!isShared && !isLoggedIn) {
+			performRemoveOnly()
+			return
+		}
+
+		// Not shared + logged in: instant delete from local + cloud, no dialog
+		if (!isShared && isLoggedIn) {
+			performRemoveOnly()
+			toasts.addToast({ title: 'Page deleted', severity: 'success' })
+			return
+		}
+
+		// Shared page: show dialog with options
 		dialogs.addDialog({
 			component: (props: { onClose: () => void }) => (
 				<DeletePageDialog
 					onClose={() => props.onClose()}
 					pageName={item.name}
 					shareId={shareId}
+					isLoggedIn={isLoggedIn}
 					onRemoveOnly={performRemoveOnly}
 					onDeleteFromDatabase={performDeleteFromDatabase}
 				/>
 			),
 		})
-	}, [dialogs, item.name, shareId, performRemoveOnly, performDeleteFromDatabase])
+	}, [dialogs, item.name, shareId, isShared, isLoggedIn, performRemoveOnly, performDeleteFromDatabase, toasts])
 
 	return (
 		<TldrawUiDropdownMenuRoot id={`page item submenu ${index}`}>

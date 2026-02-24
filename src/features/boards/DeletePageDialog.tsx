@@ -1,7 +1,12 @@
 /**
- * Dialog shown when user clicks delete page. Offers:
- * - Remove from pages (local only)
- * - Delete from database (for shared pages; removes from Supabase and locally)
+ * Delete page dialog.
+ *
+ * Behavior varies based on auth state and share status:
+ *
+ * Logged out + not shared: no dialog (instant delete)
+ * Logged out + shared: "Remove locally" vs "Delete shared link"
+ * Logged in + not shared: no dialog (instant delete from cloud + local)
+ * Logged in + shared: "Remove from my pages" vs "Delete everywhere"
  */
 
 import {
@@ -19,13 +24,13 @@ import type { TLUiDialogProps } from 'tldraw'
 export interface DeletePageDialogProps extends TLUiDialogProps {
 	pageName: string
 	shareId: string | undefined
+	isLoggedIn: boolean
 	onRemoveOnly: () => void
-	/** May be async; dialog closes after it resolves. */
 	onDeleteFromDatabase: () => void | Promise<void>
 }
 
 export function DeletePageDialog(props: DeletePageDialogProps) {
-	const { pageName, shareId, onRemoveOnly, onDeleteFromDatabase } = props
+	const { pageName, shareId, isLoggedIn, onRemoveOnly, onDeleteFromDatabase } = props
 	const close = (): void => props.onClose()
 	const isShared = Boolean(shareId)
 
@@ -49,7 +54,9 @@ export function DeletePageDialog(props: DeletePageDialogProps) {
 						data-testid="delete-page.remove-only"
 					>
 						<TldrawUiButtonIcon icon="minus" small />
-						<TldrawUiButtonLabel>Remove from my pages</TldrawUiButtonLabel>
+						<TldrawUiButtonLabel>
+							{isLoggedIn ? 'Remove from my pages' : 'Remove locally'}
+						</TldrawUiButtonLabel>
 					</TldrawUiButton>
 					{isShared && (
 						<TldrawUiButton
@@ -65,7 +72,9 @@ export function DeletePageDialog(props: DeletePageDialogProps) {
 							data-testid="delete-page.from-database"
 						>
 							<TldrawUiButtonIcon icon="trash" small />
-							<TldrawUiButtonLabel>Delete from database</TldrawUiButtonLabel>
+							<TldrawUiButtonLabel>
+								{isLoggedIn ? 'Delete everywhere' : 'Delete shared link'}
+							</TldrawUiButtonLabel>
 						</TldrawUiButton>
 					)}
 				</div>
@@ -73,17 +82,25 @@ export function DeletePageDialog(props: DeletePageDialogProps) {
 			<TldrawUiDialogFooter className="tlui-dialog__footer__actions delete-page-dialog__footer">
 				<p className="delete-page-dialog__hint">
 					{isShared ? (
-						<>
-							Remove: page stays in the database.
-							<br />
-							Delete: permanently removes it; shared links stop working.
-						</>
+						isLoggedIn ? (
+							<>
+								Remove: page is removed from your account but the shared link keeps working.
+								<br />
+								Delete everywhere: permanently removes it from your account and the shared link stops working.
+							</>
+						) : (
+							<>
+								Remove: deletes locally. Others with the link can still open it.
+								<br />
+								Delete shared link: permanently removes it. The link stops working for everyone.
+							</>
+						)
 					) : (
-						<>
-							Page stays in the database.
-							<br />
-							Others with the link can still open it.
-						</>
+						isLoggedIn ? (
+							<>This will permanently delete the page from your account.</>
+						) : (
+							<>This will remove the page from this browser.</>
+						)
 					)}
 				</p>
 				<TldrawUiButton type="normal" onClick={close} data-testid="delete-page.cancel">
