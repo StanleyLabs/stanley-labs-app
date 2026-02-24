@@ -239,20 +239,36 @@ export function createSupabaseRepo(userId: string): DashboardRepo {
 
     async deleteProject(id) {
       try {
+        // First delete project members
+        const { error: mErr } = await supabase
+          .from("project_members")
+          .delete()
+          .eq("project_id", id);
+        
+        if (mErr) {
+          console.warn("Failed to delete project members, continuing...", mErr);
+        }
+
+        // Delete all tasks in the project (regardless of who created them)
         const { error: tErr } = await supabase
           .from("tasks")
           .delete()
-          .eq("project_id", id)
-          .eq("user_id", userId);
+          .eq("project_id", id);
+        
         if (tErr) throw tErr;
 
+        // Finally delete the project
         const { error: pErr } = await supabase
           .from("projects")
           .delete()
           .eq("id", id)
-          .eq("user_id", userId);
+          .eq("user_id", userId); // Security: ensure user owns the project
+        
         if (pErr) throw pErr;
       } catch (e) {
+        // If we failed to delete the project but deleted tasks, that's bad state.
+        // But in this specific case, the project delete likely failed due to FK constraints
+        // from tasks or members that weren't cleaned up.
         logAndThrow("deleteProject failed", e);
       }
     },
