@@ -1,9 +1,11 @@
 /**
  * Simple confirmation dialog for deleting a non-shared page.
+ * Uses the same delete-page-dialog CSS classes for visual consistency.
  */
 
 import {
 	TldrawUiButton,
+	TldrawUiButtonIcon,
 	TldrawUiButtonLabel,
 	TldrawUiDialogBody,
 	TldrawUiDialogCloseButton,
@@ -36,21 +38,23 @@ export function ConfirmDeleteDialog(props: ConfirmDeleteDialogProps) {
 						: <>Are you sure you want to delete &quot;{pageName}&quot;? This will remove it from this browser.</>
 					}
 				</p>
+				<div className="delete-page-dialog__actions">
+					<TldrawUiButton type="normal" onClick={close}>
+						<TldrawUiButtonIcon icon="cross-2" small />
+						<TldrawUiButtonLabel>Cancel</TldrawUiButtonLabel>
+					</TldrawUiButton>
+					<TldrawUiButton
+						type="danger"
+						onClick={() => {
+							onConfirm()
+							close()
+						}}
+					>
+						<TldrawUiButtonIcon icon="trash" small />
+						<TldrawUiButtonLabel>Delete</TldrawUiButtonLabel>
+					</TldrawUiButton>
+				</div>
 			</TldrawUiDialogBody>
-			<TldrawUiDialogFooter className="tlui-dialog__footer__actions">
-				<TldrawUiButton type="normal" onClick={close}>
-					<TldrawUiButtonLabel>Cancel</TldrawUiButtonLabel>
-				</TldrawUiButton>
-				<TldrawUiButton
-					type="danger"
-					onClick={() => {
-						onConfirm()
-						close()
-					}}
-				>
-					<TldrawUiButtonLabel>Delete</TldrawUiButtonLabel>
-				</TldrawUiButton>
-			</TldrawUiDialogFooter>
 		</div>
 	)
 }
