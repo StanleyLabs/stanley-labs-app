@@ -10,7 +10,32 @@ const SNAPSHOT_KEY = 'whiteboard-document'
 const SHARE_MAP_KEY = 'whiteboard-share-map'
 const THEME_KEY = 'whiteboard-theme'
 
-export { SNAPSHOT_KEY, SHARE_MAP_KEY, THEME_KEY }
+const CLOUD_PAGE_IDS_KEY = 'whiteboard-cloud-page-ids'
+
+export { SNAPSHOT_KEY, SHARE_MAP_KEY, THEME_KEY, CLOUD_PAGE_IDS_KEY }
+
+// ── Cloud page tracking ────────────────────────────────────────────────────────
+
+/** Record which page IDs were loaded from the cloud */
+export function setCloudPageIds(ids: string[]): void {
+	try { localStorage.setItem(CLOUD_PAGE_IDS_KEY, JSON.stringify(ids)) }
+	catch { /* ignore */ }
+}
+
+/** Get the list of cloud-loaded page IDs */
+export function getCloudPageIds(): string[] {
+	try {
+		const raw = localStorage.getItem(CLOUD_PAGE_IDS_KEY)
+		if (!raw) return []
+		return JSON.parse(raw) as string[]
+	} catch { return [] }
+}
+
+/** Clear cloud page tracking */
+export function clearCloudPageIds(): void {
+	try { localStorage.removeItem(CLOUD_PAGE_IDS_KEY) }
+	catch { /* ignore */ }
+}
 
 // ── Throttle utility ───────────────────────────────────────────────────────────
 
