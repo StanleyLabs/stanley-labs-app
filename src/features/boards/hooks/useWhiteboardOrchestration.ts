@@ -75,6 +75,10 @@ export function useWhiteboardOrchestration(): WhiteboardOrchestrationResult {
 		applySyncRef.current?.()
 	}, [])
 
+	const { user } = useAuth()
+	const userId = user?.id ?? null
+
+	// Reload from localStorage whenever user changes (namespaced keys)
 	useLayoutEffect(() => {
 		const raw = loadStorageSnapshot()
 		if (raw) {
@@ -84,7 +88,7 @@ export function useWhiteboardOrchestration(): WhiteboardOrchestrationResult {
 				console.warn('[whiteboard] Failed to load from localStorage:', err)
 			}
 		}
-	}, [store])
+	}, [store, userId])
 
 	useEffect(() => {
 		void initSupabase().then((client) => {
@@ -92,11 +96,9 @@ export function useWhiteboardOrchestration(): WhiteboardOrchestrationResult {
 		})
 	}, [send])
 
-	const { user } = useAuth()
-
 	usePageTracker(store, send, stateRef)
 	usePersistence(store, gridRef, stateRef)
-	useCloudPersistence(store, gridRef, stateRef, user?.id ?? null)
+	useCloudPersistence(store, gridRef, stateRef, userId)
 	useSharedPageConnect(store, state, send, gridRef)
 	useSupabaseSync(store, stateRef, editorRef, send)
 

@@ -8,8 +8,8 @@ import {
 import type { User, Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import {
-  SNAPSHOT_KEY,
   clearCloudPageIds,
+  setActiveUserId,
 } from "../features/boards/persistence";
 
 interface AuthState {
@@ -48,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setActiveUserId(session?.user?.id ?? null);
       setLoading(false);
     });
 
@@ -57,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setActiveUserId(session?.user?.id ?? null);
       setLoading(false);
     });
 
@@ -88,10 +90,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    // Clear entire whiteboard state on logout so cloud pages don't leak to logged-out users
+    // Switch to logged-out localStorage namespace
     try {
-      localStorage.removeItem(SNAPSHOT_KEY);
       clearCloudPageIds();
+      setActiveUserId(null);
     } catch { /* ignore errors - don't block sign out */ }
     await supabase.auth.signOut();
   };

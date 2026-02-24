@@ -12,7 +12,7 @@ import type { TLStore } from 'tldraw'
 import {
 	loadSnapshot as loadStorageSnapshot,
 	saveSnapshot as saveStorageSnapshot,
-	SNAPSHOT_KEY,
+	getSnapshotKey,
 	throttle,
 	THROTTLE_MS,
 } from '../persistence'
@@ -118,7 +118,7 @@ export function usePersistence(
 		}
 
 		const onStorage = (e: StorageEvent): void => {
-			if (e.key !== SNAPSHOT_KEY || !e.newValue) return
+			if (e.key !== getSnapshotKey() || !e.newValue) return
 			storageReceivedRef.current = true
 			if (!document.hasFocus()) applyFromStorage()
 		}

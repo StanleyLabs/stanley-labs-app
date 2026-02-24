@@ -4,28 +4,45 @@
  * The tldraw store is hydrated from here on boot and kept in sync.
  */
 
-// ── Keys ───────────────────────────────────────────────────────────────────────
+// ── Keys (namespaced by user) ──────────────────────────────────────────────────
 
-const SNAPSHOT_KEY = 'whiteboard-document'
-const SHARE_MAP_KEY = 'whiteboard-share-map'
-const THEME_KEY = 'whiteboard-theme'
+let _userId: string | null = null
 
-const CLOUD_PAGE_IDS_KEY = 'whiteboard-cloud-page-ids'
+/** Set the active user ID to namespace localStorage keys. null = logged-out. */
+export function setActiveUserId(id: string | null): void {
+	_userId = id
+	// Invalidate share map cache when switching users
+	shareMapCache = null
+}
 
-export { SNAPSHOT_KEY, SHARE_MAP_KEY, THEME_KEY, CLOUD_PAGE_IDS_KEY }
+function key(base: string): string {
+	return _userId ? `${base}:${_userId}` : base
+}
+
+const BASE_SNAPSHOT = 'whiteboard-document'
+const BASE_SHARE_MAP = 'whiteboard-share-map'
+const BASE_THEME = 'whiteboard-theme'
+const BASE_CLOUD_PAGE_IDS = 'whiteboard-cloud-page-ids'
+
+/** Current snapshot key (for cross-tab storage event matching) */
+export function getSnapshotKey(): string { return key(BASE_SNAPSHOT) }
+
+// Keep THEME_KEY un-namespaced (shared preference)
+const THEME_KEY = BASE_THEME
+export { THEME_KEY }
 
 // ── Cloud page tracking ────────────────────────────────────────────────────────
 
 /** Record which page IDs were loaded from the cloud */
 export function setCloudPageIds(ids: string[]): void {
-	try { localStorage.setItem(CLOUD_PAGE_IDS_KEY, JSON.stringify(ids)) }
+	try { localStorage.setItem(key(BASE_CLOUD_PAGE_IDS), JSON.stringify(ids)) }
 	catch { /* ignore */ }
 }
 
 /** Get the list of cloud-loaded page IDs */
 export function getCloudPageIds(): string[] {
 	try {
-		const raw = localStorage.getItem(CLOUD_PAGE_IDS_KEY)
+		const raw = localStorage.getItem(key(BASE_CLOUD_PAGE_IDS))
 		if (!raw) return []
 		return JSON.parse(raw) as string[]
 	} catch { return [] }
@@ -33,7 +50,7 @@ export function getCloudPageIds(): string[] {
 
 /** Clear cloud page tracking */
 export function clearCloudPageIds(): void {
-	try { localStorage.removeItem(CLOUD_PAGE_IDS_KEY) }
+	try { localStorage.removeItem(key(BASE_CLOUD_PAGE_IDS)) }
 	catch { /* ignore */ }
 }
 
@@ -79,12 +96,12 @@ export function throttle<T extends () => void>(fn: T, intervalMs: number): Throt
 // ── Snapshot (full document) ───────────────────────────────────────────────────
 
 export function loadSnapshot(): string | null {
-	try { return localStorage.getItem(SNAPSHOT_KEY) }
+	try { return localStorage.getItem(key(BASE_SNAPSHOT)) }
 	catch { return null }
 }
 
 export function saveSnapshot(json: string): void {
-	try { localStorage.setItem(SNAPSHOT_KEY, json) }
+	try { localStorage.setItem(key(BASE_SNAPSHOT), json) }
 	catch { /* quota or private mode */ }
 }
 
@@ -95,7 +112,7 @@ let shareMapCache: Map<string, string> | null = null
 function loadShareMap(): Map<string, string> {
 	if (shareMapCache !== null) return shareMapCache
 	try {
-		const raw = localStorage.getItem(SHARE_MAP_KEY)
+		const raw = localStorage.getItem(key(BASE_SHARE_MAP))
 		if (!raw) {
 			shareMapCache = new Map()
 			return shareMapCache
@@ -115,7 +132,7 @@ function loadShareMap(): Map<string, string> {
 
 function saveShareMap(map: Map<string, string>): void {
 	try {
-		localStorage.setItem(SHARE_MAP_KEY, JSON.stringify(Object.fromEntries(map)))
+		localStorage.setItem(key(BASE_SHARE_MAP), JSON.stringify(Object.fromEntries(map)))
 		shareMapCache = map
 	} catch { /* ignore */ }
 }
