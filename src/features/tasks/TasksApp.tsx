@@ -332,15 +332,15 @@ export default function App() {
           </button>
 
           {activeProject && (
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-6 w-6 items-center justify-center rounded" style={{ backgroundColor: activeProject.color + "20", color: activeProject.color }}>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded" style={{ backgroundColor: activeProject.color + "20", color: activeProject.color }}>
                 <IconFolder className="h-3.5 w-3.5" />
               </span>
-              <h1 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{activeProject.name}</h1>
+              <h1 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{activeProject.name}</h1>
             </div>
           )}
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2 shrink-0">
             <div className="relative hidden sm:block">
               <IconSearch className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
               <input
