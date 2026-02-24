@@ -147,7 +147,23 @@ export function createSupabaseRepo(userId: string): DashboardRepo {
           shared = sharedData ?? [];
         }
 
-        return [...(owned ?? []), ...shared].map((r: any) => mapProjectRow(r as ProjectRow));
+        const all = [...(owned ?? []), ...shared].map((r: any) => mapProjectRow(r as ProjectRow));
+
+        // Apply saved order (includes shared projects) if available
+        try {
+          const savedOrder = localStorage.getItem(`project-order:${userId}`);
+          if (savedOrder) {
+            const orderIds: string[] = JSON.parse(savedOrder);
+            const orderMap = new Map(orderIds.map((id, i) => [id, i]));
+            all.sort((a, b) => {
+              const ai = orderMap.get(a.id) ?? 9999;
+              const bi = orderMap.get(b.id) ?? 9999;
+              return ai - bi;
+            });
+          }
+        } catch { /* ignore */ }
+
+        return all;
       } catch (e) {
         logAndThrow("listProjects failed", e);
       }
@@ -420,16 +436,31 @@ export function createSupabaseRepo(userId: string): DashboardRepo {
 
     async reorderProjects(ids: string[]) {
       try {
+        // Only update order on projects the user owns; shared projects
+        // get their visual order from the ids array (client-side).
+        const { data: owned } = await supabase
+          .from("projects")
+          .select("id")
+          .eq("user_id", userId);
+        const ownedIds = new Set((owned ?? []).map((r: any) => r.id as string));
+
         const now = new Date().toISOString();
         await Promise.all(
-          ids.map((id, i) =>
-            supabase
-              .from("projects")
-              .update({ order: i, updated_at: now })
-              .eq("id", id)
-              .eq("user_id", userId)
-          )
+          ids
+            .filter((id) => ownedIds.has(id))
+            .map((id, i) =>
+              supabase
+                .from("projects")
+                .update({ order: ids.indexOf(id), updated_at: now })
+                .eq("id", id)
+                .eq("user_id", userId)
+            )
         );
+
+        // Persist full ordering (including shared) in localStorage
+        try {
+          localStorage.setItem(`project-order:${userId}`, JSON.stringify(ids));
+        } catch { /* ignore */ }
       } catch (e) {
         logAndThrow("reorderProjects failed", e);
       }
