@@ -8,6 +8,7 @@ export type Project = {
   order: number;
   createdAt: string;
   updatedAt: string;
+  ownerId?: string; // user_id of the project creator (from Supabase)
 };
 
 export type TaskStatus = "backlog" | "todo" | "in_progress" | "done";

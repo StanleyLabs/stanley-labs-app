@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import type { MemberRole, Project, Task, TaskPriority, TaskStatus, ViewMode } from "./types";
 import { PROJECT_COLORS } from "./types";
-import { getUserRoles } from "./memberStorage";
+import { getUserRoles, leaveProject } from "./memberStorage";
 import { useDashboardRepo, useProjects, useTasks } from "./store";
 import { useAuth } from "../../lib/AuthContext";
 import { nameToInitials, cn } from "./utils";
@@ -201,6 +201,28 @@ export default function App() {
     input.click();
   }, [projectsApi, repo]);
 
+  const handleLeaveProject = useCallback((id: string) => {
+    const project = projectsApi.projects?.find((p) => p.id === id);
+    setConfirmDialog({
+      title: "Leave project",
+      message: `You will no longer have access to "${project?.name ?? "this project"}". The project and its data will not be affected.`,
+      confirmLabel: "Leave",
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        if (!user?.id) return;
+        try {
+          await leaveProject(id, user.id);
+          setRoleMap((prev) => { const next = new Map(prev); next.delete(id); return next; });
+          await projectsApi.refresh();
+          if (activeProjectId === id) {
+            const next = (projectsApi.projects ?? []).filter((p) => p.id !== id)[0];
+            setActiveProjectId(next?.id ?? null);
+          }
+        } catch { /* ignore */ }
+      },
+    });
+  }, [projectsApi, activeProjectId, user?.id]);
+
   const handleDeleteProject = useCallback((id: string) => {
     const project = projectsApi.projects?.find((p) => p.id === id);
     setConfirmDialog({
@@ -291,6 +313,8 @@ export default function App() {
         onExport={handleExportProject}
         onImport={handleImportProject}
         hasActiveProject={!!activeProject}
+        onLeaveProject={handleLeaveProject}
+        currentUserId={user?.id}
         onReorder={(ids) => projectsApi.reorder(ids)}
         collapsed={!sidebarOpen}
         onToggle={() => setSidebarOpen((v) => !v)}

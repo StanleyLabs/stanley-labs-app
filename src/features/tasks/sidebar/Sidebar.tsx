@@ -29,6 +29,8 @@ export function Sidebar({
   onExport,
   onImport,
   hasActiveProject,
+  onLeaveProject,
+  currentUserId,
 }: {
   projects: Project[];
   activeId: string | null;
@@ -44,6 +46,8 @@ export function Sidebar({
   onExport?: () => void;
   onImport?: () => void;
   hasActiveProject?: boolean;
+  onLeaveProject?: (id: string) => void;
+  currentUserId?: string;
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -107,6 +111,7 @@ export function Sidebar({
                     onSelect={() => onSelect(p.id)}
                     onEdit={onEdit && (!canManageProject || canManageProject(p.id)) ? () => onEdit(p) : undefined}
                     onDelete={onDelete && (!canManageProject || canManageProject(p.id)) ? () => onDelete(p.id) : undefined}
+                    onLeave={onLeaveProject && currentUserId && (p as any).ownerId && (p as any).ownerId !== currentUserId ? () => onLeaveProject(p.id) : undefined}
                   />
                 ))}
                 {projects.length === 0 && (

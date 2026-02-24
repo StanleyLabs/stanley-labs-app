@@ -134,3 +134,8 @@ CREATE POLICY "Members can view shared projects"
     )
     OR user_id = auth.uid()
   );
+
+-- Allow any member to remove themselves from a project
+CREATE POLICY "Members can leave projects"
+  ON project_members FOR DELETE
+  USING (user_id = auth.uid());

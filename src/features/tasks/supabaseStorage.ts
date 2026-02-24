@@ -38,6 +38,7 @@ function mapProjectRow(row: ProjectRow): Project {
     order: row.order,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    ownerId: row.user_id,
   };
 }
 
