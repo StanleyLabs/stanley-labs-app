@@ -61,7 +61,7 @@ export function TaskCardInner({
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 leading-snug">{task.title}</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 leading-snug select-none sm:select-text">{task.title}</p>
             <div className="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={stopProp}>
               <button onClick={onEdit} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-border hover:text-gray-600 dark:hover:text-gray-200">
                 <IconEdit className="h-3 w-3" />

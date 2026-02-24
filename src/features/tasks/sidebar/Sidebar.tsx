@@ -69,7 +69,7 @@ export function Sidebar({
       >
         <div className="flex h-14 items-center gap-3 border-b border-sidebar-border px-4">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-glow overflow-hidden">
-            <img src="/pd-icon.svg" alt="Project Dashboard" className="h-full w-full object-contain" />
+            <img src="/favicon-tasks.svg" alt="Project Dashboard" className="h-full w-full object-contain" />
           </div>
           <span className="text-sm font-semibold text-white">Project Dashboard</span>
           <button onClick={onToggle} className="ml-auto rounded-md p-1 text-sidebar-muted hover:text-white">
