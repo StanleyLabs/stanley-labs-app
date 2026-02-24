@@ -107,7 +107,7 @@ export function TaskForm({
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="block w-full rounded-lg border border-gray-200 dark:border-dark-border bg-raised dark:bg-dark-raised px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+          className="block w-full rounded-lg border border-gray-200 dark:border-dark-border bg-raised dark:bg-dark-raised px-3 py-2 text-base sm:text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
           placeholder="What needs to be done?"
           required
           autoFocus
@@ -119,7 +119,7 @@ export function TaskForm({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-          className="block w-full rounded-lg border border-gray-200 dark:border-dark-border bg-raised dark:bg-dark-raised px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+          className="block w-full rounded-lg border border-gray-200 dark:border-dark-border bg-raised dark:bg-dark-raised px-3 py-2 text-base sm:text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
           placeholder="Add more detail…"
         />
       </label>
@@ -178,7 +178,7 @@ export function TaskForm({
               onKeyDown={(e) => {
                 if (e.key === "Escape" && assigneeFocused) { e.stopPropagation(); setAssigneeFocused(false); (e.target as HTMLElement).blur(); }
               }}
-              className="block w-full rounded-lg border border-gray-200 dark:border-dark-border bg-raised dark:bg-dark-raised px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+              className="block w-full rounded-lg border border-gray-200 dark:border-dark-border bg-raised dark:bg-dark-raised px-3 py-2 text-base sm:text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
               placeholder="Type a name…"
             />
             {showSuggestions && (
@@ -252,7 +252,7 @@ export function TaskForm({
                 if (e.key === "Backspace" && !tagInput && tags.length > 0) removeTag(tags[tags.length - 1]);
                 if (e.key === "," && tagInput.trim()) { e.preventDefault(); addTag(tagInput); }
               }}
-              className="w-full border-none bg-transparent py-0.5 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 outline-none"
+              className="w-full border-none bg-transparent py-0.5 text-base sm:text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 outline-none"
               placeholder={tags.length === 0 ? "Type to add tags…" : ""}
             />
           </div>
