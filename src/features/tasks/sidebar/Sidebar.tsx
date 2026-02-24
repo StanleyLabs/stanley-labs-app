@@ -26,6 +26,9 @@ export function Sidebar({
   onToggle,
   useMockData,
   canManageProject,
+  onExport,
+  onImport,
+  hasActiveProject,
 }: {
   projects: Project[];
   activeId: string | null;
@@ -38,6 +41,9 @@ export function Sidebar({
   onToggle: () => void;
   useMockData: boolean;
   canManageProject?: (id: string) => boolean;
+  onExport?: () => void;
+  onImport?: () => void;
+  hasActiveProject?: boolean;
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -135,6 +141,32 @@ export function Sidebar({
           </div>
         )}
 
+        <div className="border-t border-sidebar-border px-3 py-3 shrink-0 flex items-center gap-2">
+          {onExport && hasActiveProject && (
+            <button
+              onClick={onExport}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-sidebar-border bg-sidebar-hover/50 px-2 py-1.5 text-2xs font-medium text-sidebar-muted hover:text-white hover:bg-sidebar-hover transition-colors"
+              title="Export project as JSON"
+            >
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Export
+            </button>
+          )}
+          {onImport && (
+            <button
+              onClick={onImport}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-sidebar-border bg-sidebar-hover/50 px-2 py-1.5 text-2xs font-medium text-sidebar-muted hover:text-white hover:bg-sidebar-hover transition-colors"
+              title="Import project from JSON"
+            >
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              Import
+            </button>
+          )}
+        </div>
         <div className="border-t border-sidebar-border px-4 py-3 shrink-0">
           <div className="text-2xs text-sidebar-muted">Built by Stanley Labs</div>
         </div>

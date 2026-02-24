@@ -143,6 +143,64 @@ export default function App() {
     setProjectModal(null);
   }, [projectsApi, projectModal]);
 
+  const handleExportProject = useCallback(async () => {
+    if (!activeProject) return;
+    const tasks = await repo.listTasks(activeProject.id);
+    const data = { project: activeProject, tasks };
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${activeProject.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [activeProject, repo]);
+
+  const handleImportProject = useCallback(() => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,application/json";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (!data.project?.name) throw new Error("Invalid project file");
+        const p = await projectsApi.create({
+          name: data.project.name,
+          description: data.project.description || "",
+          color: data.project.color || PROJECT_COLORS[0],
+        });
+        if (Array.isArray(data.tasks)) {
+          for (const t of data.tasks) {
+            await repo.createTask({
+              projectId: p.id,
+              title: t.title || "Untitled",
+              description: t.description || undefined,
+              status: t.status || "todo",
+              priority: t.priority || "medium",
+              assignee: t.assignee || undefined,
+              due: t.due || undefined,
+              tags: t.tags || undefined,
+              order: t.order ?? 0,
+            });
+          }
+        }
+        setActiveProjectId(p.id);
+      } catch (err) {
+        setConfirmDialog({
+          title: "Import failed",
+          message: err instanceof Error ? err.message : "Could not parse the file.",
+          confirmLabel: "OK",
+          onConfirm: () => setConfirmDialog(null),
+        });
+      }
+    };
+    input.click();
+  }, [projectsApi, repo]);
+
   const handleDeleteProject = useCallback((id: string) => {
     const project = projectsApi.projects?.find((p) => p.id === id);
     setConfirmDialog({
@@ -230,6 +288,9 @@ export default function App() {
         onEdit={(p) => setProjectModal({ mode: "edit", project: p })}
         onDelete={handleDeleteProject}
         canManageProject={canManageProject}
+        onExport={handleExportProject}
+        onImport={handleImportProject}
+        hasActiveProject={!!activeProject}
         onReorder={(ids) => projectsApi.reorder(ids)}
         collapsed={!sidebarOpen}
         onToggle={() => setSidebarOpen((v) => !v)}
