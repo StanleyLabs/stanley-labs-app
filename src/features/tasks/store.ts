@@ -215,8 +215,13 @@ export function useProjects(repo: DashboardRepo) {
   }
 
   async function reorder(ids: string[]) {
+    // Optimistic update: reorder locally first, then persist
+    setProjects((prev) => {
+      if (!prev) return prev;
+      const map = new Map(prev.map((p) => [p.id, p]));
+      return ids.map((id) => map.get(id)).filter(Boolean) as Project[];
+    });
     await repo.reorderProjects(ids);
-    setProjects(await repo.listProjects());
   }
 
   return { projects, loading, error, refresh, create, update, remove, reorder };
