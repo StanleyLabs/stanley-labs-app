@@ -66,17 +66,19 @@ export default function Home() {
               to={to}
               className={`group relative flex flex-col justify-between rounded-xl border bg-graphite/50 p-6 transition-all hover:bg-graphite ${borderColor}`}
             >
-              <div
-                className={`mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br ${color} text-white shadow-lg`}
-              >
-                {icon}
+              <div>
+                <div
+                  className={`mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br ${color} text-white shadow-lg`}
+                >
+                  {icon}
+                </div>
+                <h2 className="font-display text-base font-semibold text-paper">
+                  {title}
+                </h2>
+                <p className="mt-1.5 text-sm leading-relaxed text-fog/50">
+                  {description}
+                </p>
               </div>
-              <h2 className="font-display text-base font-semibold text-paper">
-                {title}
-              </h2>
-              <p className="mt-1.5 text-sm leading-relaxed text-fog/50">
-                {description}
-              </p>
               <div className="mt-4 flex items-center gap-1 text-xs font-medium text-fog/40 group-hover:text-fog/60 transition-colors">
                 Open
                 <svg className="h-3 w-3 transition-transform group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
