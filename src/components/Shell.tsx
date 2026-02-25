@@ -37,10 +37,10 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full flex-col bg-ink">
       {/* Floating nav - centered at top */}
-      {!isHome && !isLogin && !isChat && (
+      {!isHome && !isLogin && (
         <div
           ref={containerRef}
-          className={`fixed right-4 z-[9999] flex items-end ${
+          className={`fixed right-4 z-[9999] flex items-end${isChat ? " landscape-hide" : ""} ${
             isBoards
               ? "top-4 flex-col sm:top-auto sm:bottom-12 sm:flex-col-reverse"
               : "bottom-4 flex-col-reverse"
