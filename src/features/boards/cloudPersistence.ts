@@ -39,6 +39,7 @@ export async function loadUserPages(userId: string): Promise<CloudPage[]> {
 }
 
 const USER_DOCUMENT_ID = '__document__'
+const USER_DOCUMENT_IDS = [USER_DOCUMENT_ID, 'document__'] as const
 
 /** Save/update the user's canonical whiteboard document snapshot (cloud source of truth). */
 export async function saveUserDocumentSnapshot(
@@ -94,10 +95,12 @@ export async function loadUserDocumentSnapshot(
 ): Promise<{ snapshot: unknown; updated_at: string } | null> {
 	const { data, error } = await supabase
 		.from('whiteboard_pages')
-		.select('snapshot,updated_at')
+		.select('id,snapshot,updated_at')
 		.eq('user_id', userId)
-		.eq('id', USER_DOCUMENT_ID)
-		.single()
+		.in('id', USER_DOCUMENT_IDS as unknown as string[])
+		.order('updated_at', { ascending: false })
+		.limit(1)
+		.maybeSingle()
 	if (error || !data?.snapshot) return null
 	return data as { snapshot: unknown; updated_at: string }
 }
