@@ -79,7 +79,9 @@ export function useWhiteboardOrchestration(): WhiteboardOrchestrationResult {
 	const userId = user?.id ?? null
 
 	// Reload from localStorage whenever user changes (namespaced keys)
+	// Logged-in users are cloud-only (no offline mode), so we do not hydrate document data from localStorage.
 	useLayoutEffect(() => {
+		if (userId) return
 		const raw = loadStorageSnapshot()
 		if (raw) {
 			try {
@@ -97,7 +99,7 @@ export function useWhiteboardOrchestration(): WhiteboardOrchestrationResult {
 	}, [send])
 
 	usePageTracker(store, send, stateRef)
-	usePersistence(store, gridRef, stateRef)
+	usePersistence(store, gridRef, stateRef, !userId)
 	useCloudPersistence(store, gridRef, stateRef, userId)
 	useSharedPageConnect(store, state, send, gridRef)
 	useSupabaseSync(store, stateRef, editorRef, send)

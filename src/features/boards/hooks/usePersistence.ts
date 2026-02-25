@@ -28,9 +28,11 @@ type MachineState = SnapshotFrom<typeof whiteboardMachine>
 export function usePersistence(
 	store: TLStore,
 	gridRef: React.MutableRefObject<GridRef>,
-	machineStateRef: React.MutableRefObject<MachineState>
+	machineStateRef: React.MutableRefObject<MachineState>,
+	enabled: boolean
 ): void {
 	useEffect(() => {
+		if (!enabled) return
 		let dirty = true
 		const markDirty = (): void => { dirty = true }
 
@@ -95,6 +97,7 @@ export function usePersistence(
 	}, [store, gridRef, machineStateRef])
 
 	useEffect(() => {
+		if (!enabled) return
 		const storageReceivedRef = { current: false }
 
 		const applyFromStorage = (): void => {

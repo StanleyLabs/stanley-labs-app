@@ -38,7 +38,48 @@ export async function loadUserPages(userId: string): Promise<CloudPage[]> {
 	return data ?? []
 }
 
-/** Save/update a page snapshot */
+const USER_DOCUMENT_ID = '__document__'
+
+/** Save/update the user's canonical whiteboard document snapshot (cloud source of truth). */
+export async function saveUserDocumentSnapshot(
+	userId: string,
+	snapshot: unknown
+): Promise<void> {
+	const now = new Date().toISOString()
+	const { error } = await supabase
+		.from('whiteboard_pages')
+		.upsert(
+			{
+				id: USER_DOCUMENT_ID,
+				user_id: userId,
+				name: USER_DOCUMENT_ID,
+				order: 0,
+				snapshot,
+				created_at: now,
+				updated_at: now,
+			},
+			{ onConflict: 'id' }
+		)
+	if (error) {
+		console.error('[cloud] saveUserDocumentSnapshot failed:', error.message)
+	}
+}
+
+/** Load the user's canonical whiteboard document snapshot. */
+export async function loadUserDocumentSnapshot(
+	userId: string
+): Promise<{ snapshot: unknown; updated_at: string } | null> {
+	const { data, error } = await supabase
+		.from('whiteboard_pages')
+		.select('snapshot,updated_at')
+		.eq('user_id', userId)
+		.eq('id', USER_DOCUMENT_ID)
+		.single()
+	if (error || !data?.snapshot) return null
+	return data as { snapshot: unknown; updated_at: string }
+}
+
+/** Save/update a page snapshot (legacy per-page storage). */
 export async function savePageSnapshot(
 	pageId: string,
 	userId: string,

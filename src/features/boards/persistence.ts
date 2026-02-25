@@ -25,6 +25,7 @@ const BASE_CLOUD_APPLIED_AT = 'whiteboard-cloud-applied-at'
 const BASE_SHARE_MAP = 'whiteboard-share-map'
 const BASE_THEME = 'whiteboard-theme'
 const BASE_CLOUD_PAGE_IDS = 'whiteboard-cloud-page-ids'
+const BASE_LAST_SELECTED_PAGE_ID = 'whiteboard-last-selected-page-id'
 
 /** Current snapshot key (for cross-tab storage event matching) */
 export function getSnapshotKey(): string { return key(BASE_SNAPSHOT) }
@@ -53,6 +54,18 @@ export function getCloudPageIds(): string[] {
 /** Clear cloud page tracking */
 export function clearCloudPageIds(): void {
 	try { localStorage.removeItem(key(BASE_CLOUD_PAGE_IDS)) }
+	catch { /* ignore */ }
+}
+
+// ── UI state (device-local) ───────────────────────────────────────────────────
+
+export function getLastSelectedPageId(): string | null {
+	try { return localStorage.getItem(key(BASE_LAST_SELECTED_PAGE_ID)) }
+	catch { return null }
+}
+
+export function setLastSelectedPageId(pageId: string): void {
+	try { localStorage.setItem(key(BASE_LAST_SELECTED_PAGE_ID), pageId) }
 	catch { /* ignore */ }
 }
 

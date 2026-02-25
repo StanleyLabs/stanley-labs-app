@@ -20,6 +20,7 @@ import {
 	clearShareIdFromUrl,
 	getShareIdForPage,
 	getPageIdForShareId,
+	setLastSelectedPageId,
 } from '../persistence'
 import type { WhiteboardEvent } from '../machine'
 import type { SnapshotFrom } from 'xstate'
@@ -81,6 +82,7 @@ export function usePageTracker(
 			const cur = store.get(TLINSTANCE_ID) as { currentPageId?: string } | undefined
 			if (!cur?.currentPageId) return
 			const pageId = cur.currentPageId
+			try { setLastSelectedPageId(pageId) } catch { /* ignore */ }
 			if (prevPageIdRef.current === pageId) return
 			prevPageIdRef.current = pageId
 

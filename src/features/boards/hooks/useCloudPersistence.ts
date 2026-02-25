@@ -15,17 +15,16 @@ import { useEffect, useRef } from 'react'
 import type { TLStore } from 'tldraw'
 import { getSnapshot } from 'tldraw'
 import { TLINSTANCE_ID } from 'tldraw'
-import { savePageSnapshot, loadUserPages } from '../cloudPersistence'
+import { loadUserPages, loadUserDocumentSnapshot, saveUserDocumentSnapshot } from '../cloudPersistence'
 import {
-	saveSnapshot as saveStorageSnapshot,
 	throttle,
 	setCloudPageIds,
 	setShareIdForPage,
-	getLocalSnapshotUpdatedAt,
 	setLocalSnapshotUpdatedAt,
 	getCloudAppliedAt,
 	setCloudAppliedAt,
-	loadSnapshot as loadStorageSnapshot,
+	getLastSelectedPageId,
+	setLastSelectedPageId,
 } from '../persistence'
 import { applyParsedSnapshot, syncGridRef } from '../lib/gridSnapshot'
 import type { GridRef, SnapshotParsed } from '../lib/gridSnapshot'
@@ -86,9 +85,8 @@ export function useCloudPersistence(
 				const documentSnapshot = { store: filtered, schema: rawSnapshot.schema }
 				const snapshot = { document: documentSnapshot, session }
 
-				// Save to Supabase with the current page ID as the page identifier
-				const pageId = inst?.currentPageId ?? 'default'
-				void savePageSnapshot(pageId, userIdRef.current!, snapshot)
+				// Save the full document snapshot to Supabase (canonical for logged-in users)
+				void saveUserDocumentSnapshot(userIdRef.current!, snapshot)
 			} catch {
 				/* ignore errors - localStorage is the fallback */
 			}
@@ -123,12 +121,58 @@ export function useCloudPersistence(
 			if (cancelled) return
 			if (pages.length === 0) return
 
+			// Prefer canonical per-user document snapshot.
+			const doc = await loadUserDocumentSnapshot(userId)
+			if (cancelled) return
+			if (doc?.snapshot) {
+				const cloudUpdatedAt = new Date(doc.updated_at).getTime()
+				const cloudAppliedAt = getCloudAppliedAt()
+				if (cloudUpdatedAt <= cloudAppliedAt) return
+
+
+				try {
+					const snapshot = doc.snapshot as SnapshotParsed
+					applyParsedSnapshot(store, snapshot, gridRef)
+
+					const storeObj = ((snapshot as Record<string, unknown>).document as Record<string, unknown> | undefined)?.store as Record<string, { typeName?: string; id?: string }> ?? {}
+					const cloudPageIds = Object.values(storeObj)
+						.filter((r) => r.typeName === 'page' && r.id)
+						.map((r) => r.id as string)
+					setCloudPageIds(cloudPageIds)
+
+					// In logged-in mode, localStorage is not the source of truth.
+					// Only keep lightweight UI state locally.
+					setLocalSnapshotUpdatedAt(cloudUpdatedAt)
+					setCloudAppliedAt(cloudUpdatedAt)
+
+					// Restore last selected page if it exists, otherwise open the first page.
+					try {
+						const last = getLastSelectedPageId()
+						const raw = store.getStoreSnapshot('all') as { store: Record<string, { typeName?: string; id?: string }> }
+						const pageIds = Object.values(raw.store ?? {})
+							.filter((r) => r.typeName === 'page' && r.id)
+							.map((r) => r.id as string)
+						const firstId = pageIds[0]
+						const preferred = (last && store.get(last as any)) ? last : firstId
+						if (preferred) {
+							store.update(TLINSTANCE_ID, (i) => ({ ...i, currentPageId: preferred as any }))
+							setLastSelectedPageId(preferred)
+						}
+					} catch {
+						/* ignore */
+					}
+				} catch (err) {
+					console.warn('[cloud] Failed to apply cloud snapshot:', err)
+				}
+				return
+			}
+
 			// Sync share IDs across devices.
 			for (const p of pages) {
 				if (p.share_id) setShareIdForPage(p.id, p.share_id)
 			}
 
-			// Find the most recently updated page with a snapshot
+			// Fallback: if the canonical document row doesn't exist yet, use the newest snapshot we can find.
 			const withSnapshot = pages.filter((p) => p.snapshot)
 			if (withSnapshot.length === 0) return
 
@@ -137,32 +181,20 @@ export function useCloudPersistence(
 			)[0]
 			if (!latest.snapshot) return
 
-			// Avoid clobbering newer local changes.
-			const localRaw = loadStorageSnapshot()
-			const localUpdatedAt = getLocalSnapshotUpdatedAt()
 			const cloudUpdatedAt = new Date(latest.updated_at).getTime()
 			const cloudAppliedAt = getCloudAppliedAt()
-
-			// If we've already applied this (or newer) cloud snapshot, no-op.
 			if (cloudUpdatedAt <= cloudAppliedAt) return
-
-			// If local is newer than cloud, do not overwrite it.
-			if (localRaw && localUpdatedAt > cloudUpdatedAt) return
 
 			try {
 				const snapshot = latest.snapshot as SnapshotParsed
 				applyParsedSnapshot(store, snapshot, gridRef)
 
-				// Track which page IDs came from the cloud
 				const storeObj = ((snapshot as Record<string, unknown>).document as Record<string, unknown> | undefined)?.store as Record<string, { typeName?: string; id?: string }> ?? {}
 				const cloudPageIds = Object.values(storeObj)
 					.filter((r) => r.typeName === 'page' && r.id)
 					.map((r) => r.id as string)
 				setCloudPageIds(cloudPageIds)
 
-				// Keep localStorage in sync
-				const json = JSON.stringify(snapshot)
-				saveStorageSnapshot(json)
 				setLocalSnapshotUpdatedAt(cloudUpdatedAt)
 				setCloudAppliedAt(cloudUpdatedAt)
 			} catch (err) {
