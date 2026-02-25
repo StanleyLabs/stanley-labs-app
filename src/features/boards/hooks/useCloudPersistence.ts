@@ -23,6 +23,8 @@ import {
 	setShareIdForPage,
 	getLocalSnapshotUpdatedAt,
 	setLocalSnapshotUpdatedAt,
+	getCloudAppliedAt,
+	setCloudAppliedAt,
 	loadSnapshot as loadStorageSnapshot,
 } from '../persistence'
 import { applyParsedSnapshot, syncGridRef } from '../lib/gridSnapshot'
@@ -139,8 +141,13 @@ export function useCloudPersistence(
 			const localRaw = loadStorageSnapshot()
 			const localUpdatedAt = getLocalSnapshotUpdatedAt()
 			const cloudUpdatedAt = new Date(latest.updated_at).getTime()
-			const shouldApplyCloud = !localRaw || cloudUpdatedAt > localUpdatedAt
-			if (!shouldApplyCloud) return
+			const cloudAppliedAt = getCloudAppliedAt()
+
+			// If we've already applied this (or newer) cloud snapshot, no-op.
+			if (cloudUpdatedAt <= cloudAppliedAt) return
+
+			// If local is newer than cloud, do not overwrite it.
+			if (localRaw && localUpdatedAt > cloudUpdatedAt) return
 
 			try {
 				const snapshot = latest.snapshot as SnapshotParsed
@@ -157,6 +164,7 @@ export function useCloudPersistence(
 				const json = JSON.stringify(snapshot)
 				saveStorageSnapshot(json)
 				setLocalSnapshotUpdatedAt(cloudUpdatedAt)
+				setCloudAppliedAt(cloudUpdatedAt)
 			} catch (err) {
 				console.warn('[cloud] Failed to apply cloud snapshot:', err)
 			}

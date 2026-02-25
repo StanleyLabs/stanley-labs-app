@@ -21,6 +21,7 @@ function key(base: string): string {
 
 const BASE_SNAPSHOT = 'whiteboard-document'
 const BASE_SNAPSHOT_UPDATED_AT = 'whiteboard-document-updated-at'
+const BASE_CLOUD_APPLIED_AT = 'whiteboard-cloud-applied-at'
 const BASE_SHARE_MAP = 'whiteboard-share-map'
 const BASE_THEME = 'whiteboard-theme'
 const BASE_CLOUD_PAGE_IDS = 'whiteboard-cloud-page-ids'
@@ -124,6 +125,23 @@ export function getLocalSnapshotUpdatedAt(): number {
 /** Stamp local snapshot updated-at to a specific time (used when applying cloud snapshots). */
 export function setLocalSnapshotUpdatedAt(ms: number): void {
 	try { localStorage.setItem(key(BASE_SNAPSHOT_UPDATED_AT), String(ms)) }
+	catch { /* ignore */ }
+}
+
+/** When did we last successfully apply a cloud snapshot? (ms since epoch) */
+export function getCloudAppliedAt(): number {
+	try {
+		const raw = localStorage.getItem(key(BASE_CLOUD_APPLIED_AT))
+		const n = raw ? Number(raw) : 0
+		return Number.isFinite(n) ? n : 0
+	} catch {
+		return 0
+	}
+}
+
+/** Mark cloud snapshot as applied at a specific time (ms since epoch) */
+export function setCloudAppliedAt(ms: number): void {
+	try { localStorage.setItem(key(BASE_CLOUD_APPLIED_AT), String(ms)) }
 	catch { /* ignore */ }
 }
 
