@@ -43,10 +43,28 @@ const USER_DOCUMENT_ID = '__document__'
 /** Save/update the user's canonical whiteboard document snapshot (cloud source of truth). */
 export async function saveUserDocumentSnapshot(
 	userId: string,
-	snapshot: unknown
-): Promise<void> {
+	snapshot: unknown,
+	expectedUpdatedAt?: string | null
+): Promise<{ updated_at: string } | null> {
 	const now = new Date().toISOString()
-	const { error } = await supabase
+
+	// Optimistic concurrency: if we have an expectedUpdatedAt, only write if it matches.
+	if (expectedUpdatedAt) {
+		const { data, error } = await supabase
+			.from('whiteboard_pages')
+			.update({ snapshot, updated_at: now })
+			.eq('user_id', userId)
+			.eq('id', USER_DOCUMENT_ID)
+			.eq('updated_at', expectedUpdatedAt)
+			.select('updated_at')
+			.single()
+
+		if (error || !data) return null
+		return data as { updated_at: string }
+	}
+
+	// First write / no token: upsert.
+	const { data, error } = await supabase
 		.from('whiteboard_pages')
 		.upsert(
 			{
@@ -60,9 +78,14 @@ export async function saveUserDocumentSnapshot(
 			},
 			{ onConflict: 'id' }
 		)
-	if (error) {
-		console.error('[cloud] saveUserDocumentSnapshot failed:', error.message)
+		.select('updated_at')
+		.single()
+
+	if (error || !data) {
+		console.error('[cloud] saveUserDocumentSnapshot failed:', error?.message)
+		return null
 	}
+	return data as { updated_at: string }
 }
 
 /** Load the user's canonical whiteboard document snapshot. */

@@ -23,6 +23,8 @@ import {
 	setLocalSnapshotUpdatedAt,
 	getCloudAppliedAt,
 	setCloudAppliedAt,
+	getCloudEtag,
+	setCloudEtag,
 	getLastSelectedPageId,
 	setLastSelectedPageId,
 } from '../persistence'
@@ -86,7 +88,16 @@ export function useCloudPersistence(
 				const snapshot = { document: documentSnapshot, session }
 
 				// Save the full document snapshot to Supabase (canonical for logged-in users)
-				void saveUserDocumentSnapshot(userIdRef.current!, snapshot)
+				const expected = getCloudEtag()
+				void saveUserDocumentSnapshot(userIdRef.current!, snapshot, expected).then((res) => {
+					if (res?.updated_at) {
+						setCloudEtag(res.updated_at)
+						setCloudAppliedAt(new Date(res.updated_at).getTime())
+					} else {
+						// Someone else wrote first (ex: another device deleted a page). Pull latest.
+						window.dispatchEvent(new Event('whiteboard-cloud-refresh'))
+					}
+				})
 			} catch {
 				/* ignore errors - localStorage is the fallback */
 			}
@@ -128,6 +139,7 @@ export function useCloudPersistence(
 				const cloudUpdatedAt = new Date(doc.updated_at).getTime()
 				const cloudAppliedAt = getCloudAppliedAt()
 				if (cloudUpdatedAt <= cloudAppliedAt) return
+				setCloudEtag(doc.updated_at)
 
 
 				try {
@@ -144,6 +156,7 @@ export function useCloudPersistence(
 					// Only keep lightweight UI state locally.
 					setLocalSnapshotUpdatedAt(cloudUpdatedAt)
 					setCloudAppliedAt(cloudUpdatedAt)
+					setCloudEtag(doc.updated_at)
 
 					// Restore last selected page if it exists, otherwise open the first page.
 					try {

@@ -22,6 +22,7 @@ function key(base: string): string {
 const BASE_SNAPSHOT = 'whiteboard-document'
 const BASE_SNAPSHOT_UPDATED_AT = 'whiteboard-document-updated-at'
 const BASE_CLOUD_APPLIED_AT = 'whiteboard-cloud-applied-at'
+const BASE_CLOUD_ETAG = 'whiteboard-cloud-etag'
 const BASE_SHARE_MAP = 'whiteboard-share-map'
 const BASE_THEME = 'whiteboard-theme'
 const BASE_CLOUD_PAGE_IDS = 'whiteboard-cloud-page-ids'
@@ -156,6 +157,21 @@ export function getCloudAppliedAt(): number {
 export function setCloudAppliedAt(ms: number): void {
 	try { localStorage.setItem(key(BASE_CLOUD_APPLIED_AT), String(ms)) }
 	catch { /* ignore */ }
+}
+
+/** Opaque concurrency token for the canonical cloud snapshot (currently the updated_at ISO string). */
+export function getCloudEtag(): string | null {
+	try { return localStorage.getItem(key(BASE_CLOUD_ETAG)) }
+	catch { return null }
+}
+
+export function setCloudEtag(etag: string | null): void {
+	try {
+		if (!etag) localStorage.removeItem(key(BASE_CLOUD_ETAG))
+		else localStorage.setItem(key(BASE_CLOUD_ETAG), etag)
+	} catch {
+		/* ignore */
+	}
 }
 
 // ── Share map (pageId → shareId) ───────────────────────────────────────────────
