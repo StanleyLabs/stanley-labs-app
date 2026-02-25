@@ -40,7 +40,7 @@ export function Shell({ children }: { children: ReactNode }) {
       {!isHome && !isLogin && (
         <div
           ref={containerRef}
-          className={`fixed right-4 z-[9999] flex items-end${isChat ? " landscape-hide" : ""} ${
+          className={`pointer-events-none fixed right-4 z-[9999] flex items-end${isChat ? " landscape-hide" : ""} ${
             isBoards
               ? "top-4 flex-col sm:top-auto sm:bottom-12 sm:flex-col-reverse"
               : "bottom-4 flex-col-reverse"
@@ -49,7 +49,7 @@ export function Shell({ children }: { children: ReactNode }) {
           {/* Main toggle button */}
           <button
             onClick={() => setOpen((v) => !v)}
-            className={`flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] bg-ink/90 backdrop-blur-xl shadow-lg transition-all duration-200 ${
+            className={`pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] bg-ink/90 backdrop-blur-xl shadow-lg transition-all duration-200 ${
               open
                 ? "bg-white/[0.12] text-paper"
                 : "text-fog/60 hover:text-paper hover:bg-ink"
