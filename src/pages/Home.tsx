@@ -138,6 +138,10 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      <div className="shrink-0 px-6 pb-6 text-center text-xs text-fog/40">
+        <Link to="/privacy" className="hover:text-fog/70">Privacy</Link>
+      </div>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { AuthProvider } from "./lib/AuthContext";
 import { usePageMeta } from "./hooks/usePageMeta";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
+import Privacy from "./pages/Privacy";
 
 const TasksApp = lazy(() => import("./features/tasks/TasksApp"));
 const BoardsApp = lazy(() => import("./features/boards/BoardsApp"));
@@ -29,6 +30,7 @@ export default function App() {
           <Suspense fallback={<Loading />}>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/privacy" element={<Privacy />} />
               <Route path="/" element={<Home />} />
               <Route path="/tasks/*" element={<TasksApp />} />
               <Route path="/boards/*" element={<BoardsApp />} />
