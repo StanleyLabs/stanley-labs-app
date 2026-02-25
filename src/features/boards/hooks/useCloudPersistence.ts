@@ -51,6 +51,9 @@ export function useCloudPersistence(
 	userIdRef.current = userId
 
 	const lastSavedPageIdsRef = useRef<Set<string>>(new Set())
+	// Tracks the last page ids we have positively seen in the cloud.
+	// Used to avoid deleting brand-new local pages during refresh races.
+	const confirmedCloudPageIdsRef = useRef<Set<string>>(new Set())
 
 	// Save pages to cloud
 	useEffect(() => {
@@ -159,22 +162,27 @@ export function useCloudPersistence(
 
 			const desiredIds = desired.map((p) => p.id)
 			setCloudPageIds(desiredIds)
+			confirmedCloudPageIdsRef.current = new Set(desiredIds)
 			lastSavedPageIdsRef.current = new Set(desiredIds)
 
-			// Remove local pages that do not exist in the cloud anymore
+			// Remove local pages that do not exist in the cloud anymore.
+			// Guard: only remove pages that we have previously confirmed were in the cloud.
+			// This avoids race conditions where a newly-created local page is removed by a refresh
+			// before its row is written to Supabase.
 			const localSnap = store.getStoreSnapshot('document') as StoreSnap
 			const localPageIds = Object.values(localSnap.store ?? {})
 				.filter((r: any) => r?.typeName === 'page' && r.id)
 				.map((r: any) => r.id as string)
 			const desiredSet = new Set(desiredIds)
+			const confirmedSet = confirmedCloudPageIdsRef.current
 			for (const localId of localPageIds) {
-				if (!desiredSet.has(localId)) {
-					const idsToRemove = getPageRecordIds(localSnap, localId)
-					if (idsToRemove.length) {
-						store.mergeRemoteChanges(() => {
-							store.remove(idsToRemove as any)
-						})
-					}
+				if (desiredSet.has(localId)) continue
+				if (!confirmedSet.has(localId)) continue
+				const idsToRemove = getPageRecordIds(localSnap, localId)
+				if (idsToRemove.length) {
+					store.mergeRemoteChanges(() => {
+						store.remove(idsToRemove as any)
+					})
 				}
 			}
 

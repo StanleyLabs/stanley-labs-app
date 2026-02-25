@@ -139,6 +139,8 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 				}
 			})
 		})
+		// Close the page menu after creating a page to avoid stale list UI during cloud sync.
+		editor.menus.clearOpenMenus()
 		trackEvent('new-page', { source: 'page-menu' })
 	}, [editor, msg, isReadonlyMode, trackEvent])
 
