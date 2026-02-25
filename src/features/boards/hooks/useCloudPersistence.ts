@@ -28,8 +28,7 @@ import {
 } from '../persistence'
 import { syncGridRef } from '../lib/gridSnapshot'
 import type { GridRef } from '../lib/gridSnapshot'
-import { getPageDocumentFromStore, getPageRecordIds, remapDocumentPageId } from '../sharePage'
-import { PageRecordType } from 'tldraw'
+import { getPageDocumentFromStore, getPageRecordIds } from '../sharePage'
 import { isSharedPage, isConnecting as machineIsConnecting } from '../machine'
 import type { SnapshotFrom } from 'xstate'
 import { whiteboardMachine } from '../machine'
@@ -153,26 +152,6 @@ export function useCloudPersistence(
 				if (p.share_id) setShareIdForPage(p.id, p.share_id)
 			}
 
-			// One-time migration: replace the default tldraw page id (page:page) with a generated id.
-			// This keeps all pages using the same id format.
-			try {
-				const MIGRATE_KEY = `whiteboard:migrated-default-page:${userId}`
-				const didMigrate = localStorage.getItem(MIGRATE_KEY) === '1'
-				const defaultRow = pages.find((p) => p.id === 'page:page' && p.snapshot)
-				if (!didMigrate && defaultRow && (defaultRow.snapshot as any)?.document?.store) {
-					const newId = PageRecordType.createId() as unknown as string
-					const remapped = remapDocumentPageId(defaultRow.snapshot as any, 'page:page', newId)
-					await savePageSnapshot(newId, userId, remapped, defaultRow.name ?? 'Page 1', defaultRow.order ?? 0, defaultRow.share_id ?? null)
-					await deleteCloudPage('page:page')
-					// If this device was tracking the old id, update it.
-					if (getLastSelectedPageId() === 'page:page') setLastSelectedPageId(newId)
-					localStorage.setItem(MIGRATE_KEY, '1')
-					// Re-run refresh to reconcile using the new id.
-					return
-				}
-			} catch {
-				/* ignore */
-			}
 
 			const desired = pages
 				.filter((p) => p.snapshot && (p.snapshot as any)?.document?.store)
