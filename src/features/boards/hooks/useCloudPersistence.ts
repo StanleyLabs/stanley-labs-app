@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useRef } from 'react'
+import { supabase } from '../../../lib/supabase'
 import type { TLStore } from 'tldraw'
 import { getSnapshot } from 'tldraw'
 import { TLINSTANCE_ID } from 'tldraw'
@@ -218,15 +219,44 @@ export function useCloudPersistence(
 		// Boot hydrate
 		void refreshFromCloud()
 
-		// On-demand refresh (ex: when page menu opens)
-		const onRefresh = () => {
-			void refreshFromCloud()
+		// Debounced refresh helper (prevents event storms)
+		let refreshTimer: ReturnType<typeof setTimeout> | null = null
+		const scheduleRefresh = () => {
+			if (cancelled) return
+			if (refreshTimer) clearTimeout(refreshTimer)
+			refreshTimer = setTimeout(() => {
+				refreshTimer = null
+				void refreshFromCloud()
+			}, 150)
 		}
+
+		// On-demand refresh (ex: when page menu opens)
+		const onRefresh = () => scheduleRefresh()
 		window.addEventListener('whiteboard-cloud-refresh', onRefresh)
+
+		// Realtime: any change to this user's whiteboard rows triggers a refresh.
+		// This keeps page menu + page list in sync across devices.
+		const channel = supabase
+			.channel(`whiteboard_pages:${userId}`)
+			.on(
+				'postgres_changes',
+				{
+					event: '*',
+					schema: 'public',
+					table: 'whiteboard_pages',
+					filter: `user_id=eq.${userId}`,
+				},
+				() => {
+					scheduleRefresh()
+				}
+			)
+			.subscribe()
 
 		return () => {
 			cancelled = true
 			window.removeEventListener('whiteboard-cloud-refresh', onRefresh)
+			if (refreshTimer) clearTimeout(refreshTimer)
+			supabase.removeChannel(channel)
 		}
 	}, [store, gridRef, userId])
 }
