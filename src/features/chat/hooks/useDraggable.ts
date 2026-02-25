@@ -1,7 +1,15 @@
 import { useEffect, useRef, type RefObject } from 'react'
 
 export function useDraggable(ref: RefObject<HTMLDivElement | null>) {
-  const state = useRef({ dragging: false, offsetX: 0, offsetY: 0 })
+  const DRAG_THRESHOLD_PX = 6
+  const state = useRef({
+    armed: false,
+    dragging: false,
+    startX: 0,
+    startY: 0,
+    offsetX: 0,
+    offsetY: 0,
+  })
 
   useEffect(() => {
     const el = ref.current
@@ -21,19 +29,25 @@ export function useDraggable(ref: RefObject<HTMLDivElement | null>) {
       el.style.transform = 'none'
     }
 
-    const startDrag = (clientX: number, clientY: number) => {
+    const armDrag = (clientX: number, clientY: number) => {
       const rect = el.getBoundingClientRect()
-      state.current = {
-        dragging: true,
-        offsetX: clientX - rect.left,
-        offsetY: clientY - rect.top,
-      }
+      state.current.armed = true
+      state.current.dragging = false
+      state.current.startX = clientX
+      state.current.startY = clientY
+      state.current.offsetX = clientX - rect.left
+      state.current.offsetY = clientY - rect.top
+    }
+
+    const startDrag = () => {
+      state.current.dragging = true
       el.style.cursor = 'grabbing'
       el.style.opacity = '0.85'
     }
 
     const endDrag = () => {
-      if (state.current.dragging) {
+      if (state.current.armed || state.current.dragging) {
+        state.current.armed = false
         state.current.dragging = false
         el.style.cursor = 'grab'
         el.style.opacity = '1'
@@ -41,20 +55,48 @@ export function useDraggable(ref: RefObject<HTMLDivElement | null>) {
     }
 
     // Mouse
-    const onMouseDown = (e: MouseEvent) => { e.preventDefault(); startDrag(e.clientX, e.clientY) }
-    const onMouseMove = (e: MouseEvent) => { if (state.current.dragging) { e.preventDefault(); applyPosition(e.clientX, e.clientY) } }
+    const onMouseDown = (e: MouseEvent) => {
+      e.preventDefault()
+      armDrag(e.clientX, e.clientY)
+    }
+    const onMouseMove = (e: MouseEvent) => {
+      if (!state.current.armed) return
+
+      const dx = e.clientX - state.current.startX
+      const dy = e.clientY - state.current.startY
+      const dist = Math.hypot(dx, dy)
+
+      if (!state.current.dragging) {
+        if (dist < DRAG_THRESHOLD_PX) return
+        startDrag()
+      }
+
+      e.preventDefault()
+      applyPosition(e.clientX, e.clientY)
+    }
     const onMouseUp = () => endDrag()
 
     // Touch
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return
-      e.preventDefault()
-      startDrag(e.touches[0].clientX, e.touches[0].clientY)
+      armDrag(e.touches[0].clientX, e.touches[0].clientY)
     }
     const onTouchMove = (e: TouchEvent) => {
-      if (!state.current.dragging) return
+      if (!state.current.armed) return
+
+      const x = e.touches[0].clientX
+      const y = e.touches[0].clientY
+      const dx = x - state.current.startX
+      const dy = y - state.current.startY
+      const dist = Math.hypot(dx, dy)
+
+      if (!state.current.dragging) {
+        if (dist < DRAG_THRESHOLD_PX) return
+        startDrag()
+      }
+
       e.preventDefault()
-      applyPosition(e.touches[0].clientX, e.touches[0].clientY)
+      applyPosition(x, y)
     }
     const onTouchEnd = () => endDrag()
     const onTouchCancel = () => endDrag()
