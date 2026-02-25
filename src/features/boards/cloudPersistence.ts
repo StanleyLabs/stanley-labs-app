@@ -24,7 +24,7 @@ export interface CloudPage {
 	updated_at: string
 }
 
-/** Load all pages for a user */
+/** Load all pages for a user (excludes canonical document rows). */
 export async function loadUserPages(userId: string): Promise<CloudPage[]> {
 	const { data, error } = await supabase
 		.from('whiteboard_pages')
@@ -35,11 +35,15 @@ export async function loadUserPages(userId: string): Promise<CloudPage[]> {
 		console.error('[cloud] loadUserPages failed:', error.message)
 		return []
 	}
-	return data ?? []
+	return (data ?? []).filter((p) => !isCanonicalDocId(p.id))
 }
 
 const USER_DOCUMENT_ID = '__document__'
 const USER_DOCUMENT_IDS = [USER_DOCUMENT_ID, 'document__'] as const
+
+function isCanonicalDocId(id: string): boolean {
+	return (USER_DOCUMENT_IDS as readonly string[]).includes(id)
+}
 
 /** Save/update the user's canonical whiteboard document snapshot (cloud source of truth). */
 export async function saveUserDocumentSnapshot(
@@ -115,26 +119,48 @@ export async function loadUserDocumentSnapshot(
 	return data as { snapshot: unknown; updated_at: string }
 }
 
-/** Save/update a page snapshot (legacy per-page storage). */
+/** Save/update a page snapshot row (per-page, per-user). */
 export async function savePageSnapshot(
 	pageId: string,
 	userId: string,
 	snapshot: unknown,
-	name?: string
+	name?: string,
+	order?: number,
+	shareId?: string | null
 ): Promise<void> {
 	const now = new Date().toISOString()
+
+	// Try update first (prevents cross-user collisions).
+	{
+		const { data, error } = await supabase
+			.from('whiteboard_pages')
+			.update({
+				snapshot,
+				updated_at: now,
+				...(name !== undefined ? { name } : {}),
+				...(order !== undefined ? { order } : {}),
+				...(shareId !== undefined ? { share_id: shareId } : {}),
+			})
+			.eq('user_id', userId)
+			.eq('id', pageId)
+			.select('id')
+			.maybeSingle()
+		if (!error && data?.id) return
+	}
+
+	// Insert if missing.
 	const { error } = await supabase
 		.from('whiteboard_pages')
-		.upsert(
-			{
-				id: pageId,
-				user_id: userId,
-				snapshot,
-				...(name !== undefined ? { name } : {}),
-				updated_at: now,
-			},
-			{ onConflict: 'id' }
-		)
+		.insert({
+			id: pageId,
+			user_id: userId,
+			snapshot,
+			name: name ?? 'Untitled',
+			order: order ?? 0,
+			share_id: shareId ?? null,
+			created_at: now,
+			updated_at: now,
+		})
 	if (error) {
 		console.error('[cloud] savePageSnapshot failed:', error.message)
 	}

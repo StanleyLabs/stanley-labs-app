@@ -1,43 +1,45 @@
 /**
  * Cloud persistence hook for logged-in users.
  *
- * Strategy: localStorage remains the fast working layer.
- * This hook mirrors saves to Supabase in the background,
- * and hydrates from Supabase on boot (overriding localStorage).
+ * Logged-in mode is cloud-first (no offline requirement):
+ * - Page list + page content are stored per-page in Supabase (whiteboard_pages rows).
+ * - localStorage is only used for lightweight UI state (last selected page id, share map cache).
  *
- * This gives us:
- * - Instant local writes (no latency)
- * - Cross-device sync (load from cloud on any device)
- * - Graceful degradation (works offline, syncs when online)
+ * This hook:
+ * - Saves per-page snapshots (page + descendants) to Supabase (throttled + flushable).
+ * - Loads and reconciles per-page snapshots from Supabase.
+ * - Subscribes to Supabase Realtime to refresh cross-device changes.
  */
 
 import { useEffect, useRef } from 'react'
 import { supabase } from '../../../lib/supabase'
 import type { TLStore } from 'tldraw'
-import { getSnapshot } from 'tldraw'
 import { TLINSTANCE_ID } from 'tldraw'
-import { loadUserPages, loadUserDocumentSnapshot, saveUserDocumentSnapshot } from '../cloudPersistence'
+import type { IndexKey } from '@tldraw/utils'
+import { sortByIndex } from '@tldraw/utils'
+
+import { loadUserPages, savePageSnapshot, deletePage as deleteCloudPage } from '../cloudPersistence'
 import {
 	throttle,
 	setCloudPageIds,
 	setShareIdForPage,
-	setLocalSnapshotUpdatedAt,
-	getCloudAppliedAt,
-	setCloudAppliedAt,
-	getCloudEtag,
-	setCloudEtag,
 	getLastSelectedPageId,
 	setLastSelectedPageId,
 } from '../persistence'
-import { applyParsedSnapshot, syncGridRef } from '../lib/gridSnapshot'
-import type { GridRef, SnapshotParsed } from '../lib/gridSnapshot'
+import { syncGridRef } from '../lib/gridSnapshot'
+import type { GridRef } from '../lib/gridSnapshot'
+import { getPageDocumentFromStore, getPageRecordIds } from '../sharePage'
 import { isSharedPage, isConnecting as machineIsConnecting } from '../machine'
 import type { SnapshotFrom } from 'xstate'
 import { whiteboardMachine } from '../machine'
 
 type MachineState = SnapshotFrom<typeof whiteboardMachine>
 
-const CLOUD_SAVE_INTERVAL = 1500 // keep cross-device changes feeling instant; still throttled
+const CLOUD_SAVE_INTERVAL = 1500
+
+type PageRec = { id: string; name?: string; index?: string; typeName?: string }
+
+type StoreSnap = { store: Record<string, unknown>; schema?: unknown }
 
 export function useCloudPersistence(
 	store: TLStore,
@@ -48,7 +50,9 @@ export function useCloudPersistence(
 	const userIdRef = useRef(userId)
 	userIdRef.current = userId
 
-	// Cloud save: mirror localStorage saves to Supabase
+	const lastSavedPageIdsRef = useRef<Set<string>>(new Set())
+
+	// Save pages to cloud
 	useEffect(() => {
 		if (!userId) return
 
@@ -63,52 +67,42 @@ export function useCloudPersistence(
 					| undefined
 				if (inst) syncGridRef(inst, gridRef, store)
 
-				const rawSnapshot = store.getStoreSnapshot('all') as {
-					store: Record<string, unknown>
-					schema: unknown
-				}
-				const storeObj = rawSnapshot.store ?? {}
+				const persistSnap = store.getStoreSnapshot('document') as StoreSnap
+				const storeObj = persistSnap.store ?? {}
 
-				const filtered: Record<string, unknown> = {}
-				for (const [id, rec] of Object.entries(storeObj)) {
-					if ((rec as { typeName?: string })?.typeName !== 'camera') {
-						filtered[id] = rec
+				const pages = (Object.values(storeObj) as PageRec[])
+					.filter((r) => r?.typeName === 'page' && typeof r.id === 'string')
+					.map((r) => ({
+						id: r.id,
+						name: r.name ?? 'Untitled',
+						index: (r.index ?? 'a0') as IndexKey,
+					}))
+					.sort(sortByIndex)
+
+				const currentIds = new Set(pages.map((p) => p.id))
+
+				// Delete rows for pages removed locally (best-effort)
+				for (const oldId of lastSavedPageIdsRef.current) {
+					if (!currentIds.has(oldId)) {
+						void deleteCloudPage(oldId)
 					}
 				}
+				lastSavedPageIdsRef.current = currentIds
 
-				const snap = getSnapshot(store)
-				const session = structuredClone(snap.session) ?? {}
-				const pageStates = session.pageStates ?? []
-				for (const ps of pageStates) {
-					const s = ps as { pageId: string; isGridMode?: boolean; camera?: unknown }
-					s.isGridMode = gridRef.current.m.get(s.pageId) ?? false
-					delete s.camera
-				}
-
-				const documentSnapshot = { store: filtered, schema: rawSnapshot.schema }
-				const snapshot = { document: documentSnapshot, session }
-
-				// Save the full document snapshot to Supabase (canonical for logged-in users)
-				const expected = getCloudEtag()
-				void saveUserDocumentSnapshot(userIdRef.current!, snapshot, expected).then((res) => {
-					if (res?.updated_at) {
-						setCloudEtag(res.updated_at)
-						setCloudAppliedAt(new Date(res.updated_at).getTime())
-					} else {
-						// Someone else wrote first (ex: another device deleted a page). Pull latest.
-						window.dispatchEvent(new Event('whiteboard-cloud-refresh'))
-					}
+				// Upsert each page snapshot
+				pages.forEach((p, order) => {
+					const doc = getPageDocumentFromStore(persistSnap, p.id)
+					if (!doc) return
+					// Store page-only snapshot in the row.
+					void savePageSnapshot(p.id, userIdRef.current!, doc, p.name, order)
 				})
 			} catch {
-				/* ignore errors - localStorage is the fallback */
+				// Cloud-only mode, but we still fail soft in case of transient issues.
 			}
 		}
 
 		const throttled = throttle(cloudSave, CLOUD_SAVE_INTERVAL)
-
-		const unlisten = store.listen(() => {
-			throttled.run()
-		})
+		const unlisten = store.listen(() => throttled.run())
 
 		const flush = (): void => throttled.flush()
 		const flushNow = (): void => cloudSave()
@@ -126,114 +120,88 @@ export function useCloudPersistence(
 		}
 	}, [store, gridRef, machineStateRef, userId])
 
-	// Cloud load: hydrate from Supabase on boot, and on-demand refresh events.
+	// Load/reconcile pages from cloud + realtime refresh
 	useEffect(() => {
 		if (!userId) return
-
 		let cancelled = false
+
+		const applyPageSnapshot = (pageId: string, incomingStore: Record<string, unknown>, schema?: unknown) => {
+			const localSnap = store.getStoreSnapshot('document') as StoreSnap
+			const idsToRemove = new Set(getPageRecordIds(localSnap, pageId))
+			const toRemove = Array.from(idsToRemove)
+			const toPut = Object.values(incomingStore)
+			store.mergeRemoteChanges(() => {
+				if (toRemove.length) store.remove(toRemove as any)
+				if (toPut.length) store.put(toPut as any)
+			})
+			// Ensure schema exists (tldraw stores schema outside records)
+			if (schema && !localSnap.schema) {
+				// nothing - schema is carried in snapshots used by loadSnapshot,
+				// but our mergeRemoteChanges path relies on store's internal schema.
+				// In practice the editor provides it; keep this parameter for future.
+			}
+		}
 
 		const refreshFromCloud = async (): Promise<void> => {
 			if (cancelled) return
-			// Prefer canonical per-user document snapshot.
-			// Do not depend on the pages list existing: new users may have zero rows.
-			const doc = await loadUserDocumentSnapshot(userId)
-			if (cancelled) return
-
 			const pages = await loadUserPages(userId)
 			if (cancelled) return
 
-			// If we loaded a doc snapshot above, we already updated the store.
-			// We still want share flags for the page menu, but we do not need to fall back to per-page snapshots.
-			if (doc?.snapshot) {
-				for (const p of pages) {
-					if (p.share_id) setShareIdForPage(p.id, p.share_id)
-				}
-				return
-			}
-			if (doc?.snapshot) {
-				const cloudUpdatedAt = new Date(doc.updated_at).getTime()
-				const cloudAppliedAt = getCloudAppliedAt()
-				if (cloudUpdatedAt <= cloudAppliedAt) return
-				setCloudEtag(doc.updated_at)
-
-
-				try {
-					const snapshot = doc.snapshot as SnapshotParsed
-					applyParsedSnapshot(store, snapshot, gridRef)
-
-					const storeObj = ((snapshot as Record<string, unknown>).document as Record<string, unknown> | undefined)?.store as Record<string, { typeName?: string; id?: string }> ?? {}
-					const cloudPageIds = Object.values(storeObj)
-						.filter((r) => r.typeName === 'page' && r.id)
-						.map((r) => r.id as string)
-					setCloudPageIds(cloudPageIds)
-
-					// In logged-in mode, localStorage is not the source of truth.
-					// Only keep lightweight UI state locally.
-					setLocalSnapshotUpdatedAt(cloudUpdatedAt)
-					setCloudAppliedAt(cloudUpdatedAt)
-					setCloudEtag(doc.updated_at)
-
-					// Restore last selected page if it exists, otherwise open the first page.
-					try {
-						const last = getLastSelectedPageId()
-						const raw = store.getStoreSnapshot('all') as { store: Record<string, { typeName?: string; id?: string }> }
-						const pageIds = Object.values(raw.store ?? {})
-							.filter((r) => r.typeName === 'page' && r.id)
-							.map((r) => r.id as string)
-						const firstId = pageIds[0]
-						const preferred = (last && store.get(last as any)) ? last : firstId
-						if (preferred) {
-							store.update(TLINSTANCE_ID, (i) => ({ ...i, currentPageId: preferred as any }))
-							setLastSelectedPageId(preferred)
-						}
-					} catch {
-						/* ignore */
-					}
-				} catch (err) {
-					console.warn('[cloud] Failed to apply cloud snapshot:', err)
-				}
-				return
-			}
-
-			// Sync share IDs across devices.
+			// Update share flags for UI
 			for (const p of pages) {
 				if (p.share_id) setShareIdForPage(p.id, p.share_id)
 			}
 
-			// Fallback: if the canonical document row doesn't exist yet, use the newest snapshot we can find.
-			const withSnapshot = pages.filter((p) => p.snapshot)
-			if (withSnapshot.length === 0) return
+			const desired = pages
+				.filter((p) => p.snapshot && (p.snapshot as any)?.document?.store)
+				.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
 
-			const latest = withSnapshot.sort(
-				(a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-			)[0]
-			if (!latest.snapshot) return
+			const desiredIds = desired.map((p) => p.id)
+			setCloudPageIds(desiredIds)
+			lastSavedPageIdsRef.current = new Set(desiredIds)
 
-			const cloudUpdatedAt = new Date(latest.updated_at).getTime()
-			const cloudAppliedAt = getCloudAppliedAt()
-			if (cloudUpdatedAt <= cloudAppliedAt) return
+			// Remove local pages that do not exist in the cloud anymore
+			const localSnap = store.getStoreSnapshot('document') as StoreSnap
+			const localPageIds = Object.values(localSnap.store ?? {})
+				.filter((r: any) => r?.typeName === 'page' && r.id)
+				.map((r: any) => r.id as string)
+			const desiredSet = new Set(desiredIds)
+			for (const localId of localPageIds) {
+				if (!desiredSet.has(localId)) {
+					const idsToRemove = getPageRecordIds(localSnap, localId)
+					if (idsToRemove.length) {
+						store.mergeRemoteChanges(() => {
+							store.remove(idsToRemove as any)
+						})
+					}
+				}
+			}
 
-			try {
-				const snapshot = latest.snapshot as SnapshotParsed
-				applyParsedSnapshot(store, snapshot, gridRef)
+			// Apply/replace each cloud page snapshot
+			for (const p of desired) {
+				const snap = p.snapshot as any
+				const incoming = (snap?.document?.store ?? {}) as Record<string, unknown>
+				applyPageSnapshot(p.id, incoming, snap?.document?.schema)
+			}
 
-				const storeObj = ((snapshot as Record<string, unknown>).document as Record<string, unknown> | undefined)?.store as Record<string, { typeName?: string; id?: string }> ?? {}
-				const cloudPageIds = Object.values(storeObj)
-					.filter((r) => r.typeName === 'page' && r.id)
-					.map((r) => r.id as string)
-				setCloudPageIds(cloudPageIds)
-
-				setLocalSnapshotUpdatedAt(cloudUpdatedAt)
-				setCloudAppliedAt(cloudUpdatedAt)
-			} catch (err) {
-				console.warn('[cloud] Failed to apply cloud snapshot:', err)
+			// Choose current page: last selected if present, else first cloud page.
+			const last = getLastSelectedPageId()
+			const firstId = desiredIds[0]
+			const preferred = (last && desiredSet.has(last)) ? last : firstId
+			if (preferred) {
+				try {
+					store.update(TLINSTANCE_ID, (i) => ({ ...i, currentPageId: preferred as any }))
+					setLastSelectedPageId(preferred)
+				} catch {
+					/* ignore */
+				}
 			}
 		}
 
 		// Boot hydrate
 		void refreshFromCloud()
 
-		// Debounced refresh helper (prevents event storms)
+		// Debounced refresh helper
 		let refreshTimer: ReturnType<typeof setTimeout> | null = null
 		const scheduleRefresh = () => {
 			if (cancelled) return
@@ -244,12 +212,9 @@ export function useCloudPersistence(
 			}, 150)
 		}
 
-		// On-demand refresh (ex: when page menu opens)
 		const onRefresh = () => scheduleRefresh()
 		window.addEventListener('whiteboard-cloud-refresh', onRefresh)
 
-		// Realtime: any change to this user's whiteboard rows triggers a refresh.
-		// This keeps page menu + page list in sync across devices.
 		const channel = supabase
 			.channel(`whiteboard_pages:${userId}`)
 			.on(
@@ -260,9 +225,7 @@ export function useCloudPersistence(
 					table: 'whiteboard_pages',
 					filter: `user_id=eq.${userId}`,
 				},
-				() => {
-					scheduleRefresh()
-				}
+				() => scheduleRefresh()
 			)
 			.subscribe()
 
@@ -272,5 +235,5 @@ export function useCloudPersistence(
 			if (refreshTimer) clearTimeout(refreshTimer)
 			supabase.removeChannel(channel)
 		}
-	}, [store, gridRef, userId])
+	}, [store, userId])
 }
