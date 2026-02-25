@@ -33,7 +33,7 @@ export default function ControlsBar({
     <>
       {/* Settings panel */}
       {showSettings && (
-        <div className="absolute bottom-[88px] left-1/2 -translate-x-1/2 z-40 w-80 sm:w-96 bg-graphite border border-white/10 rounded-2xl shadow-2xl backdrop-blur-xl p-5">
+        <div className="absolute bottom-[88px] left-1/2 -translate-x-1/2 z-20 w-80 sm:w-96 bg-graphite border border-white/10 rounded-2xl shadow-2xl backdrop-blur-xl p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-display font-semibold text-paper">Device Settings</h3>
             <button
@@ -67,7 +67,7 @@ export default function ControlsBar({
       )}
 
       {/* Controls bar */}
-      <div className="relative z-30 shrink-0 border-t border-white/10 bg-graphite/50 backdrop-blur-sm px-6 py-4 landscape-compact">
+      <div className="shrink-0 border-t border-white/10 bg-graphite/50 backdrop-blur-sm px-6 py-4 landscape-compact">
         <div className="mx-auto max-w-7xl flex justify-center items-center gap-3">
           <ControlButton
             active={isAudioMuted}
