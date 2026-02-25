@@ -6,8 +6,9 @@ import { useCallback } from 'react'
 import { importJsonFromText } from './pasteJson'
 import { getContentAsJsonDoc } from './sharePage'
 import { isSupabaseConfigured, createSharedPage } from './supabase'
-import { setShareIdForPage, setShareIdInUrl, buildShareUrl } from './persistence'
-import { sharePage as shareCloudPage } from './cloudPersistence'
+import { setShareIdForPage, buildShareUrl } from './persistence'
+import { savePageSnapshot } from './cloudPersistence'
+import { shareSavedPage } from './savedPages'
 import { useMachineCtx } from './MachineContext'
 import { useAuth } from '../../lib/AuthContext'
 import {
@@ -140,20 +141,33 @@ function CreateLinkMenuItem() {
 					toasts.addToast({ title: 'Share page unavailable', description: 'No content on page.', severity: 'error' })
 					return
 				}
-				const result = await createSharedPage(doc, user?.id)
+				let shareId: string | null = null
+
+				if (user?.id) {
+					// Logged-in: share the user's existing saved page.
+					// Ensure the cloud row exists and has a fresh snapshot before flipping the share flag.
+					const pages = editor.getPages()
+					const idx = pages.findIndex((p) => p.id === pageId)
+					const name = idx >= 0 ? pages[idx].name : 'Untitled'
+					const order = idx >= 0 ? idx : 0
+					await savePageSnapshot(pageId, user.id, doc, name, order)
+					const shared = await shareSavedPage(pageId)
+					shareId = shared?.public_id ?? null
+				} else {
+					// Logged-out: create a standalone shared page row.
+					const result = await createSharedPage(doc, null)
+					shareId = result?.id ?? null
+				}
+
 				toasts.removeToast(loadingId)
-				if (!result) {
-					toasts.addToast({ title: 'Share page unavailable', description: 'Supabase is not configured.', severity: 'error' })
+				if (!shareId) {
+					toasts.addToast({ title: 'Share page unavailable', description: 'Could not create a share link.', severity: 'error' })
 					return
 				}
-				setShareIdForPage(pageId, result.id)
-				// Persist share flag to the user's cloud row so other devices show this page as shared.
-				if (user?.id) {
-					void shareCloudPage(pageId, result.id)
-				}
-				setShareIdInUrl(result.id)
-				send({ type: 'ENTER_SHARED', shareId: result.id, pageId })
-				const url = buildShareUrl(result.id)
+
+				setShareIdForPage(pageId, shareId)
+				// Copy link should not navigate or change the URL.
+				const url = buildShareUrl(shareId)
 
 				// Clipboard write may fail on Safari (user-gesture timeout after
 				// awaits) — treat it as non-fatal since the share itself succeeded.

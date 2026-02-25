@@ -2,7 +2,8 @@
  * Cloud persistence hook for logged-in users.
  *
  * Logged-in mode is cloud-first (no offline requirement):
- * - Page list + page content are stored per-page in Supabase (whiteboard_pages rows).
+ * - Page documents live in `saved_pages`.
+ * - The per-user menu list (name + order) lives in `user_pages`.
  * - localStorage is only used for lightweight UI state (last selected page id, share map cache).
  *
  * This hook:
@@ -87,7 +88,7 @@ export function useCloudPersistence(
 				// Delete rows for pages removed locally (best-effort)
 				for (const oldId of lastSavedPageIdsRef.current) {
 					if (!currentIds.has(oldId)) {
-						void deleteCloudPage(oldId)
+						void deleteCloudPage(oldId, userIdRef.current!)
 					}
 				}
 				lastSavedPageIdsRef.current = currentIds
@@ -224,25 +225,26 @@ export function useCloudPersistence(
 		const onRefresh = () => scheduleRefresh()
 		window.addEventListener('whiteboard-cloud-refresh', onRefresh)
 
-		const channel = supabase
-			.channel(`whiteboard_pages:${userId}`)
+		const userPagesChannel = supabase
+			.channel(`user_pages:${userId}`)
 			.on(
 				'postgres_changes',
 				{
 					event: '*',
 					schema: 'public',
-					table: 'whiteboard_pages',
+					table: 'user_pages',
 					filter: `user_id=eq.${userId}`,
 				},
 				() => scheduleRefresh()
 			)
 			.subscribe()
 
+
 		return () => {
 			cancelled = true
 			window.removeEventListener('whiteboard-cloud-refresh', onRefresh)
 			if (refreshTimer) clearTimeout(refreshTimer)
-			supabase.removeChannel(channel)
+			supabase.removeChannel(userPagesChannel)
 		}
 	}, [store, userId])
 }
