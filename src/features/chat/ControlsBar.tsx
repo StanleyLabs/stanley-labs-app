@@ -95,6 +95,14 @@ export default function ControlsBar({
           </ControlButton>
 
           <button
+            onPointerDown={() => {
+              const el = document.activeElement as HTMLElement | null
+              if (!el) return
+              const tag = el.tagName
+              if (tag === 'INPUT' || tag === 'TEXTAREA' || (el as any).isContentEditable) {
+                el.blur()
+              }
+            }}
             onClick={onLeave}
             className="w-12 h-12 rounded-full bg-signal text-white flex items-center justify-center transition-all hover:brightness-110 active:scale-[0.95]"
             title="Leave room"
