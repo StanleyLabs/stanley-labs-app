@@ -7,6 +7,7 @@ import { importJsonFromText } from './pasteJson'
 import { getContentAsJsonDoc } from './sharePage'
 import { isSupabaseConfigured, createSharedPage } from './supabase'
 import { setShareIdForPage, setShareIdInUrl, buildShareUrl } from './persistence'
+import { sharePage as shareCloudPage } from './cloudPersistence'
 import { useMachineCtx } from './MachineContext'
 import { useAuth } from '../../lib/AuthContext'
 import {
@@ -146,6 +147,10 @@ function CreateLinkMenuItem() {
 					return
 				}
 				setShareIdForPage(pageId, result.id)
+				// Persist share flag to the user's cloud row so other devices show this page as shared.
+				if (user?.id) {
+					void shareCloudPage(pageId, result.id)
+				}
 				setShareIdInUrl(result.id)
 				send({ type: 'ENTER_SHARED', shareId: result.id, pageId })
 				const url = buildShareUrl(result.id)

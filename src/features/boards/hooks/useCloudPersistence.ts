@@ -20,6 +20,7 @@ import {
 	saveSnapshot as saveStorageSnapshot,
 	throttle,
 	setCloudPageIds,
+	setShareIdForPage,
 } from '../persistence'
 import { applyParsedSnapshot, syncGridRef } from '../lib/gridSnapshot'
 import type { GridRef, SnapshotParsed } from '../lib/gridSnapshot'
@@ -114,6 +115,13 @@ export function useCloudPersistence(
 		void loadUserPages(userId).then((pages) => {
 			if (cancelled) return
 			if (pages.length === 0) return
+
+			// Sync share IDs across devices.
+			// The pageId -> shareId map is stored in localStorage for fast lookup in the UI,
+			// but the canonical source for logged-in users is the cloud row (whiteboard_pages.share_id).
+			for (const p of pages) {
+				if (p.share_id) setShareIdForPage(p.id, p.share_id)
+			}
 
 			// Find the most recently updated page with a snapshot
 			const withSnapshot = pages.filter((p) => p.snapshot)
