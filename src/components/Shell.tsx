@@ -74,11 +74,17 @@ export function Shell({ children }: { children: ReactNode }) {
           {/* Dropdown pill below */}
           <div
             className={`flex flex-col items-stretch rounded-2xl border border-white/[0.08] bg-ink/90 backdrop-blur-xl shadow-lg overflow-hidden transition-all duration-300 ease-out ${
-              isBoards ? "mt-2 origin-top sm:mt-0 sm:mb-2 sm:origin-bottom" : "mb-2 origin-bottom"
+              isBoards
+                ? open
+                  ? "mt-2 origin-top sm:mt-0 sm:mb-2 sm:origin-bottom"
+                  : "origin-top sm:origin-bottom"
+                : open
+                  ? "mb-2 origin-bottom"
+                  : "origin-bottom"
             } ${
               open
-                ? "max-h-[300px] opacity-100 scale-y-100 py-1.5 px-1.5"
-                : "max-h-0 opacity-0 scale-y-90 py-0 px-0"
+                ? "pointer-events-auto max-h-[300px] opacity-100 scale-y-100 py-1.5 px-1.5"
+                : "pointer-events-none max-h-0 opacity-0 scale-y-90 py-0 px-0"
             }`}
           >
             {navItems.map(({ to, label, icon: Icon }) => (
