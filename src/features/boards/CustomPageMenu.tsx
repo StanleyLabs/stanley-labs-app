@@ -5,6 +5,7 @@
 import type { TLPageId } from '@tldraw/tlschema'
 import { stopEventPropagation, tlenv, useEditor, useValue } from '@tldraw/editor'
 import { memo, useCallback, useEffect, useState } from 'react'
+import { useAuth } from '../../lib/AuthContext'
 import {
 	PageItemInput,
 	PageRecordType,
@@ -39,6 +40,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 	const handleOpenChange = useCallback(() => setIsEditing(false), [])
 
 	const [isOpen, onOpenChange] = useMenuIsOpen('page-menu', handleOpenChange)
+	const { user } = useAuth()
 
 	const ITEM_HEIGHT = 36
 
@@ -93,6 +95,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 
 	useEffect(() => {
 		if (!isOpen) return
+		if (user) window.dispatchEvent(new Event('whiteboard-cloud-refresh'))
 		editor.timers.requestAnimationFrame(() => {
 			const elm = document.querySelector(`[data-pageid="${currentPageId}"]`) as HTMLDivElement
 

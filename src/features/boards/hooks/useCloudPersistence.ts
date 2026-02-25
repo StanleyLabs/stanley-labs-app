@@ -109,19 +109,19 @@ export function useCloudPersistence(
 		}
 	}, [store, gridRef, machineStateRef, userId])
 
-	// Cloud load: hydrate from Supabase on boot
+	// Cloud load: hydrate from Supabase on boot, and on-demand refresh events.
 	useEffect(() => {
 		if (!userId) return
 
 		let cancelled = false
 
-		void loadUserPages(userId).then((pages) => {
+		const refreshFromCloud = async (): Promise<void> => {
+			if (cancelled) return
+			const pages = await loadUserPages(userId)
 			if (cancelled) return
 			if (pages.length === 0) return
 
 			// Sync share IDs across devices.
-			// The pageId -> shareId map is stored in localStorage for fast lookup in the UI,
-			// but the canonical source for logged-in users is the cloud row (whiteboard_pages.share_id).
 			for (const p of pages) {
 				if (p.share_id) setShareIdForPage(p.id, p.share_id)
 			}
@@ -133,18 +133,14 @@ export function useCloudPersistence(
 			const latest = withSnapshot.sort(
 				(a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
 			)[0]
-
 			if (!latest.snapshot) return
 
-			// Avoid clobbering newer local changes (ex: user creates pages and refreshes before cloud save).
+			// Avoid clobbering newer local changes.
 			const localRaw = loadStorageSnapshot()
 			const localUpdatedAt = getLocalSnapshotUpdatedAt()
 			const cloudUpdatedAt = new Date(latest.updated_at).getTime()
 			const shouldApplyCloud = !localRaw || cloudUpdatedAt > localUpdatedAt
-			if (!shouldApplyCloud) {
-				console.log('[cloud] Skipping cloud hydrate - local snapshot is newer')
-				return
-			}
+			if (!shouldApplyCloud) return
 
 			try {
 				const snapshot = latest.snapshot as SnapshotParsed
@@ -157,19 +153,27 @@ export function useCloudPersistence(
 					.map((r) => r.id as string)
 				setCloudPageIds(cloudPageIds)
 
-				// Also save to localStorage so the local persistence layer stays in sync
+				// Keep localStorage in sync
 				const json = JSON.stringify(snapshot)
 				saveStorageSnapshot(json)
 				setLocalSnapshotUpdatedAt(cloudUpdatedAt)
-
-				console.log('[cloud] Loaded whiteboard from Supabase, tracked', cloudPageIds.length, 'cloud pages')
 			} catch (err) {
 				console.warn('[cloud] Failed to apply cloud snapshot:', err)
 			}
-		})
+		}
+
+		// Boot hydrate
+		void refreshFromCloud()
+
+		// On-demand refresh (ex: when page menu opens)
+		const onRefresh = () => {
+			void refreshFromCloud()
+		}
+		window.addEventListener('whiteboard-cloud-refresh', onRefresh)
 
 		return () => {
 			cancelled = true
+			window.removeEventListener('whiteboard-cloud-refresh', onRefresh)
 		}
 	}, [store, gridRef, userId])
 }
