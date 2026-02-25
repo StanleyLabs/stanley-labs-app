@@ -57,10 +57,10 @@ export async function saveUserDocumentSnapshot(
 			.eq('id', USER_DOCUMENT_ID)
 			.eq('updated_at', expectedUpdatedAt)
 			.select('updated_at')
-			.single()
+			.maybeSingle()
 
-		if (error || !data) return null
-		return data as { updated_at: string }
+		// If the row doesn't exist yet (fresh account) or token mismatched, fall through to upsert.
+		if (!error && data?.updated_at) return data as { updated_at: string }
 	}
 
 	// First write / no token: upsert.

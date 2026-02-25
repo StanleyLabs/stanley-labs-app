@@ -134,13 +134,22 @@ export function useCloudPersistence(
 
 		const refreshFromCloud = async (): Promise<void> => {
 			if (cancelled) return
-			const pages = await loadUserPages(userId)
-			if (cancelled) return
-			if (pages.length === 0) return
-
 			// Prefer canonical per-user document snapshot.
+			// Do not depend on the pages list existing: new users may have zero rows.
 			const doc = await loadUserDocumentSnapshot(userId)
 			if (cancelled) return
+
+			const pages = await loadUserPages(userId)
+			if (cancelled) return
+
+			// If we loaded a doc snapshot above, we already updated the store.
+			// We still want share flags for the page menu, but we do not need to fall back to per-page snapshots.
+			if (doc?.snapshot) {
+				for (const p of pages) {
+					if (p.share_id) setShareIdForPage(p.id, p.share_id)
+				}
+				return
+			}
 			if (doc?.snapshot) {
 				const cloudUpdatedAt = new Date(doc.updated_at).getTime()
 				const cloudAppliedAt = getCloudAppliedAt()
