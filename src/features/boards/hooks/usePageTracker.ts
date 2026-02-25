@@ -46,6 +46,7 @@ export function usePageTracker(
 	const sendRef = useRef(send)
 	sendRef.current = send
 	const prevShareId = useRef<string | null>(null)
+	const didBootstrapRef = useRef(false)
 
 	useLayoutEffect(() => {
 		const shareIdFromUrl = getShareIdFromUrl()
@@ -76,6 +77,7 @@ export function usePageTracker(
 		const prevPageIdRef = { current: '' }
 
 		const onPageChange = (): void => {
+			didBootstrapRef.current = true
 			const cur = store.get(TLINSTANCE_ID) as { currentPageId?: string } | undefined
 			if (!cur?.currentPageId) return
 			const pageId = cur.currentPageId
@@ -90,16 +92,20 @@ export function usePageTracker(
 				}
 			} else {
 				// Page not in share map.
-				clearShareIdFromUrl()
-				if (prevShareId.current) {
+				// If we're currently in a shared machine state (or we previously were), force a clean exit.
+				if (prevShareId.current || !stateRef.current.matches('local')) {
 					prevShareId.current = null
 					sendRef.current({ type: 'LEAVE_SHARED' })
-				} else {
-					// Even if we weren't "previously shared" in the ref, the machine might be.
-					// Ensure we leave shared if the current page has no shareId.
-					if (!stateRef.current.matches('local')) {
-						sendRef.current({ type: 'LEAVE_SHARED' })
-					}
+					clearShareIdFromUrl()
+					return
+				}
+
+				const shareIdFromUrl = getShareIdFromUrl()
+				if (shareIdFromUrl && !didBootstrapRef.current) {
+					// Initial load case: URL has shareId but the share map hasn't been populated yet.
+					sendEnterShared(sendRef, prevShareId, shareIdFromUrl)
+				} else if (!shareIdFromUrl) {
+					clearShareIdFromUrl()
 				}
 			}
 		}
