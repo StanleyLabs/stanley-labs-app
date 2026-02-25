@@ -94,6 +94,7 @@ export function CustomPageItemSubmenu({
 		}
 
 		trackEvent('delete-page', { source: 'page-menu', fromDatabase: false })
+		if (isLoggedIn) window.dispatchEvent(new Event('whiteboard-cloud-flush'))
 	}, [editor, item.id, isLoggedIn, trackEvent])
 
 	/** Delete everything: local + cloud page + shared link */
@@ -121,6 +122,7 @@ export function CustomPageItemSubmenu({
 		editor.deletePage(item.id as TLPageId)
 		trackEvent('delete-page', { source: 'page-menu', fromDatabase: true })
 		toasts.addToast({ title: 'Page deleted', severity: 'success' })
+		if (isLoggedIn) window.dispatchEvent(new Event('whiteboard-cloud-flush'))
 	}, [editor, item.id, shareId, isLoggedIn, toasts, trackEvent])
 
 	const onDelete = useCallback(() => {

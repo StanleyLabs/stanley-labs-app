@@ -127,6 +127,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 			const newPageId = PageRecordType.createId()
 			editor.createPage({ name: msg('page-menu.new-page-initial-name'), id: newPageId })
 			editor.setCurrentPage(newPageId)
+			if (user) window.dispatchEvent(new Event('whiteboard-cloud-flush'))
 
 			setIsEditing(true)
 
@@ -152,9 +153,10 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 	const renamePage = useCallback(
 		(id: TLPageId, name: string) => {
 			editor.renamePage(id, name)
+			if (user) window.dispatchEvent(new Event('whiteboard-cloud-flush'))
 			trackEvent('rename-page', { source: 'page-menu' })
 		},
-		[editor, trackEvent]
+		[editor, trackEvent, user]
 	)
 
 	return (

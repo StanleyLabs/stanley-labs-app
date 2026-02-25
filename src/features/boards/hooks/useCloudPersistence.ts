@@ -37,7 +37,7 @@ import { whiteboardMachine } from '../machine'
 
 type MachineState = SnapshotFrom<typeof whiteboardMachine>
 
-const CLOUD_SAVE_INTERVAL = 5000 // 5s between cloud saves (less aggressive than localStorage)
+const CLOUD_SAVE_INTERVAL = 1500 // keep cross-device changes feeling instant; still throttled
 
 export function useCloudPersistence(
 	store: TLStore,
@@ -111,13 +111,18 @@ export function useCloudPersistence(
 		})
 
 		const flush = (): void => throttled.flush()
+		const flushNow = (): void => cloudSave()
 		window.addEventListener('beforeunload', flush)
+		window.addEventListener('pagehide', flush)
+		window.addEventListener('whiteboard-cloud-flush', flushNow)
 
 		return () => {
 			throttled.flush()
 			throttled.cancel()
 			unlisten()
 			window.removeEventListener('beforeunload', flush)
+			window.removeEventListener('pagehide', flush)
+			window.removeEventListener('whiteboard-cloud-flush', flushNow)
 		}
 	}, [store, gridRef, machineStateRef, userId])
 
