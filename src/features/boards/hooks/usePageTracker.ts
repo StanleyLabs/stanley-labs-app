@@ -89,20 +89,16 @@ export function usePageTracker(
 					sendEnterShared(sendRef, prevShareId, shareId)
 				}
 			} else {
-				// Page not in share map. If we came from shared, leave and clear URL.
+				// Page not in share map.
+				clearShareIdFromUrl()
 				if (prevShareId.current) {
 					prevShareId.current = null
 					sendRef.current({ type: 'LEAVE_SHARED' })
-					clearShareIdFromUrl()
 				} else {
-					const shareIdFromUrl = getShareIdFromUrl()
-					if (shareIdFromUrl) {
-						// URL has shareId but current page isn't in share map — we may be loading
-						// that shared page (e.g. current page in localStorage matches it). Send
-						// ENTER_SHARED to fetch and sync.
-						sendEnterShared(sendRef, prevShareId, shareIdFromUrl)
-					} else {
-						clearShareIdFromUrl()
+					// Even if we weren't "previously shared" in the ref, the machine might be.
+					// Ensure we leave shared if the current page has no shareId.
+					if (!stateRef.current.matches('local')) {
+						sendRef.current({ type: 'LEAVE_SHARED' })
 					}
 				}
 			}
