@@ -57,6 +57,7 @@ export function useDraggable(ref: RefObject<HTMLDivElement | null>) {
       applyPosition(e.touches[0].clientX, e.touches[0].clientY)
     }
     const onTouchEnd = () => endDrag()
+    const onTouchCancel = () => endDrag()
 
     // Resize clamp
     const onResize = () => {
@@ -73,7 +74,9 @@ export function useDraggable(ref: RefObject<HTMLDivElement | null>) {
     el.addEventListener('touchstart', onTouchStart, { passive: false })
     document.addEventListener('touchmove', onTouchMove, { passive: false })
     document.addEventListener('touchend', onTouchEnd)
+    document.addEventListener('touchcancel', onTouchCancel)
     window.addEventListener('resize', onResize)
+    window.addEventListener('blur', endDrag)
 
     return () => {
       el.removeEventListener('mousedown', onMouseDown)
@@ -82,7 +85,9 @@ export function useDraggable(ref: RefObject<HTMLDivElement | null>) {
       el.removeEventListener('touchstart', onTouchStart)
       document.removeEventListener('touchmove', onTouchMove)
       document.removeEventListener('touchend', onTouchEnd)
+      document.removeEventListener('touchcancel', onTouchCancel)
       window.removeEventListener('resize', onResize)
+      window.removeEventListener('blur', endDrag)
     }
   }, [ref])
 }
