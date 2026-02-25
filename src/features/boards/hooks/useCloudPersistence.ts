@@ -21,6 +21,9 @@ import {
 	throttle,
 	setCloudPageIds,
 	setShareIdForPage,
+	getLocalSnapshotUpdatedAt,
+	setLocalSnapshotUpdatedAt,
+	loadSnapshot as loadStorageSnapshot,
 } from '../persistence'
 import { applyParsedSnapshot, syncGridRef } from '../lib/gridSnapshot'
 import type { GridRef, SnapshotParsed } from '../lib/gridSnapshot'
@@ -133,6 +136,16 @@ export function useCloudPersistence(
 
 			if (!latest.snapshot) return
 
+			// Avoid clobbering newer local changes (ex: user creates pages and refreshes before cloud save).
+			const localRaw = loadStorageSnapshot()
+			const localUpdatedAt = getLocalSnapshotUpdatedAt()
+			const cloudUpdatedAt = new Date(latest.updated_at).getTime()
+			const shouldApplyCloud = !localRaw || cloudUpdatedAt > localUpdatedAt
+			if (!shouldApplyCloud) {
+				console.log('[cloud] Skipping cloud hydrate - local snapshot is newer')
+				return
+			}
+
 			try {
 				const snapshot = latest.snapshot as SnapshotParsed
 				applyParsedSnapshot(store, snapshot, gridRef)
@@ -147,6 +160,7 @@ export function useCloudPersistence(
 				// Also save to localStorage so the local persistence layer stays in sync
 				const json = JSON.stringify(snapshot)
 				saveStorageSnapshot(json)
+				setLocalSnapshotUpdatedAt(cloudUpdatedAt)
 
 				console.log('[cloud] Loaded whiteboard from Supabase, tracked', cloudPageIds.length, 'cloud pages')
 			} catch (err) {

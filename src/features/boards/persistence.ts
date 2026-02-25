@@ -20,6 +20,7 @@ function key(base: string): string {
 }
 
 const BASE_SNAPSHOT = 'whiteboard-document'
+const BASE_SNAPSHOT_UPDATED_AT = 'whiteboard-document-updated-at'
 const BASE_SHARE_MAP = 'whiteboard-share-map'
 const BASE_THEME = 'whiteboard-theme'
 const BASE_CLOUD_PAGE_IDS = 'whiteboard-cloud-page-ids'
@@ -101,8 +102,29 @@ export function loadSnapshot(): string | null {
 }
 
 export function saveSnapshot(json: string): void {
-	try { localStorage.setItem(key(BASE_SNAPSHOT), json) }
-	catch { /* quota or private mode */ }
+	try {
+		localStorage.setItem(key(BASE_SNAPSHOT), json)
+		localStorage.setItem(key(BASE_SNAPSHOT_UPDATED_AT), String(Date.now()))
+	} catch {
+		/* quota or private mode */
+	}
+}
+
+/** When did we last write the local snapshot? (ms since epoch) */
+export function getLocalSnapshotUpdatedAt(): number {
+	try {
+		const raw = localStorage.getItem(key(BASE_SNAPSHOT_UPDATED_AT))
+		const n = raw ? Number(raw) : 0
+		return Number.isFinite(n) ? n : 0
+	} catch {
+		return 0
+	}
+}
+
+/** Stamp local snapshot updated-at to a specific time (used when applying cloud snapshots). */
+export function setLocalSnapshotUpdatedAt(ms: number): void {
+	try { localStorage.setItem(key(BASE_SNAPSHOT_UPDATED_AT), String(ms)) }
+	catch { /* ignore */ }
 }
 
 // ── Share map (pageId → shareId) ───────────────────────────────────────────────
