@@ -64,21 +64,31 @@ export async function saveUserDocumentSnapshot(
 		if (!error && data?.updated_at) return data as { updated_at: string }
 	}
 
-	// First write / no token: upsert.
+	// No token: try to update the current user's doc row first.
+	{
+		const { data, error } = await supabase
+			.from('whiteboard_pages')
+			.update({ snapshot, updated_at: now })
+			.eq('user_id', userId)
+			.eq('id', USER_DOCUMENT_ID)
+			.select('updated_at')
+			.maybeSingle()
+
+		if (!error && data?.updated_at) return data as { updated_at: string }
+	}
+
+	// Row doesn't exist yet: insert.
 	const { data, error } = await supabase
 		.from('whiteboard_pages')
-		.upsert(
-			{
-				id: USER_DOCUMENT_ID,
-				user_id: userId,
-				name: USER_DOCUMENT_ID,
-				order: 0,
-				snapshot,
-				created_at: now,
-				updated_at: now,
-			},
-			{ onConflict: 'id' }
-		)
+		.insert({
+			id: USER_DOCUMENT_ID,
+			user_id: userId,
+			name: USER_DOCUMENT_ID,
+			order: 0,
+			snapshot,
+			created_at: now,
+			updated_at: now,
+		})
 		.select('updated_at')
 		.single()
 
