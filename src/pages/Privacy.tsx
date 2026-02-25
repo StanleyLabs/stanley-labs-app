@@ -11,6 +11,10 @@ export default function Privacy() {
         <h1 className="font-display text-2xl font-semibold">Privacy</h1>
 
         <p className="mt-4 text-sm leading-relaxed text-fog/80">
+          This app uses essential storage for functionality (for example, keeping your session and settings working).
+        </p>
+
+        <p className="mt-4 text-sm leading-relaxed text-fog/80">
           Stanley Labs App can run in two modes: signed in (cloud sync) or offline (saved in your browser).
         </p>
 
@@ -20,7 +24,11 @@ export default function Privacy() {
         </p>
 
         <p className="mt-4 text-sm leading-relaxed text-fog/80">
-          You can export your data to JSON and import it later. No ads, no marketing trackers.
+          Want full control? You can export your data to JSON and import it later.
+        </p>
+
+        <p className="mt-4 text-sm leading-relaxed text-fog/80">
+          No ads, no marketing trackers.
         </p>
 
         <p className="mt-4 text-sm leading-relaxed text-fog/80">
