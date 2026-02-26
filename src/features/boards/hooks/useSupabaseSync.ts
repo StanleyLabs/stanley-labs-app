@@ -46,6 +46,8 @@ export function useSupabaseSync(
 		const throttled = throttle(() => {
 			const st = stateRef.current
 			if (!shouldRunSupabaseSync(st)) return
+			// v2 shared-link sessions use pages/page_snapshots, not saved_pages.
+			if (st.context.publicSlug) return
 			const pageId = st.context.tldrawPageId
 			const publicId = st.context.publicSlug
 			if (!pageId || !editorRef.current) return
@@ -84,6 +86,8 @@ export function useSupabaseSync(
 		const poll = async (): Promise<void> => {
 			const st = stateRef.current
 			if (!shouldRunSupabaseSync(st)) return
+			// v2 shared-link sessions use pages/page_snapshots, not saved_pages.
+			if (st.context.publicSlug) return
 			const pageId = st.context.tldrawPageId
 			const publicId = st.context.publicSlug
 			if (!pageId) return

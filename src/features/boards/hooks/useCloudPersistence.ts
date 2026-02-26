@@ -149,6 +149,9 @@ export function useCloudPersistence(
 
 		const refreshFromCloud = async (): Promise<void> => {
 			if (cancelled) return
+			// When viewing a shared-link session (/boards/s/:slug), do not hydrate/override the user's page list.
+			// The shared page is its own context and should not force currentPageId back to the user's first page.
+			if (isSharedPage(machineStateRef.current)) return
 			const pages = await loadUserPages(userId)
 			if (cancelled) return
 

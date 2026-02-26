@@ -30,6 +30,8 @@ export function useSharedPageConnect(
 	const publicId = state.context.publicSlug
 
 	useEffect(() => {
+		// v2 shared-link sessions are resolved + hydrated elsewhere.
+		if (publicId) return
 		if (!connecting || !pageId) return
 		const controller = new AbortController()
 
