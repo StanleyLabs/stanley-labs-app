@@ -1,10 +1,10 @@
 /**
- * Page submenu with context-aware delete flow.
+ * Page item submenu (three-dots menu per page).
  *
- * Logged out + not shared: instant delete (no dialog)
- * Logged out + shared: dialog with "Remove locally" / "Delete shared link"
- * Logged in + not shared: instant delete from cloud + local (no dialog)
- * Logged in + shared: dialog with "Remove from my pages" / "Delete everywhere"
+ * Delete behavior:
+ *   Guest: instant local delete (tldraw only)
+ *   Authed + owner: confirm dialog, permanently deletes from DB
+ *   Authed + non-owner: removes from "my pages" (leaves the page for others)
  */
 
 import { useCallback } from 'react'
@@ -26,7 +26,8 @@ import {
 } from 'tldraw'
 import { ConfirmDeleteDialog } from '../../ConfirmDeleteDialog'
 import { useAuth } from '../../../../lib/AuthContext'
-import { removeSelfFromPage } from '../../v2/pageMembersApi'
+import * as api from '../../api'
+import type { PageEntry } from '../../machine'
 import { onMovePage } from './onMovePage'
 
 export interface CustomPageItemSubmenuProps {
@@ -34,6 +35,7 @@ export interface CustomPageItemSubmenuProps {
 	item: { id: string; name: string }
 	listSize: number
 	pages: { id: string; name: string }[]
+	entry: PageEntry | undefined
 	onRename?: () => void
 	trackEvent: (name: string, data?: unknown) => void
 }
@@ -43,6 +45,7 @@ export function CustomPageItemSubmenu({
 	item,
 	listSize,
 	pages,
+	entry,
 	onRename,
 	trackEvent,
 }: CustomPageItemSubmenuProps) {
@@ -52,6 +55,7 @@ export function CustomPageItemSubmenu({
 	const toasts = useToasts()
 	const { user } = useAuth()
 	const isLoggedIn = Boolean(user)
+	const isOwner = entry?.role === 'owner'
 
 	const onDuplicate = useCallback(() => {
 		editor.markHistoryStoppingPoint('creating page')
@@ -68,35 +72,68 @@ export function CustomPageItemSubmenu({
 		onMovePage(editor, item.id as TLPageId, index, index + 1, trackEvent)
 	}, [editor, item, index, trackEvent])
 
-	/** Remove page: delete locally from editor and remove membership from DB if logged in. */
+	const onShare = useCallback(async () => {
+		if (!entry?.dbId) return
+		const slug = await api.sharePage(entry.dbId, 'view')
+		if (slug) {
+			const url = `${window.location.origin}/boards/s/${slug}`
+			void navigator.clipboard.writeText(url)
+			toasts.addToast({ title: 'Link copied! Page is now shared.', severity: 'success' })
+			window.dispatchEvent(new Event('v2-pages-changed'))
+		}
+	}, [entry, toasts])
+
+	const onUnshare = useCallback(async () => {
+		if (!entry?.dbId) return
+		const ok = await api.unsharePage(entry.dbId)
+		if (ok) {
+			toasts.addToast({ title: 'Page is now private.', severity: 'success' })
+			window.dispatchEvent(new Event('v2-pages-changed'))
+		}
+	}, [entry, toasts])
+
 	const performDelete = useCallback(() => {
 		editor.markHistoryStoppingPoint('deleting page')
 		editor.deletePage(item.id as TLPageId)
 
-		// v2: remove self from page_members (does not delete the page itself unless you are the owner with cascade).
-		if (isLoggedIn) {
-			// We need the DB page id. For now, best-effort: the workspace hook tracks the mapping.
-			// TODO: wire DB page id through props for proper delete.
-			void removeSelfFromPage(item.id)
+		if (isLoggedIn && entry?.dbId) {
+			if (isOwner) {
+				void api.deletePage(entry.dbId)
+			} else {
+				void api.removeSelfFromPage(entry.dbId)
+			}
 		}
 
+		window.dispatchEvent(new Event('v2-pages-changed'))
 		trackEvent('delete-page', { source: 'page-menu' })
-	}, [editor, item.id, isLoggedIn, trackEvent])
+	}, [editor, item.id, isLoggedIn, isOwner, entry, trackEvent])
 
 	const onDelete = useCallback(() => {
+		if (!isLoggedIn) {
+			// Guest: instant delete
+			performDelete()
+			return
+		}
+
 		dialogs.addDialog({
 			component: (props: { onClose: () => void }) => (
 				<ConfirmDeleteDialog
-					onClose={() => props.onClose()}
+					onClose={props.onClose}
 					pageName={item.name}
+					isLoggedIn
 					onConfirm={() => {
 						performDelete()
-						toasts.addToast({ title: 'Page deleted', severity: 'success' })
+						toasts.addToast({
+							title: isOwner ? 'Page deleted permanently.' : 'Removed from your pages.',
+							severity: 'success',
+						})
 					}}
 				/>
 			),
 		})
-	}, [dialogs, item.name, performDelete, toasts])
+	}, [dialogs, item.name, performDelete, toasts, isLoggedIn, isOwner])
+
+	const isShared = entry?.visibility === 'public'
 
 	return (
 		<TldrawUiDropdownMenuRoot id={`page item submenu ${index}`}>
@@ -109,11 +146,7 @@ export function CustomPageItemSubmenu({
 				<TldrawUiMenuContextProvider type="menu" sourceId="page-menu">
 					<TldrawUiMenuGroup id="modify">
 						{onRename && (
-							<TldrawUiMenuItem
-								id="rename"
-								label="page-menu.submenu.rename"
-								onSelect={() => onRename()}
-							/>
+							<TldrawUiMenuItem id="rename" label="page-menu.submenu.rename" onSelect={onRename} />
 						)}
 						<TldrawUiMenuItem
 							id="duplicate"
@@ -122,23 +155,52 @@ export function CustomPageItemSubmenu({
 							disabled={pages.length >= editor.options.maxPages}
 						/>
 						{index > 0 && (
-							<TldrawUiMenuItem
-								id="move-up"
-								onSelect={onMoveUp}
-								label="page-menu.submenu.move-up"
-							/>
+							<TldrawUiMenuItem id="move-up" onSelect={onMoveUp} label="page-menu.submenu.move-up" />
 						)}
 						{index < listSize - 1 && (
-							<TldrawUiMenuItem
-								id="move-down"
-								label="page-menu.submenu.move-down"
-								onSelect={onMoveDown}
-							/>
+							<TldrawUiMenuItem id="move-down" label="page-menu.submenu.move-down" onSelect={onMoveDown} />
 						)}
 					</TldrawUiMenuGroup>
+
+					{/* Share controls (authed owners only) */}
+					{isLoggedIn && isOwner && (
+						<TldrawUiMenuGroup id="share">
+							{isShared ? (
+								<TldrawUiMenuItem
+									id="unshare"
+									label={{ src: 'Make private' }}
+									onSelect={() => void onUnshare()}
+								/>
+							) : (
+								<TldrawUiMenuItem
+									id="share"
+									label={{ src: 'Share (copy link)' }}
+									onSelect={() => void onShare()}
+								/>
+							)}
+						</TldrawUiMenuGroup>
+					)}
+
+					{/* Login to share hint (guest) */}
+					{!isLoggedIn && (
+						<TldrawUiMenuGroup id="share-hint">
+							<TldrawUiMenuItem
+								id="login-to-share"
+								label={{ src: 'Login to share' }}
+								onSelect={() => { window.location.href = '/login' }}
+							/>
+						</TldrawUiMenuGroup>
+					)}
+
 					{listSize > 1 && (
 						<TldrawUiMenuGroup id="delete">
-							<TldrawUiMenuItem id="delete" onSelect={onDelete} label="page-menu.submenu.delete" />
+							<TldrawUiMenuItem
+								id="delete"
+								onSelect={onDelete}
+								label={{
+									src: isLoggedIn && !isOwner ? 'Remove from my pages' : 'page-menu.submenu.delete',
+								}}
+							/>
 						</TldrawUiMenuGroup>
 					)}
 				</TldrawUiMenuContextProvider>

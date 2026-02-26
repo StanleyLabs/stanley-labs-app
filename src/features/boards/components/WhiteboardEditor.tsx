@@ -1,6 +1,6 @@
 /**
- * Whiteboard editor UI — Tldraw wrapper with sync components.
- * Receives orchestration state and renders the editor.
+ * Tldraw editor wrapper.
+ * Receives boards orchestration state and renders the editor with sync components.
  */
 
 import { useEffect, useMemo } from 'react'
@@ -12,8 +12,7 @@ import { SyncThemeToDocument } from '../SyncThemeToDocument'
 import { CustomContextMenu, CustomMainMenu } from '../ExportMenu'
 import { CustomPageMenu } from '../CustomPageMenu'
 import { createEditorOnMount } from '../setupEditorMount'
-import type { WhiteboardOrchestrationResult } from '../hooks/useWhiteboardOrchestration'
-import { useV2Workspace } from '../hooks/useV2Workspace'
+import type { BoardsOrchestration } from '../hooks/useBoards'
 
 const licenseKey = import.meta.env.VITE_TLDRAW_LICENSE_KEY ?? undefined
 const SYNC_APPLY_IDLE_MS = 400
@@ -37,7 +36,7 @@ function UserInteractionTracker({
 	useEffect(() => {
 		const container = editor.getContainer()
 		let idleTimer: ReturnType<typeof setTimeout> | null = null
-		const scheduleIdleApply = (): void => {
+		const scheduleIdleApply = () => {
 			if (idleTimer) clearTimeout(idleTimer)
 			idleTimer = setTimeout(() => {
 				idleTimer = null
@@ -45,29 +44,26 @@ function UserInteractionTracker({
 				onIdleEnd()
 			}, SYNC_APPLY_IDLE_MS)
 		}
-		const onPointerDown = (): void => {
-			isUserInteractingRef.current = true
-			scheduleIdleApply()
-		}
-		const onPointerUp = (): void => scheduleIdleApply()
-		const onKeyActivity = (): void => {
+		const onDown = () => { isUserInteractingRef.current = true; scheduleIdleApply() }
+		const onUp = () => scheduleIdleApply()
+		const onKey = () => {
 			if (container.contains(document.activeElement)) {
 				isUserInteractingRef.current = true
 				scheduleIdleApply()
 			}
 		}
-		container.addEventListener('pointerdown', onPointerDown)
-		container.addEventListener('pointerup', onPointerUp)
-		window.addEventListener('pointerup', onPointerUp)
-		window.addEventListener('keydown', onKeyActivity)
-		window.addEventListener('keyup', onKeyActivity)
+		container.addEventListener('pointerdown', onDown)
+		container.addEventListener('pointerup', onUp)
+		window.addEventListener('pointerup', onUp)
+		window.addEventListener('keydown', onKey)
+		window.addEventListener('keyup', onKey)
 		return () => {
 			if (idleTimer) clearTimeout(idleTimer)
-			container.removeEventListener('pointerdown', onPointerDown)
-			container.removeEventListener('pointerup', onPointerUp)
-			window.removeEventListener('pointerup', onPointerUp)
-			window.removeEventListener('keydown', onKeyActivity)
-			window.removeEventListener('keyup', onKeyActivity)
+			container.removeEventListener('pointerdown', onDown)
+			container.removeEventListener('pointerup', onUp)
+			window.removeEventListener('pointerup', onUp)
+			window.removeEventListener('keydown', onKey)
+			window.removeEventListener('keyup', onKey)
 		}
 	}, [editor, isUserInteractingRef, onIdleEnd])
 	return null
@@ -75,68 +71,34 @@ function UserInteractionTracker({
 
 function MenuPanelWithIndicator() {
 	return (
-		<div
-			style={{
-				display: 'flex',
-				flexDirection: 'row',
-				alignItems: 'flex-start',
-				gap: 3,
-				minWidth: 0,
-				margin: 0,
-				padding: 0,
-				marginTop: 4,
-			}}
-		>
+		<div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 3, marginTop: 4 }}>
 			<DefaultMenuPanel />
-			<div
-				style={{
-					display: 'inline-flex',
-					alignItems: 'center',
-					flexShrink: 0,
-					pointerEvents: 'all',
-				}}
-			>
+			<div style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0, pointerEvents: 'all' }}>
 				<ConnectionIndicator />
 			</div>
 		</div>
 	)
 }
 
-const SYNC_PAGE_COMPONENTS = { MenuPanel: MenuPanelWithIndicator, SharePanel: null }
+const COMPONENTS = { MenuPanel: MenuPanelWithIndicator, SharePanel: null }
 
-export interface WhiteboardEditorProps {
-	orchestration: WhiteboardOrchestrationResult
-}
-
-export function WhiteboardEditor({ orchestration }: WhiteboardEditorProps) {
+export function WhiteboardEditor({ boards }: { boards: BoardsOrchestration }) {
 	const {
 		store,
 		editorRef,
-		tldrawOnMountCleanupRef,
-		stateRef,
 		editable,
-		shared,
-		serverSyncActive,
+		serverSynced,
+		activePageShared,
 		isUserInteractingRef,
 		onIdleEnd,
-		send,
-	} = orchestration
+	} = boards
 
 	const overrides = useMemo(() => [createPasteActionOverride()], [])
 
-	// v2 workspace wiring: owns page list, selection, and snapshot persistence.
-	useV2Workspace(editorRef.current, send)
-
 	const onMount = useMemo(
-		() => (editor: Parameters<typeof createEditorOnMount>[0]['editor']) =>
-			createEditorOnMount({
-				editor,
-				store,
-				stateRef,
-				editorRef,
-				onMountCleanupRef: tldrawOnMountCleanupRef,
-			}),
-		[store, stateRef, editorRef, tldrawOnMountCleanupRef]
+		() => (editor: any) =>
+			createEditorOnMount({ editor, store, editorRef }),
+		[store, editorRef]
 	)
 
 	return (
@@ -150,13 +112,13 @@ export function WhiteboardEditor({ orchestration }: WhiteboardEditorProps) {
 					MainMenu: CustomMainMenu,
 					ContextMenu: CustomContextMenu,
 					PageMenu: CustomPageMenu,
-					...SYNC_PAGE_COMPONENTS,
+					...COMPONENTS,
 				}}
 				onMount={onMount}
 			>
 				<SyncThemeToDocument />
 				<ReadonlyTracker editable={editable} />
-				{shared && serverSyncActive && (
+				{activePageShared && serverSynced && (
 					<UserInteractionTracker
 						isUserInteractingRef={isUserInteractingRef}
 						onIdleEnd={onIdleEnd}

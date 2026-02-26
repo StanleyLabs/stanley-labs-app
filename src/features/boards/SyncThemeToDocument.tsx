@@ -1,6 +1,6 @@
 import { useEditor, useValue } from 'tldraw'
 import { useEffect } from 'react'
-import { setTheme } from './persistence'
+import { setTheme } from './hooks/useBoards'
 
 const DARK_BG = 'hsl(240, 5%, 6.5%)'
 const LIGHT_BG = 'hsl(210, 20%, 98%)'
