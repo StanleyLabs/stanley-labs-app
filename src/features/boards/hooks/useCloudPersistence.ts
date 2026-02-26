@@ -125,16 +125,6 @@ export function useCloudPersistence(
 		}
 	}, [store, gridRef, machineStateRef, userId])
 
-	// Track local edit activity so refresh does not overwrite active sessions.
-	const lastLocalEditAtRef = useRef(0)
-	useEffect(() => {
-		if (!userId) return
-		const unlisten = store.listen(() => {
-			lastLocalEditAtRef.current = Date.now()
-		})
-		return () => unlisten()
-	}, [store, userId])
-
 	// Load/reconcile pages from cloud + realtime refresh
 	useEffect(() => {
 		if (!userId) return
@@ -167,10 +157,6 @@ export function useCloudPersistence(
 				setShareIdForPage(p.id, p.share_id)
 			}
 
-			// If the user has edited very recently, do not apply cloud snapshots.
-			// This prevents menu-open refresh from overwriting local edits during active sessions.
-			const now = Date.now()
-			const shouldApplySnapshots = now - lastLocalEditAtRef.current >= 2500
 
 			const desired = pages
 				.filter((p) => p.snapshot && (p.snapshot as any)?.document?.store)
@@ -192,29 +178,27 @@ export function useCloudPersistence(
 			const inst = store.get(TLINSTANCE_ID) as { currentPageId?: string } | undefined
 			const curId = inst?.currentPageId
 
-			if (shouldApplySnapshots) {
-				// Remove local pages that do not exist in the cloud anymore.
-				// Guard: only remove pages that we have previously confirmed were in the cloud.
-				for (const localId of localPageIds) {
-					if (desiredSet.has(localId)) continue
-					if (!confirmedSet.has(localId)) continue
-					if (curId && localId === curId) continue
-					const idsToRemove = getPageRecordIds(localSnap, localId)
-					if (idsToRemove.length) {
-						store.mergeRemoteChanges(() => {
-							store.remove(idsToRemove as any)
-						})
-					}
+			// Remove local pages that do not exist in the cloud anymore.
+			// Guard: only remove pages that we have previously confirmed were in the cloud.
+			for (const localId of localPageIds) {
+				if (desiredSet.has(localId)) continue
+				if (!confirmedSet.has(localId)) continue
+				if (curId && localId === curId) continue
+				const idsToRemove = getPageRecordIds(localSnap, localId)
+				if (idsToRemove.length) {
+					store.mergeRemoteChanges(() => {
+						store.remove(idsToRemove as any)
+					})
 				}
+			}
 
-				// Apply/replace each cloud page snapshot.
-				// Never apply to the current page - it can cause user-visible "reverts".
-				for (const p of desired) {
-					if (curId && p.id === curId) continue
-					const snap = p.snapshot as any
-					const incoming = (snap?.document?.store ?? {}) as Record<string, unknown>
-					applyPageSnapshot(p.id, incoming, snap?.document?.schema)
-				}
+			// Apply/replace each cloud page snapshot.
+			// Never apply to the current page - it can cause user-visible "reverts".
+			for (const p of desired) {
+				if (curId && p.id === curId) continue
+				const snap = p.snapshot as any
+				const incoming = (snap?.document?.store ?? {}) as Record<string, unknown>
+				applyPageSnapshot(p.id, incoming, snap?.document?.schema)
 			}
 
 			// Choose current page only when needed (avoid forcing back to first on every refresh).
