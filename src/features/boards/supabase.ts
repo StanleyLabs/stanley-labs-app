@@ -50,38 +50,76 @@ export function getSupabaseClient(): SupabaseClient | null {
 
 // ── Shared-page CRUD (saved_pages) ─────────────────────────────────────────────
 
-export async function loadSharedPage(shareId: string): Promise<ShareSnapshot | null> {
-	if (!shareId.trim()) return null
+export async function loadSharedPage(pageOrPublicId: string): Promise<ShareSnapshot | null> {
+	if (!pageOrPublicId.trim()) return null
 	const sb = client ?? (await initSupabase())
 	if (!sb) return null
-	const { data, error } = await sb
-		.from(SAVED_PAGES_TABLE)
-		.select('document,is_shared')
-		.eq('public_id', shareId)
-		.eq('is_shared', true)
-		.single()
-	if (error || !data?.document) return null
-	const s = data.document as ShareSnapshot
-	const doc = s?.document ?? s
-	if (!doc?.store || !doc?.schema) return null
-	return { document: { store: doc.store, schema: doc.schema } }
+
+	// Try by public_id first (shared link visitors).
+	{
+		const { data, error } = await sb
+			.from(SAVED_PAGES_TABLE)
+			.select('document')
+			.eq('public_id', pageOrPublicId)
+			.eq('is_shared', true)
+			.maybeSingle()
+		if (!error && data?.document) {
+			const s = data.document as ShareSnapshot
+			const doc = s?.document ?? s
+			if (doc?.store && doc?.schema) return { document: { store: doc.store, schema: doc.schema } }
+		}
+	}
+
+	// Fallback: try by id (private saved page, owner access).
+	{
+		const { data, error } = await sb
+			.from(SAVED_PAGES_TABLE)
+			.select('document')
+			.eq('id', pageOrPublicId)
+			.maybeSingle()
+		if (!error && data?.document) {
+			const s = data.document as ShareSnapshot
+			const doc = s?.document ?? s
+			if (doc?.store && doc?.schema) return { document: { store: doc.store, schema: doc.schema } }
+		}
+	}
+
+	return null
 }
 
-export async function saveSharedPage(shareId: string, snapshot: ShareSnapshot): Promise<void> {
-	if (!shareId.trim()) return
+export async function saveSharedPage(pageOrPublicId: string, snapshot: ShareSnapshot): Promise<void> {
+	if (!pageOrPublicId.trim()) return
 	const sb = client ?? (await initSupabase())
 	if (!sb) return
-	const { error } = await sb
-		.from(SAVED_PAGES_TABLE)
-		.update({ document: snapshot, updated_at: new Date().toISOString() })
-		.eq('public_id', shareId)
-		.eq('is_shared', true)
-	if (error) {
-		const isAbort = error.message?.includes('AbortError') || error.name === 'AbortError'
-		if (!isAbort) console.error('[supabase] saveSharedPage failed:', error.message)
-		throw isAbort
-			? new DOMException(error.message, 'AbortError')
-			: new Error(error.message)
+	const now = new Date().toISOString()
+
+	// Try by public_id first (shared link visitors).
+	{
+		const { error, count } = await sb
+			.from(SAVED_PAGES_TABLE)
+			.update({ document: snapshot, updated_at: now })
+			.eq('public_id', pageOrPublicId)
+			.eq('is_shared', true)
+		if (!error && count && count > 0) return
+		if (error) {
+			const isAbort = error.message?.includes('AbortError') || error.name === 'AbortError'
+			if (isAbort) throw new DOMException(error.message, 'AbortError')
+		}
+	}
+
+	// Fallback: try by id (private saved page, owner access).
+	{
+		const { error } = await sb
+			.from(SAVED_PAGES_TABLE)
+			.update({ document: snapshot, updated_at: now })
+			.eq('id', pageOrPublicId)
+		if (error) {
+			const isAbort = error.message?.includes('AbortError') || error.name === 'AbortError'
+			if (!isAbort) console.error('[supabase] saveSharedPage failed:', error.message)
+			throw isAbort
+				? new DOMException(error.message, 'AbortError')
+				: new Error(error.message)
+		}
 	}
 }
 
