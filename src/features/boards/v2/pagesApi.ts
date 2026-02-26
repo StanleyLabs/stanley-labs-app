@@ -14,11 +14,13 @@ export type PageRow = {
 	updated_at: string
 }
 
-export async function resolvePublicSlug(slug: string): Promise<Pick<PageRow, 'id' | 'title' | 'visibility' | 'public_access'> | null> {
+export async function resolvePublicSlug(slug: string): Promise<
+	(Pick<PageRow, 'id' | 'title' | 'visibility' | 'public_access'> & { tldraw_page_id: string }) | null
+> {
 	if (!slug.trim()) return null
 	const { data, error } = await supabase
 		.from('pages')
-		.select('id,title,visibility,public_access')
+		.select('id,title,visibility,public_access,tldraw_page_id')
 		.eq('public_slug', slug)
 		.maybeSingle()
 	if (error || !data?.id) return null

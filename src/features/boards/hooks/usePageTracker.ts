@@ -18,9 +18,12 @@ import {
 	getShareIdFromUrl,
 	clearShareIdFromUrl,
 	getShareIdForPage,
-	getPageIdForShareId,
 	setLastSelectedPageId,
 } from '../persistence'
+import { resolvePublicSlug } from '../v2/pagesApi'
+import { loadPageSnapshot } from '../v2/pageSnapshotsApi'
+import { addSelfAsViewer } from '../v2/pageMembersApi'
+import { getPageRecordIds } from '../sharePage'
 import type { WhiteboardEvent } from '../machine'
 import type { SnapshotFrom } from 'xstate'
 import type { whiteboardMachine } from '../machine'
@@ -45,26 +48,65 @@ function sendEnterSaved(
 export function usePageTracker(
 	store: TLStore,
 	send: Send,
-	stateRef: React.MutableRefObject<MachineState>
+	stateRef: React.MutableRefObject<MachineState>,
+	userId: string | null
 ): void {
 	const sendRef = useRef(send)
 	sendRef.current = send
 	const didBootstrapRef = useRef(false)
 
 	useLayoutEffect(() => {
-		const publicIdFromUrl = getShareIdFromUrl()
-		if (!publicIdFromUrl) return
-		const pageId = getPageIdForShareId(publicIdFromUrl) ?? ''
-		if (pageId) {
-			try {
-				store.update(TLINSTANCE_ID, (i) => ({ ...i, currentPageId: pageId as import('@tldraw/tlschema').TLPageId }))
-			} catch {
-				/* page may not exist in store yet */
+		const slugFromUrl = getShareIdFromUrl()
+		if (!slugFromUrl) return
+		let cancelled = false
+
+		void (async () => {
+			// v2: resolve slug -> canonical page uuid + tldraw page id
+			const resolved = await resolvePublicSlug(slugFromUrl)
+			if (cancelled || !resolved?.id) return
+
+			// Auto-add logged-in visitors as viewer so it appears in their pages list.
+			if (userId) {
+				void addSelfAsViewer(resolved.id)
 			}
+
+			// Load snapshot and apply it before entering sync.
+			const tldrawPageId = resolved.tldraw_page_id
+
+			const snap = await loadPageSnapshot(resolved.id)
+			if (cancelled) return
+			if (snap?.document?.document?.store) {
+				const incomingStore = (snap.document.document.store ?? {}) as Record<string, unknown>
+				// Clear existing records for that tldraw page id, then apply incoming.
+				const localSnap = store.getStoreSnapshot('document') as { store: Record<string, unknown> }
+				const idsToRemove = getPageRecordIds(localSnap as any, tldrawPageId as any)
+				store.mergeRemoteChanges(() => {
+					if (idsToRemove.length) store.remove(idsToRemove as any)
+					const toPut = Object.values(incomingStore)
+					if (toPut.length) store.put(toPut as any)
+				})
+			}
+
+			// Switch the editor to the tldraw page id.
+			try {
+				store.update(TLINSTANCE_ID, (i) => ({ ...i, currentPageId: tldrawPageId as any }))
+			} catch {
+				/* ignore */
+			}
+
+			// Enter saved mode with roomId = canonical page uuid.
+			sendRef.current({
+				type: 'ENTER_SAVED',
+				roomId: resolved.id,
+				tldrawPageId,
+				publicSlug: slugFromUrl,
+			})
+		})()
+
+		return () => {
+			cancelled = true
 		}
-		// Enter saved mode using the canonical page id (if known). Public id is optional metadata.
-		sendEnterSaved(sendRef, pageId || '', publicIdFromUrl)
-	}, [store])
+	}, [store, userId])
 
 	useEffect(() => {
 		// Run after paint so the URL is stable; catches cases where useLayoutEffect ran too early.
@@ -72,8 +114,9 @@ export function usePageTracker(
 			if (!stateRef.current.matches('local')) return
 			const publicId = getShareIdFromUrl()
 			if (!publicId) return
-			const pageId = getPageIdForShareId(publicId) ?? ''
-			sendEnterSaved(sendRef, pageId || '', publicId)
+			// v2: URL shared links are resolved in the layout effect above.
+			// If we haven't resolved yet, do nothing.
+			return
 		}, 0)
 		return () => clearTimeout(id)
 	}, [stateRef])

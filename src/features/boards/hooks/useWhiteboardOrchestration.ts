@@ -104,7 +104,7 @@ export function useWhiteboardOrchestration(): WhiteboardOrchestrationResult {
 		})
 	}, [send])
 
-	usePageTracker(store, send, stateRef)
+	usePageTracker(store, send, stateRef, userId)
 	usePersistence(store, gridRef, stateRef, !userId)
 	useCloudPersistence(store, gridRef, stateRef, userId)
 	useSharedPageConnect(store, state, send, gridRef)
