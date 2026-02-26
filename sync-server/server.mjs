@@ -29,8 +29,9 @@ import {
 } from '@tldraw/tlschema'
 
 const PORT = Number(process.env.PORT) || 5858
-// Canonical persistence table (new schema)
-const SAVED_PAGES_TABLE = 'saved_pages'
+// v2 schema: page_snapshots for document content, pages for metadata.
+const SNAPSHOTS_TABLE = 'page_snapshots'
+const PAGES_TABLE = 'pages'
 
 const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
 
@@ -101,33 +102,17 @@ async function loadFromSupabase(roomId) {
 	const supabase = getSupabase()
 	if (!supabase) return undefined
 
-	// 1) Shared-link visitors connect with roomId = public_id
-	{
-		const { data, error } = await supabase
-			.from(SAVED_PAGES_TABLE)
-			.select('document')
-			.eq('public_id', roomId)
-			.eq('is_shared', true)
-			.maybeSingle()
-		if (!error && data?.document) {
-			const s = data.document
-			const doc = s?.document ?? s
-			if (doc?.store && doc?.schema) return { store: doc.store, schema: doc.schema }
-		}
-	}
-
-	// 2) Private saved pages (or shared pages once resolved) connect with roomId = saved_pages.id
-	{
-		const { data, error } = await supabase
-			.from(SAVED_PAGES_TABLE)
-			.select('document')
-			.eq('id', roomId)
-			.maybeSingle()
-		if (!error && data?.document) {
-			const s = data.document
-			const doc = s?.document ?? s
-			if (doc?.store && doc?.schema) return { store: doc.store, schema: doc.schema }
-		}
+	// v2: roomId is always pages.id (uuid).
+	// Load snapshot from page_snapshots.
+	const { data, error } = await supabase
+		.from(SNAPSHOTS_TABLE)
+		.select('document')
+		.eq('page_id', roomId)
+		.maybeSingle()
+	if (!error && data?.document) {
+		const s = data.document
+		const doc = s?.document ?? s
+		if (doc?.store && doc?.schema) return { store: doc.store, schema: doc.schema }
 	}
 
 	return undefined
@@ -144,23 +129,18 @@ async function saveToSupabase(roomId, snapshot) {
 	}
 	const payload = roomSnapshotToSupabaseFormat(snapshot)
 
-	// Best-effort: update by public_id first (shared-link room), else by id.
-	// Note: private rooms require service role key (or JWT-auth'd client) to pass RLS.
-	{
-		const { data, error } = await supabase
-			.from(SAVED_PAGES_TABLE)
-			.update({ document: payload, updated_at: new Date().toISOString() })
-			.eq('public_id', roomId)
-			.eq('is_shared', true)
-			.select('id')
-			.maybeSingle()
-		if (!error && data?.id) return
-	}
-
+	// v2: roomId is pages.id (uuid). Upsert into page_snapshots.
+	// Requires service role key to bypass RLS for server-side writes.
 	const { error } = await supabase
-		.from(SAVED_PAGES_TABLE)
-		.update({ document: payload, updated_at: new Date().toISOString() })
-		.eq('id', roomId)
+		.from(SNAPSHOTS_TABLE)
+		.upsert(
+			{
+				page_id: roomId,
+				document: payload,
+				updated_at: new Date().toISOString(),
+			},
+			{ onConflict: 'page_id' }
+		)
 	if (error) {
 		console.warn('[sync] Failed to persist snapshot room=%s error=%s', roomId, error.message)
 	}
