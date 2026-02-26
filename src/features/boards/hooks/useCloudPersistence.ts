@@ -31,6 +31,7 @@ import { syncGridRef } from '../lib/gridSnapshot'
 import type { GridRef } from '../lib/gridSnapshot'
 import { getPageDocumentFromStore, getPageRecordIds } from '../sharePage'
 import { isSharedPage, isConnecting as machineIsConnecting } from '../machine'
+import { getShareIdFromUrl } from '../persistence'
 import type { SnapshotFrom } from 'xstate'
 import { whiteboardMachine } from '../machine'
 
@@ -150,8 +151,9 @@ export function useCloudPersistence(
 		const refreshFromCloud = async (): Promise<void> => {
 			if (cancelled) return
 			// When viewing a shared-link session (/boards/s/:slug), do not hydrate/override the user's page list.
-			// The shared page is its own context and should not force currentPageId back to the user's first page.
-			if (isSharedPage(machineStateRef.current)) return
+			// NOTE: on initial load, the machine may not have entered shared mode yet (slug resolution is async).
+			// Use the URL as an early signal to prevent a boot-time jump to the first page.
+			if (isSharedPage(machineStateRef.current) || Boolean(getShareIdFromUrl())) return
 			const pages = await loadUserPages(userId)
 			if (cancelled) return
 
