@@ -29,10 +29,19 @@ import {
 } from '@tldraw/tlschema'
 
 const PORT = Number(process.env.PORT) || 5858
-const SHARE_TABLE = 'shared_pages'
+// Canonical persistence table (new schema)
+const SAVED_PAGES_TABLE = 'saved_pages'
 
 const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
-const supabaseKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? ''
+
+// Prefer service role on the server so private saved pages can persist from the sync server.
+// Falls back to anon key if service role is not provided.
+const supabaseKey =
+	process.env.SUPABASE_SERVICE_ROLE_KEY ??
+	process.env.SUPABASE_SERVICE_KEY ??
+	process.env.SUPABASE_ANON_KEY ??
+	process.env.VITE_SUPABASE_ANON_KEY ??
+	''
 
 function getSupabase() {
 	if (!supabaseUrl || !supabaseKey) return null
@@ -90,16 +99,37 @@ async function loadFromSupabase(roomId) {
 	if (!roomId || String(roomId).trim() === '') return undefined
 	const supabase = getSupabase()
 	if (!supabase) return undefined
-	const { data, error } = await supabase
-		.from(SHARE_TABLE)
-		.select('snapshot')
-		.eq('id', roomId)
-		.single()
-	if (error || !data?.snapshot) return undefined
-	const s = data.snapshot
-	const doc = s?.document ?? s
-	if (!doc?.store || !doc?.schema) return undefined
-	return { store: doc.store, schema: doc.schema }
+
+	// 1) Shared-link visitors connect with roomId = public_id
+	{
+		const { data, error } = await supabase
+			.from(SAVED_PAGES_TABLE)
+			.select('document')
+			.eq('public_id', roomId)
+			.eq('is_shared', true)
+			.maybeSingle()
+		if (!error && data?.document) {
+			const s = data.document
+			const doc = s?.document ?? s
+			if (doc?.store && doc?.schema) return { store: doc.store, schema: doc.schema }
+		}
+	}
+
+	// 2) Private saved pages (or shared pages once resolved) connect with roomId = saved_pages.id
+	{
+		const { data, error } = await supabase
+			.from(SAVED_PAGES_TABLE)
+			.select('document')
+			.eq('id', roomId)
+			.maybeSingle()
+		if (!error && data?.document) {
+			const s = data.document
+			const doc = s?.document ?? s
+			if (doc?.store && doc?.schema) return { store: doc.store, schema: doc.schema }
+		}
+	}
+
+	return undefined
 }
 
 async function saveToSupabase(roomId, snapshot) {
@@ -112,12 +142,24 @@ async function saveToSupabase(roomId, snapshot) {
 		lastSaveLog.set(roomId, now)
 	}
 	const payload = roomSnapshotToSupabaseFormat(snapshot)
+
+	// Best-effort: update by public_id first (shared-link room), else by id.
+	// Note: private rooms require service role key (or JWT-auth'd client) to pass RLS.
+	{
+		const { data, error } = await supabase
+			.from(SAVED_PAGES_TABLE)
+			.update({ document: payload, updated_at: new Date().toISOString() })
+			.eq('public_id', roomId)
+			.eq('is_shared', true)
+			.select('id')
+			.maybeSingle()
+		if (!error && data?.id) return
+	}
+
 	await supabase
-		.from(SHARE_TABLE)
-		.upsert(
-			{ id: roomId, snapshot: payload, created_at: new Date().toISOString() },
-			{ onConflict: 'id' }
-		)
+		.from(SAVED_PAGES_TABLE)
+		.update({ document: payload, updated_at: new Date().toISOString() })
+		.eq('id', roomId)
 }
 
 const schema = createTLSchema({
