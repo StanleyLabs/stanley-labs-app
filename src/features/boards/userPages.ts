@@ -27,12 +27,15 @@ export async function listUserPages(userId: string): Promise<UserPageRow[]> {
 }
 
 export async function addUserPage(userId: string, savedPageId: string, name: string, order: number): Promise<boolean> {
-	const { error } = await supabase.from('user_pages').upsert({
-		user_id: userId,
-		saved_page_id: savedPageId,
-		name,
-		order,
-	})
+	const { error } = await supabase.from('user_pages').upsert(
+		{
+			user_id: userId,
+			saved_page_id: savedPageId,
+			name,
+			order,
+		},
+		{ onConflict: 'user_id,saved_page_id' }
+	)
 	if (error) {
 		console.error('[user_pages] addUserPage failed:', error.message)
 		return false
