@@ -33,7 +33,13 @@ function sendEnterSaved(
 	pageId: string,
 	publicId?: string | null
 ): void {
-	sendRef.current({ type: 'ENTER_SAVED', pageId, publicId: publicId ?? null })
+	// In v1 mode, roomId == tldrawPageId.
+	sendRef.current({
+		type: 'ENTER_SAVED',
+		roomId: pageId,
+		tldrawPageId: pageId,
+		publicSlug: publicId ?? null,
+	})
 }
 
 export function usePageTracker(

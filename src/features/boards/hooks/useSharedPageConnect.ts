@@ -26,8 +26,8 @@ export function useSharedPageConnect(
 	gridRef: React.MutableRefObject<GridRef>
 ): void {
 	const connecting = machineIsConnecting(state)
-	const pageId = state.context.pageId
-	const publicId = state.context.publicId
+	const pageId = state.context.tldrawPageId
+	const publicId = state.context.publicSlug
 
 	useEffect(() => {
 		if (!connecting || !pageId) return

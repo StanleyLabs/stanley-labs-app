@@ -31,16 +31,18 @@ import { setup, assign, type SnapshotFrom } from 'xstate'
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface WhiteboardContext {
-	/** Canonical page id for the current synced page (saved page id). null when local. */
-	pageId: string | null
-	/** Optional public share id from URL (only when visiting /boards/s/:id). */
-	publicId: string | null
+	/** Room id used for WebSocket sync (opaque). */
+	roomId: string | null
+	/** Current tldraw page id in the local store (page:...). */
+	tldrawPageId: string | null
+	/** Optional public share slug from URL (only when visiting /boards/s/:slug). */
+	publicSlug: string | null
 	/** Whether the Supabase singleton is ready. */
 	supabaseReady: boolean
 }
 
 export type WhiteboardEvent =
-	| { type: 'ENTER_SAVED'; pageId: string; publicId?: string | null }
+	| { type: 'ENTER_SAVED'; roomId: string; tldrawPageId: string; publicSlug?: string | null }
 	| { type: 'LEAVE_SAVED' }
 	| { type: 'SUPABASE_READY' }
 	| { type: 'SUPABASE_UNAVAILABLE' }
@@ -68,21 +70,24 @@ export const whiteboardMachine = setup({
 	actions: {
 		setSaved: assign(({ event }) => {
 			const e = event as Extract<WhiteboardEvent, { type: 'ENTER_SAVED' }>
-			return { pageId: e.pageId, publicId: e.publicId ?? null }
+			return { roomId: e.roomId, tldrawPageId: e.tldrawPageId, publicSlug: e.publicSlug ?? null }
 		}),
-		clearSaved: assign({ pageId: null, publicId: null }),
+		clearSaved: assign({ roomId: null, tldrawPageId: null, publicSlug: null }),
 		markSupabaseReady: assign({ supabaseReady: true }),
 		markSupabaseUnavailable: assign({ supabaseReady: false }),
 	},
 	guards: {
-		hasPageId: ({ context }) => Boolean(context.pageId),
+		hasRoomId: ({ context }) => Boolean(context.roomId),
+		hasTldrawPageId: ({ context }) => Boolean(context.tldrawPageId),
 	},
+
 }).createMachine({
 	id: 'whiteboard',
 	initial: 'local',
 	context: {
-		pageId: null,
-		publicId: null,
+		roomId: null,
+		tldrawPageId: null,
+		publicSlug: null,
 		supabaseReady: false,
 	},
 
@@ -119,7 +124,7 @@ export const whiteboardMachine = setup({
 					SUPABASE_CONNECTED: {
 						target: 'supabaseSync',
 						actions: assign(({ context, event }) => ({
-							pageId: (event as { pageId?: string }).pageId || context.pageId,
+							tldrawPageId: (event as { pageId?: string }).pageId || context.tldrawPageId,
 						})),
 					},
 					SUPABASE_FAILED: { target: 'offline' },
@@ -127,7 +132,7 @@ export const whiteboardMachine = setup({
 					// pageId (revisiting a share), skip supabaseSync entirely.
 					SERVER_CONNECTED: {
 						target: 'serverSync',
-						guard: 'hasPageId',
+						guard: 'hasTldrawPageId',
 					},
 				},
 			},
@@ -196,7 +201,7 @@ export function isSyncedPage(state: MachineState): boolean {
 
 /** Whether the current page was opened via a public share link (/boards/s/:id). */
 export function isSharedPage(state: MachineState): boolean {
-	return Boolean(state.context.publicId)
+	return Boolean(state.context.publicSlug)
 }
 
 /** Whether we're actively trying to connect. */

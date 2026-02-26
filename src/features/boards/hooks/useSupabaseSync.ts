@@ -46,8 +46,8 @@ export function useSupabaseSync(
 		const throttled = throttle(() => {
 			const st = stateRef.current
 			if (!shouldRunSupabaseSync(st)) return
-			const pageId = st.context.pageId
-			const publicId = st.context.publicId
+			const pageId = st.context.tldrawPageId
+			const publicId = st.context.publicSlug
 			if (!pageId || !editorRef.current) return
 			void getContentAsJsonDocForPage(editorRef.current, pageId as TLPageId)
 				.then((doc) => {
@@ -84,8 +84,8 @@ export function useSupabaseSync(
 		const poll = async (): Promise<void> => {
 			const st = stateRef.current
 			if (!shouldRunSupabaseSync(st)) return
-			const pageId = st.context.pageId
-			const publicId = st.context.publicId
+			const pageId = st.context.tldrawPageId
+			const publicId = st.context.publicSlug
 			if (!pageId) return
 
 			if (Date.now() - lastWriteTimeRef.current < SUPABASE_POLL_MS) return

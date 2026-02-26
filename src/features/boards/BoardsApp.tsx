@@ -32,9 +32,9 @@ function App() {
 			<ConnectionIndicatorProvider onRetry={() => send({ type: 'RETRY' })}>
 				{needsServerBridge && (
 					<ServerSyncBridge
-						key={`${state.context.pageId}-${serverRetryKey}`}
+						key={`${state.context.roomId}-${serverRetryKey}`}
 						persistStore={store}
-						pageId={state.context.pageId ?? ''}
+						pageId={state.context.tldrawPageId ?? ''}
 						syncUri={syncUri}
 						send={send}
 						isUserInteractingRef={orchestration.isUserInteractingRef}
