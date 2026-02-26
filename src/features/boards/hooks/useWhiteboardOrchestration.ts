@@ -19,6 +19,7 @@ import {
 import { initSupabase } from '../supabase'
 import {
 	loadSnapshot as loadStorageSnapshot,
+	setActiveUserId,
 } from '../persistence'
 import { buildSyncUri, isSyncServerConfigured } from '../sharePage'
 import { getShareIdFromUrl } from '../persistence'
@@ -77,6 +78,11 @@ export function useWhiteboardOrchestration(): WhiteboardOrchestrationResult {
 
 	const { user } = useAuth()
 	const userId = user?.id ?? null
+
+	// Namespace persistence keys per user (share map, last-selected page id, etc.)
+	useEffect(() => {
+		setActiveUserId(userId)
+	}, [userId])
 
 	// Reload from localStorage whenever user changes (namespaced keys)
 	// Logged-in users are cloud-only (no offline mode), so we do not hydrate document data from localStorage.

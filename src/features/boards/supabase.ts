@@ -95,12 +95,14 @@ export async function saveSharedPage(pageOrPublicId: string, snapshot: ShareSnap
 
 	// Try by public_id first (shared link visitors).
 	{
-		const { error, count } = await sb
+		const { data, error } = await sb
 			.from(SAVED_PAGES_TABLE)
 			.update({ document: snapshot, updated_at: now })
 			.eq('public_id', pageOrPublicId)
 			.eq('is_shared', true)
-		if (!error && count && count > 0) return
+			.select('id')
+			.maybeSingle()
+		if (!error && data?.id) return
 		if (error) {
 			const isAbort = error.message?.includes('AbortError') || error.name === 'AbortError'
 			if (isAbort) throw new DOMException(error.message, 'AbortError')
