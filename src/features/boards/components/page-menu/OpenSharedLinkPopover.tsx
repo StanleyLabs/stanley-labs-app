@@ -1,5 +1,6 @@
 /**
  * Popover with paste-link input. Trigger is a button in the page menu footer.
+ * v2: resolves slug via pages table.
  */
 
 import { useCallback, useState } from 'react'
@@ -10,31 +11,22 @@ import {
 	TldrawUiPopover,
 	TldrawUiPopoverContent,
 	TldrawUiPopoverTrigger,
-	useEditor,
 	useToasts,
 } from 'tldraw'
-import {
-	getPageIdForShareId,
-	parseShareIdFromPastedText,
-	setShareIdInUrl,
-} from '../../persistence'
-import { useMachineCtx } from '../../MachineContext'
-import { loadSharedPage } from '../../supabase'
+import { parseShareIdFromPastedText } from '../../persistence'
 
 export function OpenSharedLinkPopover() {
-	const editor = useEditor()
-	const { send } = useMachineCtx()
 	const toasts = useToasts()
 	const [popoverOpen, setPopoverOpen] = useState(false)
 	const [input, setInput] = useState('')
 	const [loading, setLoading] = useState(false)
 
 	const handleSubmit = useCallback(async () => {
-		const shareId = parseShareIdFromPastedText(input)
-		if (!shareId) {
+		const slug = parseShareIdFromPastedText(input)
+		if (!slug) {
 			toasts.addToast({
 				title: 'Invalid link',
-				description: 'Paste a full URL or share ID.',
+				description: 'Paste a full URL or share slug.',
 				severity: 'error',
 			})
 			return
@@ -42,25 +34,12 @@ export function OpenSharedLinkPopover() {
 
 		setLoading(true)
 		try {
-			const remote = await loadSharedPage(shareId)
-			if (!remote?.document?.store) {
-				toasts.addToast({
-					title: 'Link not found',
-					description: 'The shared page may have been deleted.',
-					severity: 'error',
-				})
-				return
-			}
-			const pageId = getPageIdForShareId(shareId) ?? ''
-			setShareIdInUrl(shareId)
-			send({ type: 'ENTER_SAVED', roomId: pageId || '', tldrawPageId: pageId || '', publicSlug: shareId })
-			setInput('')
-			setPopoverOpen(false)
-			editor.menus.clearOpenMenus()
+			// v2: navigate to the shared link URL; the app router + usePageTracker will handle resolution.
+			window.location.href = `${window.location.origin}/boards/s/${slug}`
 		} finally {
 			setLoading(false)
 		}
-	}, [input, send, toasts, editor])
+	}, [input, toasts])
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
@@ -107,7 +86,7 @@ export function OpenSharedLinkPopover() {
 					<input
 						type="text"
 						className="tlui-page-menu__open-link__input"
-						placeholder="Paste link or share ID"
+						placeholder="Paste link or share slug"
 						value={input}
 						onChange={(e) => setInput(e.target.value)}
 						onKeyDown={handleKeyDown}
@@ -118,20 +97,18 @@ export function OpenSharedLinkPopover() {
 						type="icon"
 						title="Paste from clipboard"
 						onClick={(e) => void handlePasteFromClipboard(e)}
-						disabled={loading}
-						data-testid="page-menu.paste-shared-link"
+						data-testid="page-menu.paste-clipboard"
 					>
-						<TldrawUiButtonIcon icon="clipboard-copy" small />
+						<TldrawUiButtonIcon icon="clipboard-copy" />
 					</TldrawUiButton>
 					<TldrawUiButton
-						type="normal"
-						className="tlui-page-menu__open-link__button"
+						type="icon"
+						title="Open"
 						onClick={() => void handleSubmit()}
 						disabled={loading || !input.trim()}
-						data-testid="page-menu.open-shared-link"
+						data-testid="page-menu.open-shared-link-go"
 					>
-						<TldrawUiButtonIcon icon="link" small />
-						<TldrawUiButtonLabel>{loading ? 'Opening…' : 'Open'}</TldrawUiButtonLabel>
+						<TldrawUiButtonIcon icon="check" />
 					</TldrawUiButton>
 				</div>
 			</TldrawUiPopoverContent>
