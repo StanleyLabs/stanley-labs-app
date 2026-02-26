@@ -37,6 +37,7 @@ const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ??
 // Prefer service role on the server so private saved pages can persist from the sync server.
 // Falls back to anon key if service role is not provided.
 const supabaseKey =
+	process.env.SUPABASE_SECRET_KEY ??
 	process.env.SUPABASE_SERVICE_ROLE_KEY ??
 	process.env.SUPABASE_SERVICE_KEY ??
 	process.env.SUPABASE_ANON_KEY ??
@@ -156,10 +157,13 @@ async function saveToSupabase(roomId, snapshot) {
 		if (!error && data?.id) return
 	}
 
-	await supabase
+	const { error } = await supabase
 		.from(SAVED_PAGES_TABLE)
 		.update({ document: payload, updated_at: new Date().toISOString() })
 		.eq('id', roomId)
+	if (error) {
+		console.warn('[sync] Failed to persist snapshot room=%s error=%s', roomId, error.message)
+	}
 }
 
 const schema = createTLSchema({
