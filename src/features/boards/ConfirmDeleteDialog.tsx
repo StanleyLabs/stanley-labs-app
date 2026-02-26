@@ -17,12 +17,12 @@ import type { TLUiDialogProps } from 'tldraw'
 
 export interface ConfirmDeleteDialogProps extends TLUiDialogProps {
 	pageName: string
-	isLoggedIn: boolean
+	isLoggedIn?: boolean
 	onConfirm: () => void
 }
 
 export function ConfirmDeleteDialog(props: ConfirmDeleteDialogProps) {
-	const { pageName, isLoggedIn, onConfirm } = props
+	const { pageName, isLoggedIn = false, onConfirm } = props
 	const close = (): void => props.onClose()
 
 	return (

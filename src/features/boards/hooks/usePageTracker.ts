@@ -77,8 +77,10 @@ export function usePageTracker(
 
 			const snap = await loadPageSnapshot(resolved.id)
 			if (cancelled) return
-			if (snap?.document?.document?.store) {
-				const incomingStore = (snap.document.document.store ?? {}) as Record<string, unknown>
+			const snapDoc = snap?.document as any
+			const innerDoc = snapDoc?.document ?? snapDoc
+			if (innerDoc?.store) {
+				const incomingStore = (innerDoc.store ?? {}) as Record<string, unknown>
 				// Clear existing records for that tldraw page id, then apply incoming.
 				const localSnap = store.getStoreSnapshot('document') as { store: Record<string, unknown> }
 				const idsToRemove = getPageRecordIds(localSnap as any, tldrawPageId as any)

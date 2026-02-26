@@ -5,12 +5,6 @@
 import { useCallback } from 'react'
 import { importJsonFromText } from './pasteJson'
 import { getContentAsJsonDoc } from './sharePage'
-import { isSupabaseConfigured, createSharedPage } from './supabase'
-import { setShareIdForPage, buildShareUrl } from './persistence'
-import { savePageSnapshot } from './cloudPersistence'
-import { shareSavedPage } from './savedPages'
-import { useMachineCtx } from './MachineContext'
-import { useAuth } from '../../lib/AuthContext'
 import {
 	ArrangeMenuSubmenu,
 	ClipboardMenuGroup,
@@ -124,89 +118,12 @@ function CustomCopyAsMenuGroup() {
 	)
 }
 
-/** Share page: save current page to Supabase, copy URL, update share map + URL. */
+/** Share page: v2 placeholder - will be rebuilt with the new Share modal. */
 function CreateLinkMenuItem() {
-	const editor = useEditor()
-	const toasts = useToasts()
-	const { send } = useMachineCtx()
-	const { user } = useAuth()
-	const onSelect = useCallback(
-		async (_source: TLUiEventSource) => {
-			const loadingId = toasts.addToast({ title: 'Creating link…', severity: 'info', keepOpen: true })
-			try {
-				const pageId = editor.getCurrentPageId()
-				const doc = await getContentAsJsonDoc(editor, editor.getPageShapeIds(pageId))
-				if (!doc) {
-					toasts.removeToast(loadingId)
-					toasts.addToast({ title: 'Share page unavailable', description: 'No content on page.', severity: 'error' })
-					return
-				}
-				let shareId: string | null = null
-
-				if (user?.id) {
-					// Logged-in: share the user's existing saved page.
-					// Ensure the cloud row exists and has a fresh snapshot before flipping the share flag.
-					const pages = editor.getPages()
-					const idx = pages.findIndex((p) => p.id === pageId)
-					const name = idx >= 0 ? pages[idx].name : 'Untitled'
-					const order = idx >= 0 ? idx : 0
-					await savePageSnapshot(pageId, user.id, doc, name, order)
-					const shared = await shareSavedPage(pageId)
-					shareId = shared?.public_id ?? null
-				} else {
-					// Logged-out: create a standalone shared page row.
-					const result = await createSharedPage(doc, null)
-					shareId = result?.id ?? null
-				}
-
-				toasts.removeToast(loadingId)
-				if (!shareId) {
-					toasts.addToast({ title: 'Share page unavailable', description: 'Could not create a share link.', severity: 'error' })
-					return
-				}
-
-				setShareIdForPage(pageId, shareId)
-				// Copy link should not navigate or change the URL.
-				const url = buildShareUrl(shareId)
-
-				// Clipboard write may fail on Safari (user-gesture timeout after
-				// awaits) — treat it as non-fatal since the share itself succeeded.
-				let clipboardOk = false
-				if (navigator.clipboard?.writeText) {
-					try {
-						await navigator.clipboard.writeText(url)
-						clipboardOk = true
-					} catch {
-						// Safari NotAllowedError — silently ignore
-					}
-				}
-				toasts.addToast({
-					title: clipboardOk ? 'Link created' : 'Link created — copy the URL from the address bar',
-					severity: 'success',
-				})
-			} catch (err) {
-				toasts.removeToast(loadingId)
-				toasts.addToast({
-					title: 'Share page failed',
-					description: err instanceof Error ? err.message : 'Could not save to database.',
-					severity: 'error',
-				})
-			}
-		},
-		[editor, toasts, send]
-	)
-	return (
-		<TldrawUiDropdownMenuItem>
-			<TldrawUiButton
-				type="menu"
-				data-testid="main-menu.create-link"
-				onClick={() => { void onSelect('main-menu') }}
-			>
-				<TldrawUiButtonLabel>Share page</TldrawUiButtonLabel>
-				<TldrawUiButtonIcon icon="link" small />
-			</TldrawUiButton>
-		</TldrawUiDropdownMenuItem>
-	)
+	// v2: Share functionality will be implemented via a dedicated Share modal
+	// that supports private/collaborators/public with roles.
+	// Hidden for now to avoid referencing dropped tables.
+	return null
 }
 
 /** Import JSON menu item - opens file picker, merges content onto current page. */
@@ -299,11 +216,7 @@ export function CustomMainMenu(props: TLUiMainMenuProps) {
 				<TldrawUiMenuGroup id="extras">
 					<ExtrasGroup />
 				</TldrawUiMenuGroup>
-				{isSupabaseConfigured() && (
-					<TldrawUiMenuGroup id="create-link">
-						<CreateLinkMenuItem />
-					</TldrawUiMenuGroup>
-				)}
+				{/* v2: Share menu item will be re-added with the new Share modal */}
 			</TldrawUiMenuGroup>
 			<PreferencesGroup />
 		</DefaultMainMenu>

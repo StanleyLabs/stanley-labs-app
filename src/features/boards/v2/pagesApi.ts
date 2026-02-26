@@ -27,16 +27,31 @@ export async function resolvePublicSlug(slug: string): Promise<
 	return data as any
 }
 
-export async function createPage(opts: { title?: string; visibility?: PageVisibility } = {}): Promise<PageRow | null> {
+export async function createPage(opts: { title?: string; visibility?: PageVisibility } = {}): Promise<(PageRow & { tldraw_page_id: string }) | null> {
+	const user = (await supabase.auth.getUser()).data.user
+	if (!user?.id) {
+		console.warn('[pagesApi] createPage: not authenticated')
+		return null
+	}
+
+	// Generate a tldraw-compatible page id: page:<short-id>
+	const shortId = crypto.randomUUID().replace(/-/g, '').slice(0, 21)
+	const tldrawPageId = `page:${shortId}`
+
 	const { data, error } = await supabase
 		.from('pages')
 		.insert({
+			owner_id: user.id,
 			title: opts.title ?? 'Untitled',
 			visibility: opts.visibility ?? 'private',
+			tldraw_page_id: tldrawPageId,
 		})
 		.select('*')
 		.single()
-	if (error || !data?.id) return null
+	if (error || !data?.id) {
+		console.warn('[pagesApi] createPage failed:', error?.message)
+		return null
+	}
 	return data as any
 }
 

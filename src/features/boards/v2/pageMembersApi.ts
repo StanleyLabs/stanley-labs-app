@@ -26,7 +26,7 @@ export async function listMyPages(): Promise<
 > {
 	const { data, error } = await supabase
 		.from('page_members')
-		.select('page_id,role,pages(id,owner_id,title,visibility,public_slug,public_access,updated_at)')
+		.select('page_id,role,pages(id,owner_id,title,visibility,public_slug,public_access,tldraw_page_id,updated_at)')
 		.order('created_at', { ascending: false })
 	if (error) return []
 	return (data ?? []) as any

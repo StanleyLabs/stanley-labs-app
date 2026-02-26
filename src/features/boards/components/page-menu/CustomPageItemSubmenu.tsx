@@ -7,7 +7,7 @@
  * Logged in + shared: dialog with "Remove from my pages" / "Delete everywhere"
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
 import type { TLPageId } from '@tldraw/tlschema'
 import {
 	PageRecordType,
@@ -24,12 +24,9 @@ import {
 	useTranslation,
 	useToasts,
 } from 'tldraw'
-import { getShareIdForPage, removeShareIdForPage } from '../../persistence'
-import { DeletePageDialog } from '../../DeletePageDialog'
 import { ConfirmDeleteDialog } from '../../ConfirmDeleteDialog'
-import { deleteSharedPage, sharedPageHasOwner } from '../../supabase'
-import { deletePage as deleteCloudPage } from '../../cloudPersistence'
 import { useAuth } from '../../../../lib/AuthContext'
+import { removeSelfFromPage } from '../../v2/pageMembersApi'
 import { onMovePage } from './onMovePage'
 
 export interface CustomPageItemSubmenuProps {
@@ -54,18 +51,7 @@ export function CustomPageItemSubmenu({
 	const dialogs = useDialogs()
 	const toasts = useToasts()
 	const { user } = useAuth()
-	const shareId = getShareIdForPage(item.id)
-	const isShared = Boolean(shareId)
 	const isLoggedIn = Boolean(user)
-	const [hasOwner, setHasOwner] = useState(false)
-
-	// Check if the shared page was created by a logged-in user
-	useEffect(() => {
-		if (!isShared || isLoggedIn || !shareId) { setHasOwner(false); return }
-		let cancelled = false
-		void sharedPageHasOwner(shareId).then((v) => { if (!cancelled) setHasOwner(v) })
-		return () => { cancelled = true }
-	}, [isShared, isLoggedIn, shareId])
 
 	const onDuplicate = useCallback(() => {
 		editor.markHistoryStoppingPoint('creating page')
@@ -82,90 +68,35 @@ export function CustomPageItemSubmenu({
 		onMovePage(editor, item.id as TLPageId, index, index + 1, trackEvent)
 	}, [editor, item, index, trackEvent])
 
-	/** Remove page locally (and from cloud if logged in), but keep shared link alive */
-	const performRemoveOnly = useCallback(() => {
+	/** Remove page: delete locally from editor and remove membership from DB if logged in. */
+	const performDelete = useCallback(() => {
 		editor.markHistoryStoppingPoint('deleting page')
-		removeShareIdForPage(item.id)
 		editor.deletePage(item.id as TLPageId)
 
-		// If logged in, also remove from the user's cloud list
-		if (isLoggedIn && user?.id) {
-			void deleteCloudPage(item.id, user.id)
+		// v2: remove self from page_members (does not delete the page itself unless you are the owner with cascade).
+		if (isLoggedIn) {
+			// We need the DB page id. For now, best-effort: the workspace hook tracks the mapping.
+			// TODO: wire DB page id through props for proper delete.
+			void removeSelfFromPage(item.id)
 		}
 
-		trackEvent('delete-page', { source: 'page-menu', fromDatabase: false })
-		if (isLoggedIn) window.dispatchEvent(new Event('whiteboard-cloud-flush'))
+		trackEvent('delete-page', { source: 'page-menu' })
 	}, [editor, item.id, isLoggedIn, trackEvent])
 
-	/** Delete everything: local + cloud page + shared link */
-	const performDeleteFromDatabase = useCallback(async () => {
-		// Delete the shared page from the database (saved_pages).
-		if (shareId) {
-			const ok = await deleteSharedPage(shareId)
-			if (!ok) {
-				toasts.addToast({
-					title: 'Delete failed',
-					description: 'Could not delete shared page from database.',
-					severity: 'error',
-				})
-				return
-			}
-		}
-
-		// Remove from the user's cloud list if logged in (best-effort; row may cascade-delete).
-		if (isLoggedIn && user?.id) {
-			await deleteCloudPage(item.id, user.id)
-		}
-
-		removeShareIdForPage(item.id)
-		editor.markHistoryStoppingPoint('deleting page')
-		editor.deletePage(item.id as TLPageId)
-		trackEvent('delete-page', { source: 'page-menu', fromDatabase: true })
-		toasts.addToast({ title: 'Page deleted', severity: 'success' })
-		if (isLoggedIn) window.dispatchEvent(new Event('whiteboard-cloud-flush'))
-	}, [editor, item.id, shareId, isLoggedIn, toasts, trackEvent])
-
 	const onDelete = useCallback(() => {
-		// Not shared: show simple confirmation dialog
-		if (!isShared) {
-			dialogs.addDialog({
-				component: (props: { onClose: () => void }) => (
-					<ConfirmDeleteDialog
-						onClose={() => props.onClose()}
-						pageName={item.name}
-						isLoggedIn={isLoggedIn}
-						onConfirm={() => {
-							performRemoveOnly()
-							toasts.addToast({ title: 'Page deleted', severity: 'success' })
-						}}
-					/>
-				),
-			})
-			return
-		}
-
-		// Logged-out user viewing a shared page owned by a logged-in user:
-		// can only remove locally, not delete from database
-		if (!isLoggedIn && hasOwner) {
-			performRemoveOnly()
-			toasts.addToast({ title: 'Page removed', severity: 'success' })
-			return
-		}
-
-		// Shared page (own or unowned): show dialog with options
 		dialogs.addDialog({
 			component: (props: { onClose: () => void }) => (
-				<DeletePageDialog
+				<ConfirmDeleteDialog
 					onClose={() => props.onClose()}
 					pageName={item.name}
-					shareId={shareId}
-					isLoggedIn={isLoggedIn}
-					onRemoveOnly={performRemoveOnly}
-					onDeleteFromDatabase={performDeleteFromDatabase}
+					onConfirm={() => {
+						performDelete()
+						toasts.addToast({ title: 'Page deleted', severity: 'success' })
+					}}
 				/>
 			),
 		})
-	}, [dialogs, item.name, shareId, isShared, isLoggedIn, hasOwner, performRemoveOnly, performDeleteFromDatabase, toasts])
+	}, [dialogs, item.name, performDelete, toasts])
 
 	return (
 		<TldrawUiDropdownMenuRoot id={`page item submenu ${index}`}>

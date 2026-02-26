@@ -1,9 +1,8 @@
 import { supabase } from '../../../lib/supabase'
-import type { ShareSnapshot } from '../sharePage'
 
 export type PageSnapshotRow = {
 	page_id: string
-	document: ShareSnapshot
+	document: unknown
 	updated_at: string
 }
 
@@ -18,7 +17,7 @@ export async function loadPageSnapshot(pageId: string): Promise<PageSnapshotRow 
 	return data as any
 }
 
-export async function savePageSnapshot(pageId: string, document: ShareSnapshot): Promise<boolean> {
+export async function savePageSnapshot(pageId: string, document: unknown): Promise<boolean> {
 	if (!pageId) return false
 	const { error } = await supabase
 		.from('page_snapshots')
@@ -30,5 +29,8 @@ export async function savePageSnapshot(pageId: string, document: ShareSnapshot):
 			},
 			{ onConflict: 'page_id' }
 		)
+	if (error) {
+		console.warn('[pageSnapshotsApi] savePageSnapshot failed:', error.message)
+	}
 	return !error
 }
