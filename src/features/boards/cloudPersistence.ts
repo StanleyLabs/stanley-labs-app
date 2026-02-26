@@ -1,254 +1,134 @@
 /**
  * Cloud persistence for whiteboard pages (logged-in users).
  *
- * When a user is logged in:
- * - All pages are saved to the `whiteboard_pages` table
- * - Pages load from Supabase on app boot (instead of localStorage)
- * - Pages can be shared via share_id (public read access)
+ * New schema:
+ * - `saved_pages` holds the page document + share state
+ * - `user_pages` holds the per-user page list (name + order)
  *
- * When not logged in:
- * - Falls back to localStorage (existing behavior)
- * - Shared pages still work via the shared_pages table
+ * Logged-in mode is cloud-first; logged-out mode uses localStorage.
  */
 
 import { supabase } from '../../lib/supabase'
+import type { ShareSnapshot } from './sharePage'
+import { createSavedPage } from './savedPages'
+import { addUserPage, removeUserPage } from './userPages'
 
 export interface CloudPage {
+	/** saved_pages.id (and user_pages.saved_page_id) */
 	id: string
 	user_id: string
 	name: string
-	snapshot: unknown | null
+	snapshot: ShareSnapshot | null
+	/** saved_pages.public_id when shared */
 	share_id: string | null
 	order: number
 	created_at: string
 	updated_at: string
 }
 
-/** Load all pages for a user (excludes canonical document rows). */
+type UserPageWithSaved = {
+	user_id: string
+	saved_page_id: string
+	name: string
+	order: number
+	created_at?: string
+	updated_at?: string
+	saved_pages?: {
+		id: string
+		owner_id: string | null
+		is_shared: boolean
+		public_id: string | null
+		document: ShareSnapshot | null
+		created_at?: string
+		updated_at?: string
+	} | null
+}
+
+/** Load all pages for a user (cloud menu list + page documents). */
 export async function loadUserPages(userId: string): Promise<CloudPage[]> {
 	const { data, error } = await supabase
-		.from('whiteboard_pages')
-		.select('*')
+		.from('user_pages')
+		.select(`user_id,saved_page_id,name,order,created_at,updated_at,saved_pages(id,owner_id,is_shared,public_id,document,created_at,updated_at)`)
 		.eq('user_id', userId)
 		.order('order', { ascending: true })
+
 	if (error) {
 		console.error('[cloud] loadUserPages failed:', error.message)
 		return []
 	}
-	return (data ?? []).filter((p) => !isCanonicalDocId(p.id))
-}
 
-const USER_DOCUMENT_ID = '__document__'
-const USER_DOCUMENT_IDS = [USER_DOCUMENT_ID, 'document__'] as const
+	const rows = (data ?? []) as unknown as UserPageWithSaved[]
 
-function isCanonicalDocId(id: string): boolean {
-	return (USER_DOCUMENT_IDS as readonly string[]).includes(id)
-}
-
-/** Save/update the user's canonical whiteboard document snapshot (cloud source of truth). */
-export async function saveUserDocumentSnapshot(
-	userId: string,
-	snapshot: unknown,
-	expectedUpdatedAt?: string | null
-): Promise<{ updated_at: string } | null> {
-	const now = new Date().toISOString()
-
-	// Optimistic concurrency: if we have an expectedUpdatedAt, only write if it matches.
-	if (expectedUpdatedAt) {
-		const { data, error } = await supabase
-			.from('whiteboard_pages')
-			.update({ snapshot, updated_at: now })
-			.eq('user_id', userId)
-			.eq('id', USER_DOCUMENT_ID)
-			.eq('updated_at', expectedUpdatedAt)
-			.select('updated_at')
-			.maybeSingle()
-
-		// If the row doesn't exist yet (fresh account) or token mismatched, fall through to upsert.
-		if (!error && data?.updated_at) return data as { updated_at: string }
-	}
-
-	// No token: try to update the current user's doc row first.
-	{
-		const { data, error } = await supabase
-			.from('whiteboard_pages')
-			.update({ snapshot, updated_at: now })
-			.eq('user_id', userId)
-			.eq('id', USER_DOCUMENT_ID)
-			.select('updated_at')
-			.maybeSingle()
-
-		if (!error && data?.updated_at) return data as { updated_at: string }
-	}
-
-	// Row doesn't exist yet: insert.
-	const { data, error } = await supabase
-		.from('whiteboard_pages')
-		.insert({
-			id: USER_DOCUMENT_ID,
-			user_id: userId,
-			name: USER_DOCUMENT_ID,
-			order: 0,
-			snapshot,
-			created_at: now,
-			updated_at: now,
+	return rows
+		.filter((r) => Boolean(r.saved_page_id))
+		.map((r) => {
+			const saved = r.saved_pages ?? null
+			const isShared = Boolean(saved?.is_shared && saved?.public_id)
+			return {
+				id: r.saved_page_id,
+				user_id: r.user_id,
+				name: r.name ?? 'Untitled',
+				order: Number.isFinite(r.order) ? r.order : 0,
+				snapshot: (saved?.document ?? null) as ShareSnapshot | null,
+				share_id: isShared ? (saved?.public_id as string) : null,
+				created_at: String(saved?.created_at ?? r.created_at ?? ''),
+				updated_at: String(saved?.updated_at ?? r.updated_at ?? ''),
+			}
 		})
-		.select('updated_at')
-		.single()
-
-	if (error || !data) {
-		console.error('[cloud] saveUserDocumentSnapshot failed:', error?.message)
-		return null
-	}
-	return data as { updated_at: string }
 }
 
-/** Load the user's canonical whiteboard document snapshot. */
-export async function loadUserDocumentSnapshot(
-	userId: string
-): Promise<{ snapshot: unknown; updated_at: string } | null> {
-	const { data, error } = await supabase
-		.from('whiteboard_pages')
-		.select('id,snapshot,updated_at')
-		.eq('user_id', userId)
-		.in('id', USER_DOCUMENT_IDS as unknown as string[])
-		.order('updated_at', { ascending: false })
-		.limit(1)
-		.maybeSingle()
-	if (error || !data?.snapshot) return null
-	return data as { snapshot: unknown; updated_at: string }
-}
-
-/** Save/update a page snapshot row (per-page, per-user). */
+/** Save/update a page snapshot document (and keep the user's page list in sync). */
 export async function savePageSnapshot(
 	pageId: string,
 	userId: string,
-	snapshot: unknown,
+	document: ShareSnapshot,
 	name?: string,
-	order?: number,
-	shareId?: string | null
+	order?: number
 ): Promise<void> {
-	const now = new Date().toISOString()
+	// 1) Ensure the page appears in the user's menu list.
+	void addUserPage(userId, pageId, name ?? 'Untitled', order ?? 0)
 
-	// Try update first (prevents cross-user collisions).
+	// 2) Update the page document.
 	{
 		const { data, error } = await supabase
-			.from('whiteboard_pages')
-			.update({
-				snapshot,
-				updated_at: now,
-				...(name !== undefined ? { name } : {}),
-				...(order !== undefined ? { order } : {}),
-				...(shareId !== undefined ? { share_id: shareId } : {}),
-			})
-			.eq('user_id', userId)
+			.from('saved_pages')
+			.update({ document, updated_at: new Date().toISOString() })
 			.eq('id', pageId)
 			.select('id')
 			.maybeSingle()
+
 		if (!error && data?.id) return
 	}
 
-	// Insert if missing.
-	const { error } = await supabase
-		.from('whiteboard_pages')
-		.insert({
-			id: pageId,
-			user_id: userId,
-			snapshot,
-			name: name ?? 'Untitled',
-			order: order ?? 0,
-			share_id: shareId ?? null,
-			created_at: now,
-			updated_at: now,
-		})
-	if (error) {
-		console.error('[cloud] savePageSnapshot failed:', error.message)
-	}
+	// 3) Missing row: insert.
+	// Best-effort: races can happen across tabs/devices.
+	await createSavedPage(userId, pageId, document)
 }
 
-/** Create a new page */
-export async function createPage(
-	userId: string,
-	name: string,
-	order: number
-): Promise<CloudPage | null> {
-	const { data, error } = await supabase
-		.from('whiteboard_pages')
-		.insert({
-			user_id: userId,
-			name,
-			order,
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-		})
-		.select()
-		.single()
-	if (error) {
-		console.error('[cloud] createPage failed:', error.message)
-		return null
-	}
-	return data
-}
+/**
+ * Remove a page from the user's cloud list. If the page is not shared and the
+ * user is the owner, also delete the underlying saved_pages row (cleanup).
+ */
+export async function deletePage(pageId: string, userId: string): Promise<boolean> {
+	const removed = await removeUserPage(userId, pageId)
 
-/** Delete a page */
-export async function deletePage(pageId: string): Promise<boolean> {
-	const { error } = await supabase
-		.from('whiteboard_pages')
-		.delete()
+	// If it's shared, keep the saved page alive (link stays valid).
+	const { data: saved, error } = await supabase
+		.from('saved_pages')
+		.select('is_shared,owner_id')
 		.eq('id', pageId)
-	if (error) {
-		console.error('[cloud] deletePage failed:', error.message)
-		return false
-	}
-	return true
-}
+		.maybeSingle()
 
-/** Rename a page */
-export async function renamePage(pageId: string, name: string): Promise<boolean> {
-	const { error } = await supabase
-		.from('whiteboard_pages')
-		.update({ name, updated_at: new Date().toISOString() })
-		.eq('id', pageId)
-	if (error) {
-		console.error('[cloud] renamePage failed:', error.message)
-		return false
+	if (!error && saved && !saved.is_shared && saved.owner_id === userId) {
+		const { error: delErr } = await supabase
+			.from('saved_pages')
+			.delete()
+			.eq('id', pageId)
+			.eq('owner_id', userId)
+		if (delErr) {
+			console.warn('[cloud] delete saved_page failed:', delErr.message)
+		}
 	}
-	return true
-}
 
-/** Set a share_id on a page (make it publicly accessible) */
-export async function sharePage(pageId: string, shareId: string): Promise<boolean> {
-	const { error } = await supabase
-		.from('whiteboard_pages')
-		.update({ share_id: shareId, updated_at: new Date().toISOString() })
-		.eq('id', pageId)
-	if (error) {
-		console.error('[cloud] sharePage failed:', error.message)
-		return false
-	}
-	return true
-}
-
-/** Remove share_id from a page (make it private again) */
-export async function unsharePage(pageId: string): Promise<boolean> {
-	const { error } = await supabase
-		.from('whiteboard_pages')
-		.update({ share_id: null, updated_at: new Date().toISOString() })
-		.eq('id', pageId)
-	if (error) {
-		console.error('[cloud] unsharePage failed:', error.message)
-		return false
-	}
-	return true
-}
-
-/** Load a page by share_id (for anyone, even not logged in) */
-export async function loadSharedPageByShareId(shareId: string): Promise<CloudPage | null> {
-	const { data, error } = await supabase
-		.from('whiteboard_pages')
-		.select('*')
-		.eq('share_id', shareId)
-		.single()
-	if (error || !data) return null
-	return data
+	return removed
 }

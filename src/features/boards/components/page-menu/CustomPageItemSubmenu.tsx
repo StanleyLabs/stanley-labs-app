@@ -88,9 +88,9 @@ export function CustomPageItemSubmenu({
 		removeShareIdForPage(item.id)
 		editor.deletePage(item.id as TLPageId)
 
-		// If logged in, also remove from cloud storage
-		if (isLoggedIn) {
-			void deleteCloudPage(item.id)
+		// If logged in, also remove from the user's cloud list
+		if (isLoggedIn && user?.id) {
+			void deleteCloudPage(item.id, user.id)
 		}
 
 		trackEvent('delete-page', { source: 'page-menu', fromDatabase: false })
@@ -99,7 +99,7 @@ export function CustomPageItemSubmenu({
 
 	/** Delete everything: local + cloud page + shared link */
 	const performDeleteFromDatabase = useCallback(async () => {
-		// Delete shared page from shared_pages table
+		// Delete the shared page from the database (saved_pages).
 		if (shareId) {
 			const ok = await deleteSharedPage(shareId)
 			if (!ok) {
@@ -112,9 +112,9 @@ export function CustomPageItemSubmenu({
 			}
 		}
 
-		// Delete from cloud storage if logged in
-		if (isLoggedIn) {
-			await deleteCloudPage(item.id)
+		// Remove from the user's cloud list if logged in (best-effort; row may cascade-delete).
+		if (isLoggedIn && user?.id) {
+			await deleteCloudPage(item.id, user.id)
 		}
 
 		removeShareIdForPage(item.id)

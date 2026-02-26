@@ -1,12 +1,17 @@
 /**
- * Supabase singleton. Initialized eagerly in the background.
- * All Supabase operations go through this module.
+ * Supabase singleton (boards feature).
+ *
+ * This module handles *shared* pages — the data fetched by share links.
+ *
+ * New schema:
+ * - Shared pages are rows in `saved_pages` where `is_shared=true`.
+ * - The link id is `saved_pages.public_id`.
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { ShareSnapshot } from './sharePage'
 
-const SHARE_TABLE = 'shared_pages'
+const SAVED_PAGES_TABLE = 'saved_pages'
 
 // ── Singleton ──────────────────────────────────────────────────────────────────
 
@@ -43,19 +48,20 @@ export function getSupabaseClient(): SupabaseClient | null {
 	return client
 }
 
-// ── CRUD ───────────────────────────────────────────────────────────────────────
+// ── Shared-page CRUD (saved_pages) ─────────────────────────────────────────────
 
 export async function loadSharedPage(shareId: string): Promise<ShareSnapshot | null> {
 	if (!shareId.trim()) return null
 	const sb = client ?? (await initSupabase())
 	if (!sb) return null
 	const { data, error } = await sb
-		.from(SHARE_TABLE)
-		.select('snapshot')
-		.eq('id', shareId)
+		.from(SAVED_PAGES_TABLE)
+		.select('document,is_shared')
+		.eq('public_id', shareId)
+		.eq('is_shared', true)
 		.single()
-	if (error || !data?.snapshot) return null
-	const s = data.snapshot as ShareSnapshot
+	if (error || !data?.document) return null
+	const s = data.document as ShareSnapshot
 	const doc = s?.document ?? s
 	if (!doc?.store || !doc?.schema) return null
 	return { document: { store: doc.store, schema: doc.schema } }
@@ -66,9 +72,10 @@ export async function saveSharedPage(shareId: string, snapshot: ShareSnapshot): 
 	const sb = client ?? (await initSupabase())
 	if (!sb) return
 	const { error } = await sb
-		.from(SHARE_TABLE)
-		.update({ snapshot })
-		.eq('id', shareId)
+		.from(SAVED_PAGES_TABLE)
+		.update({ document: snapshot, updated_at: new Date().toISOString() })
+		.eq('public_id', shareId)
+		.eq('is_shared', true)
 	if (error) {
 		const isAbort = error.message?.includes('AbortError') || error.name === 'AbortError'
 		if (!isAbort) console.error('[supabase] saveSharedPage failed:', error.message)
@@ -78,22 +85,36 @@ export async function saveSharedPage(shareId: string, snapshot: ShareSnapshot): 
 	}
 }
 
-export async function createSharedPage(snapshot: ShareSnapshot, userId?: string | null): Promise<{ id: string } | null> {
+/**
+ * Create a brand-new shared page row (used for sharing while logged out).
+ * Returns the public share id.
+ */
+export async function createSharedPage(
+	snapshot: ShareSnapshot,
+	userId?: string | null
+): Promise<{ id: string } | null> {
 	const sb = client ?? (await initSupabase())
 	if (!sb) return null
-	const id = generateShareId()
+
+	const public_id = generateShareId()
+	const id = crypto.randomUUID()
 	const row: Record<string, unknown> = {
 		id,
-		snapshot,
+		public_id,
+		is_shared: true,
+		document: snapshot,
 		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
 	}
-	if (userId) row.user_id = userId
-	const { error } = await sb.from(SHARE_TABLE).insert(row)
+	// owner_id is optional to support logged-out sharing (if DB allows it).
+	if (userId) row.owner_id = userId
+
+	const { error } = await sb.from(SAVED_PAGES_TABLE).insert(row)
 	if (error) {
 		console.error('[supabase] createSharedPage failed:', error.message)
 		throw new Error(error.message)
 	}
-	return { id }
+	return { id: public_id }
 }
 
 /** Check if a shared page was created by a logged-in user. */
@@ -102,12 +123,13 @@ export async function sharedPageHasOwner(shareId: string): Promise<boolean> {
 	const sb = client ?? (await initSupabase())
 	if (!sb) return false
 	const { data, error } = await sb
-		.from(SHARE_TABLE)
-		.select('user_id')
-		.eq('id', shareId)
+		.from(SAVED_PAGES_TABLE)
+		.select('owner_id')
+		.eq('public_id', shareId)
+		.eq('is_shared', true)
 		.single()
 	if (error || !data) return false
-	return Boolean(data.user_id)
+	return Boolean((data as { owner_id?: string | null }).owner_id)
 }
 
 /** Delete a shared page from the database. Returns true on success. */
@@ -115,7 +137,11 @@ export async function deleteSharedPage(shareId: string): Promise<boolean> {
 	if (!shareId.trim()) return false
 	const sb = client ?? (await initSupabase())
 	if (!sb) return false
-	const { error } = await sb.from(SHARE_TABLE).delete().eq('id', shareId)
+	const { error } = await sb
+		.from(SAVED_PAGES_TABLE)
+		.delete()
+		.eq('public_id', shareId)
+		.eq('is_shared', true)
 	if (error) {
 		console.error('[supabase] deleteSharedPage failed:', error.message)
 		return false

@@ -255,20 +255,25 @@ function getBasePath(): string {
 	return '/boards'
 }
 
+/**
+ * Shared links use /boards/s/<publicId>
+ * Returns publicId when present, otherwise null.
+ */
 export function getShareIdFromUrl(): string | null {
 	if (typeof window === 'undefined') return null
 	const pathname = window.location.pathname || '/'
 	const base = getBasePath()
 	const pathWithoutBase =
 		base && pathname.startsWith(base) ? pathname.slice(base.length) || '/' : pathname
-	const segment = pathWithoutBase.replace(/^\/+|\/+$/g, '').split('/')[0]
-	return segment?.trim() || null
+	const parts = pathWithoutBase.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean)
+	if (parts[0] !== 's') return null
+	return parts[1]?.trim() || null
 }
 
 export function setShareIdInUrl(id: string): void {
 	if (typeof window === 'undefined') return
 	const base = getBasePath()
-	const path = `${base}/${encodeURIComponent(id)}`
+	const path = `${base}/s/${encodeURIComponent(id)}`
 	window.history.replaceState({}, '', `${window.location.origin}${path}`)
 }
 
@@ -280,9 +285,9 @@ export function clearShareIdFromUrl(): void {
 }
 
 export function buildShareUrl(id: string): string {
-	if (typeof window === 'undefined') return `/${encodeURIComponent(id)}`
+	if (typeof window === 'undefined') return `/boards/s/${encodeURIComponent(id)}`
 	const base = getBasePath()
-	return `${window.location.origin}${base}/${encodeURIComponent(id)}`
+	return `${window.location.origin}${base}/s/${encodeURIComponent(id)}`
 }
 
 /**
