@@ -17,7 +17,6 @@ import type { TLStore } from 'tldraw'
 import {
 	getShareIdFromUrl,
 	clearShareIdFromUrl,
-	getShareIdForPage,
 	setLastSelectedPageId,
 } from '../persistence'
 import { resolvePublicSlug } from '../v2/pagesApi'
@@ -53,7 +52,6 @@ export function usePageTracker(
 ): void {
 	const sendRef = useRef(send)
 	sendRef.current = send
-	const didBootstrapRef = useRef(false)
 
 	useLayoutEffect(() => {
 		const slugFromUrl = getShareIdFromUrl()
@@ -125,34 +123,7 @@ export function usePageTracker(
 		return () => clearTimeout(id)
 	}, [stateRef])
 
-	useEffect(() => {
-		const prevPageIdRef = { current: '' }
-
-		const onPageChange = (): void => {
-			didBootstrapRef.current = true
-			const cur = store.get(TLINSTANCE_ID) as { currentPageId?: string } | undefined
-			if (!cur?.currentPageId) return
-			const pageId = cur.currentPageId
-			try { setLastSelectedPageId(pageId) } catch { /* ignore */ }
-			if (prevPageIdRef.current === pageId) return
-			prevPageIdRef.current = pageId
-
-			// Always enter saved mode for the active page. This enables sync + connection indicator
-			// for private pages as well.
-			sendEnterSaved(sendRef, pageId)
-
-			// Keep URL clean for private pages. Only /boards/s/:publicId is used when explicitly opening a shared link.
-			if (!getShareIdFromUrl()) clearShareIdFromUrl()
-
-			// If this page has a public id mapping, keep it in the machine context (for share UI).
-			const publicIdForPage = getShareIdForPage(pageId)
-			if (publicIdForPage) {
-				sendEnterSaved(sendRef, pageId, publicIdForPage)
-			}
-		}
-
-		onPageChange()
-
-		return store.listen(onPageChange)
-	}, [store])
+	// v2-only: page selection + sync is driven by the workspace/session logic.
+	// This tracker is only responsible for /boards/s/:slug boot.
 }
+

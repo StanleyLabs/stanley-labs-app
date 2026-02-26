@@ -13,6 +13,7 @@ import { CustomContextMenu, CustomMainMenu } from '../ExportMenu'
 import { CustomPageMenu } from '../CustomPageMenu'
 import { createEditorOnMount } from '../setupEditorMount'
 import type { WhiteboardOrchestrationResult } from '../hooks/useWhiteboardOrchestration'
+import { useV2Workspace } from '../hooks/useV2Workspace'
 
 const licenseKey = import.meta.env.VITE_TLDRAW_LICENSE_KEY ?? undefined
 const SYNC_APPLY_IDLE_MS = 400
@@ -118,9 +119,13 @@ export function WhiteboardEditor({ orchestration }: WhiteboardEditorProps) {
 		serverSyncActive,
 		isUserInteractingRef,
 		onIdleEnd,
+		send,
 	} = orchestration
 
 	const overrides = useMemo(() => [createPasteActionOverride()], [])
+
+	// v2 workspace wiring: owns page list, selection, and snapshot persistence.
+	useV2Workspace(editorRef.current, send)
 
 	const onMount = useMemo(
 		() => (editor: Parameters<typeof createEditorOnMount>[0]['editor']) =>
