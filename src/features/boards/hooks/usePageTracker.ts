@@ -65,26 +65,7 @@ export function usePageTracker(
 			const resolved = await resolvePublicSlug(slugFromUrl)
 			if (cancelled) return
 			if (!resolved?.id) {
-				// Fallback to legacy saved_pages public_id flow during migration.
-				const { loadSharedByPublicId } = await import('../savedPages')
-				const legacy = await loadSharedByPublicId(slugFromUrl)
-				if (cancelled || !legacy?.id || !legacy.document?.document?.store) return
-
-				const tldrawPageId = legacy.id
-				const incomingStore = (legacy.document.document.store ?? {}) as Record<string, unknown>
-				const localSnap = store.getStoreSnapshot('document') as { store: Record<string, unknown> }
-				const idsToRemove = getPageRecordIds(localSnap as any, tldrawPageId as any)
-				store.mergeRemoteChanges(() => {
-					if (idsToRemove.length) store.remove(idsToRemove as any)
-					const toPut = Object.values(incomingStore)
-					if (toPut.length) store.put(toPut as any)
-				})
-				try {
-					store.update(TLINSTANCE_ID, (i) => ({ ...i, currentPageId: tldrawPageId as any }))
-				} catch {
-					/* ignore */
-				}
-				sendRef.current({ type: 'ENTER_SAVED', roomId: tldrawPageId, tldrawPageId, publicSlug: null })
+				// v2-only fresh start: unknown slug.
 				return
 			}
 

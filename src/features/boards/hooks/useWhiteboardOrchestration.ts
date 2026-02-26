@@ -26,9 +26,6 @@ import { getShareIdFromUrl } from '../persistence'
 import { applyParsedSnapshot, type GridRef, type SnapshotParsed } from '../lib/gridSnapshot'
 import { usePageTracker } from './usePageTracker'
 import { usePersistence } from './usePersistence'
-import { useCloudPersistence } from './useCloudPersistence'
-import { useSharedPageConnect } from './useSharedPageConnect'
-import { useSupabaseSync } from './useSupabaseSync'
 import { useAuth } from '../../../lib/AuthContext'
 import type { SnapshotFrom } from 'xstate'
 
@@ -106,9 +103,8 @@ export function useWhiteboardOrchestration(): WhiteboardOrchestrationResult {
 
 	usePageTracker(store, send, stateRef, userId)
 	usePersistence(store, gridRef, stateRef, !userId)
-	useCloudPersistence(store, gridRef, stateRef, userId)
-	useSharedPageConnect(store, state, send, gridRef)
-	useSupabaseSync(store, stateRef, editorRef, send)
+	// v2-only: cloud persistence and shared-page hydration are handled by the new pages/page_snapshots system.
+	// Legacy saved_pages/user_pages hooks removed.
 
 	const editable = isEditable(state) && !isStaleLocalState(state)
 	const shared = isSharedPage(state)
