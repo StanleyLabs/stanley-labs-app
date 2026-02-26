@@ -118,6 +118,25 @@ export function useV2Workspace(editor: TldrawEditor | null, send: (e: any) => vo
 		return () => { cancelled = true }
 	}, [editor, userId, isSharedLinkSession])
 
+	// ── Reload mapping when pages change (e.g. new page created) ──
+	useEffect(() => {
+		if (!editor || !userId) return
+		const reload = () => {
+			void listMyPages().then((rows) => {
+				const map = new Map<string, string>()
+				for (const r of rows) {
+					const p = r.pages
+					if (!p) continue
+					const tldrawId = (p as any).tldraw_page_id as string
+					if (tldrawId) map.set(tldrawId, p.id)
+				}
+				tldrawToDbRef.current = map
+			})
+		}
+		window.addEventListener('v2-pages-changed', reload)
+		return () => window.removeEventListener('v2-pages-changed', reload)
+	}, [editor, userId])
+
 	// ── Track page changes: enter sync room + hydrate ──
 	useEffect(() => {
 		if (!editor || !userId) return
@@ -154,6 +173,28 @@ export function useV2Workspace(editor: TldrawEditor | null, send: (e: any) => vo
 
 		return () => { unlisten() }
 	}, [editor, userId, send, isSharedLinkSession])
+
+	// ── Sync page renames to DB ──
+	useEffect(() => {
+		if (!editor || !userId) return
+		if (isSharedLinkSession()) return
+
+		const unlisten = editor.store.listen((entry) => {
+			for (const [, to] of Object.values(entry.changes.updated)) {
+				if ((to as any)?.typeName === 'page' && (to as any)?.name) {
+					const tldrawId = (to as any).id as string
+					const dbId = tldrawToDbRef.current.get(tldrawId)
+					if (dbId) {
+						void import('../v2/pagesApi').then(({ updatePageMeta }) => {
+							void updatePageMeta(dbId, { title: (to as any).name })
+						})
+					}
+				}
+			}
+		}, { scope: 'document' })
+
+		return () => unlisten()
+	}, [editor, userId, isSharedLinkSession])
 
 	// ── Persist snapshots on edits (authed only) ──
 	useEffect(() => {

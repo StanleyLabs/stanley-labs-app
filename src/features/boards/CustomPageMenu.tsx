@@ -122,12 +122,40 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 	const handleCreatePageClick = useCallback(() => {
 		if (isReadonlyMode) return
 
+		if (user) {
+			// v2: create page in DB first, then create locally with the DB-generated tldraw_page_id.
+			void (async () => {
+				const { createPage } = await import('./v2/pagesApi')
+				const pageName = msg('page-menu.new-page-initial-name')
+				const newPage = await createPage({ title: pageName })
+				if (!newPage?.tldraw_page_id) return
+
+				editor.run(() => {
+					editor.markHistoryStoppingPoint('creating page')
+					editor.createPage({ name: pageName, id: newPage.tldraw_page_id as any })
+					editor.setCurrentPage(newPage.tldraw_page_id as any)
+					setIsEditing(true)
+				})
+
+				editor.timers.requestAnimationFrame(() => {
+					const elm = document.querySelector(`[data-pageid="${newPage.tldraw_page_id}"]`) as HTMLDivElement
+					if (elm) elm.querySelector('button')?.focus()
+				})
+
+				// Notify the workspace hook to update its mapping.
+				window.dispatchEvent(new Event('v2-pages-changed'))
+				editor.menus.clearOpenMenus()
+				trackEvent('new-page', { source: 'page-menu' })
+			})()
+			return
+		}
+
+		// Guest: create locally as before.
 		editor.run(() => {
 			editor.markHistoryStoppingPoint('creating page')
 			const newPageId = PageRecordType.createId()
 			editor.createPage({ name: msg('page-menu.new-page-initial-name'), id: newPageId })
 			editor.setCurrentPage(newPageId)
-			if (user) window.dispatchEvent(new Event('whiteboard-cloud-flush'))
 
 			setIsEditing(true)
 
@@ -139,7 +167,6 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 				}
 			})
 		})
-		// Close the page menu after creating a page to avoid stale list UI during cloud sync.
 		editor.menus.clearOpenMenus()
 		trackEvent('new-page', { source: 'page-menu' })
 	}, [editor, msg, isReadonlyMode, trackEvent])
