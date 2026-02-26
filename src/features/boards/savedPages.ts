@@ -25,15 +25,18 @@ export async function createSavedPage(
 	opts?: { isShared?: boolean; publicId?: string | null }
 ): Promise<boolean> {
 	const now = new Date().toISOString()
-	const { error } = await supabase.from('saved_pages').insert({
-		id,
-		owner_id: ownerId,
-		is_shared: opts?.isShared ?? false,
-		public_id: opts?.publicId ?? null,
-		document: initialDoc,
-		created_at: now,
-		updated_at: now,
-	})
+	const { error } = await supabase.from('saved_pages').upsert(
+		{
+			id,
+			owner_id: ownerId,
+			is_shared: opts?.isShared ?? false,
+			public_id: opts?.publicId ?? null,
+			document: initialDoc,
+			created_at: now,
+			updated_at: now,
+		},
+		{ onConflict: 'id' }
+	)
 	if (error) {
 		console.error('[saved_pages] createSavedPage failed:', error.message)
 		return false

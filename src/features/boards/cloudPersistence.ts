@@ -85,34 +85,28 @@ export async function savePageSnapshot(
 	name?: string,
 	order?: number
 ): Promise<void> {
-	// 1) Ensure the saved page row exists and has the latest document.
-	// Do this before writing user_pages to satisfy the FK constraint.
-	{
-		const { data, error } = await supabase
-			.from('saved_pages')
-			.update({ document, updated_at: new Date().toISOString() })
-			.eq('id', pageId)
-			.eq('owner_id', userId)
-			.select('id')
-			.maybeSingle()
-
-		if (!error && data?.id) {
-			// 2) Ensure the page appears in the user's menu list.
-			void addUserPage(userId, pageId, name ?? 'Untitled', order ?? 0)
-			return
-		}
-
-		// If update found no row, PostgREST may respond 406 depending on headers; treat as missing.
-		if (error && (error as { code?: string; status?: number }).status && (error as { status?: number }).status !== 406) {
-			console.warn('[cloud] savePageSnapshot update failed:', error.message)
-		}
+	// 1) Upsert the saved page row first to satisfy FK constraints.
+	// Use upsert to avoid 406/409 noise when creating pages quickly across tabs/devices.
+	const now = new Date().toISOString()
+	const { error: upsertErr } = await supabase
+		.from('saved_pages')
+		.upsert(
+			{
+				id: pageId,
+				owner_id: userId,
+				document,
+				updated_at: now,
+				created_at: now,
+			},
+			{ onConflict: 'id' }
+		)
+	if (upsertErr) {
+		console.warn('[cloud] savePageSnapshot upsert saved_pages failed:', upsertErr.message)
+		return
 	}
 
-	// 3) Missing row: insert (best-effort; races can happen across tabs/devices).
-	const created = await createSavedPage(userId, pageId, document)
-	if (created) {
-		void addUserPage(userId, pageId, name ?? 'Untitled', order ?? 0)
-	}
+	// 2) Ensure the page appears in the user's menu list.
+	void addUserPage(userId, pageId, name ?? 'Untitled', order ?? 0)
 }
 
 /**
