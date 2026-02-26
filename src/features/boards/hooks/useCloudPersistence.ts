@@ -202,17 +202,25 @@ export function useCloudPersistence(
 			}
 
 			// Choose current page only when needed (avoid forcing back to first on every refresh).
+			// Also guard for boot timing: TLINSTANCE may not exist yet.
+			const applyPreferredPage = (preferred: string) => {
+				try {
+					store.update(TLINSTANCE_ID, (i) => ({ ...i, currentPageId: preferred as any }))
+					setLastSelectedPageId(preferred)
+				} catch {
+					/* ignore */
+				}
+			}
+
 			if (!curId || !desiredSet.has(curId)) {
 				const last = getLastSelectedPageId()
 				const firstId = desiredIds[0]
 				const preferred = (last && desiredSet.has(last)) ? last : firstId
 				if (preferred) {
-					try {
-						store.update(TLINSTANCE_ID, (i) => ({ ...i, currentPageId: preferred as any }))
-						setLastSelectedPageId(preferred)
-					} catch {
-						/* ignore */
-					}
+					// If instance is not present yet, retry shortly.
+					const hasInstance = Boolean(store.get(TLINSTANCE_ID))
+					if (hasInstance) applyPreferredPage(preferred)
+					else setTimeout(() => applyPreferredPage(preferred), 0)
 				}
 			}
 		}

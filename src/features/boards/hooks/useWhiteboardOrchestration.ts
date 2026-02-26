@@ -80,7 +80,7 @@ export function useWhiteboardOrchestration(): WhiteboardOrchestrationResult {
 	const userId = user?.id ?? null
 
 	// Namespace persistence keys per user (share map, last-selected page id, etc.)
-	useEffect(() => {
+	useLayoutEffect(() => {
 		setActiveUserId(userId)
 	}, [userId])
 

@@ -13,6 +13,13 @@ export function setActiveUserId(id: string | null): void {
 	_userId = id
 	// Invalidate share map cache when switching users
 	shareMapCache = null
+
+	// Logged-in users treat the cloud as canonical for share state.
+	// Clear any stale local share map to prevent UI flicker (share button flash).
+	if (id) {
+		try { localStorage.removeItem(key(BASE_SHARE_MAP)) } catch { /* ignore */ }
+		shareMapCache = new Map()
+	}
 }
 
 function key(base: string): string {
