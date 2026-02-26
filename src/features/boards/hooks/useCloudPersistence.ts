@@ -125,6 +125,16 @@ export function useCloudPersistence(
 		}
 	}, [store, gridRef, machineStateRef, userId])
 
+	// Track local edit activity so refresh does not overwrite active sessions.
+	const lastLocalEditAtRef = useRef(0)
+	useEffect(() => {
+		if (!userId) return
+		const unlisten = store.listen(() => {
+			lastLocalEditAtRef.current = Date.now()
+		})
+		return () => unlisten()
+	}, [store, userId])
+
 	// Load/reconcile pages from cloud + realtime refresh
 	useEffect(() => {
 		if (!userId) return
@@ -149,12 +159,18 @@ export function useCloudPersistence(
 
 		const refreshFromCloud = async (): Promise<void> => {
 			if (cancelled) return
+			// If the user has edited very recently, do not apply cloud snapshots.
+			// This prevents menu-open refresh from overwriting local edits during active sessions.
+			const now = Date.now()
+			if (now - lastLocalEditAtRef.current < 2500) {
+				return
+			}
 			const pages = await loadUserPages(userId)
 			if (cancelled) return
 
-			// Update share flags for UI
+			// Update share flags for UI (also clear stale share ids)
 			for (const p of pages) {
-				if (p.share_id) setShareIdForPage(p.id, p.share_id)
+				setShareIdForPage(p.id, p.share_id)
 			}
 
 

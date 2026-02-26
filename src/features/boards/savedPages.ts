@@ -79,8 +79,9 @@ export async function shareSavedPage(id: string): Promise<{ public_id: string } 
 		}
 	}
 
-	// Option A: use the saved page UUID as the public id.
-	const public_id = id
+	// Generate a short, pretty public id for the share URL.
+	// Keep it URL-safe and avoid exposing internal tldraw ids.
+	const public_id = crypto.randomUUID().replace(/-/g, '').slice(0, 12)
 	const { data, error } = await supabase
 		.from('saved_pages')
 		.update({ is_shared: true, public_id, updated_at: new Date().toISOString() })

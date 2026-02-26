@@ -218,8 +218,12 @@ export function getPageIdForShareId(shareId: string): string | undefined {
 	return undefined
 }
 
-export function setShareIdForPage(pageId: string, shareId: string): void {
+export function setShareIdForPage(pageId: string, shareId: string | null): void {
 	const map = loadShareMap()
+	if (!shareId) {
+		if (map.delete(pageId)) saveShareMap(map)
+		return
+	}
 	for (const [pid, sid] of map) {
 		if (sid === shareId && pid !== pageId) map.delete(pid)
 	}
