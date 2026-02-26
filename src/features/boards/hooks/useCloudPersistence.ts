@@ -159,20 +159,18 @@ export function useCloudPersistence(
 
 		const refreshFromCloud = async (): Promise<void> => {
 			if (cancelled) return
-			// If the user has edited very recently, do not apply cloud snapshots.
-			// This prevents menu-open refresh from overwriting local edits during active sessions.
-			const now = Date.now()
-			if (now - lastLocalEditAtRef.current < 2500) {
-				return
-			}
 			const pages = await loadUserPages(userId)
 			if (cancelled) return
 
-			// Update share flags for UI (also clear stale share ids)
+			// Always refresh share flags for UI (even if we skip applying snapshots).
 			for (const p of pages) {
 				setShareIdForPage(p.id, p.share_id)
 			}
 
+			// If the user has edited very recently, do not apply cloud snapshots.
+			// This prevents menu-open refresh from overwriting local edits during active sessions.
+			const now = Date.now()
+			const shouldApplySnapshots = now - lastLocalEditAtRef.current >= 2500
 
 			const desired = pages
 				.filter((p) => p.snapshot && (p.snapshot as any)?.document?.store)
@@ -183,37 +181,43 @@ export function useCloudPersistence(
 			confirmedCloudPageIdsRef.current = new Set(desiredIds)
 			lastSavedPageIdsRef.current = new Set(desiredIds)
 
-			// Remove local pages that do not exist in the cloud anymore.
-			// Guard: only remove pages that we have previously confirmed were in the cloud.
-			// This avoids race conditions where a newly-created local page is removed by a refresh
-			// before its row is written to Supabase.
 			const localSnap = store.getStoreSnapshot('document') as StoreSnap
 			const localPageIds = Object.values(localSnap.store ?? {})
 				.filter((r: any) => r?.typeName === 'page' && r.id)
 				.map((r: any) => r.id as string)
 			const desiredSet = new Set(desiredIds)
 			const confirmedSet = confirmedCloudPageIdsRef.current
-			for (const localId of localPageIds) {
-				if (desiredSet.has(localId)) continue
-				if (!confirmedSet.has(localId)) continue
-				const idsToRemove = getPageRecordIds(localSnap, localId)
-				if (idsToRemove.length) {
-					store.mergeRemoteChanges(() => {
-						store.remove(idsToRemove as any)
-					})
+
+			// Determine the current page so we never overwrite it during active usage.
+			const inst = store.get(TLINSTANCE_ID) as { currentPageId?: string } | undefined
+			const curId = inst?.currentPageId
+
+			if (shouldApplySnapshots) {
+				// Remove local pages that do not exist in the cloud anymore.
+				// Guard: only remove pages that we have previously confirmed were in the cloud.
+				for (const localId of localPageIds) {
+					if (desiredSet.has(localId)) continue
+					if (!confirmedSet.has(localId)) continue
+					if (curId && localId === curId) continue
+					const idsToRemove = getPageRecordIds(localSnap, localId)
+					if (idsToRemove.length) {
+						store.mergeRemoteChanges(() => {
+							store.remove(idsToRemove as any)
+						})
+					}
+				}
+
+				// Apply/replace each cloud page snapshot.
+				// Never apply to the current page - it can cause user-visible "reverts".
+				for (const p of desired) {
+					if (curId && p.id === curId) continue
+					const snap = p.snapshot as any
+					const incoming = (snap?.document?.store ?? {}) as Record<string, unknown>
+					applyPageSnapshot(p.id, incoming, snap?.document?.schema)
 				}
 			}
 
-			// Apply/replace each cloud page snapshot
-			for (const p of desired) {
-				const snap = p.snapshot as any
-				const incoming = (snap?.document?.store ?? {}) as Record<string, unknown>
-				applyPageSnapshot(p.id, incoming, snap?.document?.schema)
-			}
-
 			// Choose current page only when needed (avoid forcing back to first on every refresh).
-			const inst = store.get(TLINSTANCE_ID) as { currentPageId?: string } | undefined
-			const curId = inst?.currentPageId
 			if (!curId || !desiredSet.has(curId)) {
 				const last = getLastSelectedPageId()
 				const firstId = desiredIds[0]
