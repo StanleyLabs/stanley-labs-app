@@ -63,6 +63,7 @@ export function useCloudPersistence(
 		const cloudSave = (): void => {
 			if (!userIdRef.current) return
 			if (machineIsConnecting(machineStateRef.current)) return
+			// Skip writing when viewing a public shared link (read-only/guest style).
 			if (isSharedPage(machineStateRef.current)) return
 
 			try {
@@ -194,16 +195,20 @@ export function useCloudPersistence(
 				applyPageSnapshot(p.id, incoming, snap?.document?.schema)
 			}
 
-			// Choose current page: last selected if present, else first cloud page.
-			const last = getLastSelectedPageId()
-			const firstId = desiredIds[0]
-			const preferred = (last && desiredSet.has(last)) ? last : firstId
-			if (preferred) {
-				try {
-					store.update(TLINSTANCE_ID, (i) => ({ ...i, currentPageId: preferred as any }))
-					setLastSelectedPageId(preferred)
-				} catch {
-					/* ignore */
+			// Choose current page only when needed (avoid forcing back to first on every refresh).
+			const inst = store.get(TLINSTANCE_ID) as { currentPageId?: string } | undefined
+			const curId = inst?.currentPageId
+			if (!curId || !desiredSet.has(curId)) {
+				const last = getLastSelectedPageId()
+				const firstId = desiredIds[0]
+				const preferred = (last && desiredSet.has(last)) ? last : firstId
+				if (preferred) {
+					try {
+						store.update(TLINSTANCE_ID, (i) => ({ ...i, currentPageId: preferred as any }))
+						setLastSelectedPageId(preferred)
+					} catch {
+						/* ignore */
+					}
 				}
 			}
 		}

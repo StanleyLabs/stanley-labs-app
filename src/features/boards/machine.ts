@@ -189,9 +189,14 @@ export function shouldAttemptServerConnection(state: MachineState): boolean {
 	return state.matches({ saved: 'connecting' }) || state.matches({ saved: 'supabaseSync' })
 }
 
-/** Whether we're on a shared page (any shared sub-state). */
-export function isSharedPage(state: MachineState): boolean {
+/** Whether we're on any synced (cloud/server) page. */
+export function isSyncedPage(state: MachineState): boolean {
 	return state.matches('saved')
+}
+
+/** Whether the current page was opened via a public share link (/boards/s/:id). */
+export function isSharedPage(state: MachineState): boolean {
+	return Boolean(state.context.publicId)
 }
 
 /** Whether we're actively trying to connect. */

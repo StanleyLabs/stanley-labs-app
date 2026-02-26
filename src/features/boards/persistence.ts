@@ -267,13 +267,15 @@ export function getShareIdFromUrl(): string | null {
 		base && pathname.startsWith(base) ? pathname.slice(base.length) || '/' : pathname
 	const parts = pathWithoutBase.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean)
 	if (parts[0] !== 's') return null
-	return parts[1]?.trim() || null
+	const raw = parts[1]?.trim() || null
+	if (!raw) return null
+	try { return decodeURIComponent(raw) } catch { return raw }
 }
 
 export function setShareIdInUrl(id: string): void {
 	if (typeof window === 'undefined') return
 	const base = getBasePath()
-	const path = `${base}/s/${encodeURIComponent(id)}`
+	const path = `${base}/s/${id}`
 	window.history.replaceState({}, '', `${window.location.origin}${path}`)
 }
 
@@ -287,7 +289,8 @@ export function clearShareIdFromUrl(): void {
 export function buildShareUrl(id: string): string {
 	if (typeof window === 'undefined') return `/boards/s/${encodeURIComponent(id)}`
 	const base = getBasePath()
-	return `${window.location.origin}${base}/s/${encodeURIComponent(id)}`
+	// Keep URLs readable. Most ids are already URL-safe.
+	return `${window.location.origin}${base}/s/${id}`
 }
 
 /**
@@ -303,8 +306,13 @@ export function parseShareIdFromPastedText(text: string): string | null {
 		const url = new URL(trimmed)
 		const hash = url.hash.replace(/^#+/, '')
 		if (hash) return hash.trim() || null
-		const segment = url.pathname.replace(/^\/+|\/+$/g, '').split('/')[0]
-		return segment?.trim() || null
+		// Accept /boards/s/<id>
+		const parts = url.pathname.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean)
+		const sIndex = parts.indexOf('s')
+		if (sIndex >= 0 && parts[sIndex + 1]) {
+			try { return decodeURIComponent(parts[sIndex + 1]!) } catch { return parts[sIndex + 1]! }
+		}
+		return null
 	} catch {
 		// Plain ID (e.g. abc123)
 		return trimmed
