@@ -49,7 +49,7 @@ export function useSupabaseSync(
 			// v2 shared-link sessions use pages/page_snapshots, not saved_pages.
 			if (st.context.publicSlug) return
 			const pageId = st.context.tldrawPageId
-			const publicId = st.context.publicSlug
+			const publicId = null as string | null
 			if (!pageId || !editorRef.current) return
 			void getContentAsJsonDocForPage(editorRef.current, pageId as TLPageId)
 				.then((doc) => {
@@ -89,7 +89,7 @@ export function useSupabaseSync(
 			// v2 shared-link sessions use pages/page_snapshots, not saved_pages.
 			if (st.context.publicSlug) return
 			const pageId = st.context.tldrawPageId
-			const publicId = st.context.publicSlug
+			const publicId = null as string | null
 			if (!pageId) return
 
 			if (Date.now() - lastWriteTimeRef.current < SUPABASE_POLL_MS) return
