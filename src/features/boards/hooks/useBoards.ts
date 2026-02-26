@@ -116,6 +116,8 @@ export interface BoardsOrchestration {
 	tldrawToDb: React.MutableRefObject<Map<string, string>>
 	/** db page id -> PageEntry */
 	pageEntryMap: Map<string, PageEntry>
+	/** Editor mount handler */
+	onEditorMount: (editor: TldrawEditor) => () => void
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
@@ -129,6 +131,7 @@ export function useBoards(): BoardsOrchestration {
 	stateRef.current = state
 
 	const editorRef = useRef<TldrawEditor | null>(null)
+	const [editorInstance, setEditorInstance] = useState<TldrawEditor | null>(null)
 	const isUserInteractingRef = useRef(false)
 	const applySyncRef = useRef<(() => void) | null>(null)
 	const tldrawToDb = useRef(new Map<string, string>())
@@ -141,6 +144,17 @@ export function useBoards(): BoardsOrchestration {
 	const onIdleEnd = useCallback(() => {
 		isUserInteractingRef.current = false
 		applySyncRef.current?.()
+	}, [])
+
+	const handleEditorMount = useCallback((editor: TldrawEditor) => {
+		editorRef.current = editor
+		setEditorInstance(editor)
+		return () => {
+			if (editorRef.current === editor) {
+				editorRef.current = null
+				setEditorInstance(null)
+			}
+		}
 	}, [])
 
 	// ── Auth sync ──────────────────────────────────────────────────────────────
@@ -320,6 +334,8 @@ export function useBoards(): BoardsOrchestration {
 	useEffect(() => {
 		if (!userId) return
 		if (!stateRef.current.context.supabaseReady && !stateRef.current.matches({ authed: 'loading' })) return
+		const editor = editorInstance
+		if (!editor) return
 		let cancelled = false
 
 		const loadPages = async () => {
@@ -338,9 +354,7 @@ export function useBoards(): BoardsOrchestration {
 
 			send({ type: 'PAGES_LOADED', pages: entries })
 
-			if (!editorRef.current) return
-
-			const editor = editorRef.current
+			const editor = editorInstance
 			const map = new Map<string, string>()
 
 			// Ensure all DB pages exist in tldraw
@@ -423,12 +437,12 @@ export function useBoards(): BoardsOrchestration {
 
 		void loadPages()
 		return () => { cancelled = true }
-	}, [userId, state.context.supabaseReady, send])
+	}, [userId, state.context.supabaseReady, send, editorInstance])
 
 	// ── Authed: track page changes ─────────────────────────────────────────────
 
 	useEffect(() => {
-		const editor = editorRef.current
+		const editor = editorInstance
 		if (!editor || !userId) return
 		if (getSlugFromUrl()) return // Don't override shared link visit
 
@@ -472,12 +486,12 @@ export function useBoards(): BoardsOrchestration {
 		const unlisten = editor.store.listen(onChange, { scope: 'session' })
 		onChange()
 		return () => unlisten()
-	}, [editorRef.current, userId, send])
+	}, [editorInstance, userId, send])
 
 	// ── Authed: persist snapshots on edits ─────────────────────────────────────
 
 	useEffect(() => {
-		const editor = editorRef.current
+		const editor = editorInstance
 		if (!editor || !userId) return
 
 		const persist = () => {
@@ -498,12 +512,12 @@ export function useBoards(): BoardsOrchestration {
 			unlisten()
 			t.flush()
 		}
-	}, [editorRef.current, userId])
+	}, [editorInstance, userId])
 
 	// ── Authed: sync page renames to DB ────────────────────────────────────────
 
 	useEffect(() => {
-		const editor = editorRef.current
+		const editor = editorInstance
 		if (!editor || !userId) return
 
 		const unlisten = editor.store.listen((entry) => {
@@ -517,7 +531,7 @@ export function useBoards(): BoardsOrchestration {
 		}, { scope: 'document' })
 
 		return () => unlisten()
-	}, [editorRef.current, userId])
+	}, [editorInstance, userId])
 
 	// ── Authed: listen for v2-pages-changed events ─────────────────────────────
 
@@ -595,5 +609,6 @@ export function useBoards(): BoardsOrchestration {
 		bumpServerRetry,
 		tldrawToDb,
 		pageEntryMap,
+		onEditorMount: handleEditorMount,
 	}
 }

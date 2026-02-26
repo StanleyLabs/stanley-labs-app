@@ -273,11 +273,11 @@ export function isEditable(state: MachineState): boolean {
 	if (state.matches({ guest: 'idle' })) return true
 	// Guest viewing a shared page: editable only if public_access=edit
 	if (state.matches({ guest: 'viewing' }) || state.matches({ guest: 'viewingSynced' })) {
-		// Role will be set to 'editor' if access=edit, 'viewer' otherwise
 		return activeRole === 'editor' || activeRole === 'owner'
 	}
-	// Authed: check role
+	// Authed: editable if role is owner/editor, or if no page selected yet (loading/default state)
 	if (isAuthed(state)) {
+		if (!activeRole) return true // default editable while loading
 		return activeRole === 'owner' || activeRole === 'editor'
 	}
 	return false

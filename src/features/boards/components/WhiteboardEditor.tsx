@@ -91,14 +91,21 @@ export function WhiteboardEditor({ boards }: { boards: BoardsOrchestration }) {
 		activePageShared,
 		isUserInteractingRef,
 		onIdleEnd,
+		onEditorMount,
 	} = boards
 
 	const overrides = useMemo(() => [createPasteActionOverride()], [])
 
 	const onMount = useMemo(
-		() => (editor: any) =>
-			createEditorOnMount({ editor, store, editorRef }),
-		[store, editorRef]
+		() => (editor: any) => {
+			const cleanupSetup = createEditorOnMount({ editor, store, editorRef })
+			const cleanupRegister = onEditorMount(editor)
+			return () => {
+				cleanupRegister()
+				cleanupSetup()
+			}
+		},
+		[store, editorRef, onEditorMount]
 	)
 
 	return (
