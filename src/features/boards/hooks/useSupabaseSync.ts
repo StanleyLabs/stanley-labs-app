@@ -46,13 +46,15 @@ export function useSupabaseSync(
 		const throttled = throttle(() => {
 			const st = stateRef.current
 			if (!shouldRunSupabaseSync(st)) return
-			const shareId = st.context.shareId
 			const pageId = st.context.pageId
-			if (!shareId || !pageId || !editorRef.current) return
+			const publicId = st.context.publicId
+			if (!pageId || !editorRef.current) return
 			void getContentAsJsonDocForPage(editorRef.current, pageId as TLPageId)
 				.then((doc) => {
 					if (!doc) return false
-					return saveSharedPage(shareId, doc).then(() => true)
+					// For private saved pages, use the canonical pageId.
+					// For shared-link visits, use the publicId (matches saved_pages.public_id).
+					return saveSharedPage(publicId ?? pageId, doc).then(() => true)
 				})
 				.then((saved) => {
 					if (!saved) return
@@ -82,14 +84,14 @@ export function useSupabaseSync(
 		const poll = async (): Promise<void> => {
 			const st = stateRef.current
 			if (!shouldRunSupabaseSync(st)) return
-			const shareId = st.context.shareId
 			const pageId = st.context.pageId
-			if (!shareId || !pageId) return
+			const publicId = st.context.publicId
+			if (!pageId) return
 
 			if (Date.now() - lastWriteTimeRef.current < SUPABASE_POLL_MS) return
 
 			try {
-				const remote = await loadSharedPage(shareId)
+				const remote = await loadSharedPage(publicId ?? pageId)
 				if (!active || !remote?.document?.store) return
 
 				if (!shouldRunSupabaseSync(stateRef.current)) return

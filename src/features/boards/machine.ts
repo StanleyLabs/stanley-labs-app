@@ -31,17 +31,17 @@ import { setup, assign, type SnapshotFrom } from 'xstate'
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface WhiteboardContext {
-	/** Share ID of the current shared page, or null when local. */
-	shareId: string | null
-	/** Page ID of the current shared page in the local store. */
+	/** Canonical page id for the current synced page (saved page id). null when local. */
 	pageId: string | null
+	/** Optional public share id from URL (only when visiting /boards/s/:id). */
+	publicId: string | null
 	/** Whether the Supabase singleton is ready. */
 	supabaseReady: boolean
 }
 
 export type WhiteboardEvent =
-	| { type: 'ENTER_SHARED'; shareId: string; pageId: string }
-	| { type: 'LEAVE_SHARED' }
+	| { type: 'ENTER_SAVED'; pageId: string; publicId?: string | null }
+	| { type: 'LEAVE_SAVED' }
 	| { type: 'SUPABASE_READY' }
 	| { type: 'SUPABASE_UNAVAILABLE' }
 	| { type: 'SUPABASE_CONNECTED'; pageId?: string }
@@ -66,11 +66,11 @@ export const whiteboardMachine = setup({
 		events: {} as WhiteboardEvent,
 	},
 	actions: {
-		setShared: assign(({ event }) => {
-			const e = event as Extract<WhiteboardEvent, { type: 'ENTER_SHARED' }>
-			return { shareId: e.shareId, pageId: e.pageId }
+		setSaved: assign(({ event }) => {
+			const e = event as Extract<WhiteboardEvent, { type: 'ENTER_SAVED' }>
+			return { pageId: e.pageId, publicId: e.publicId ?? null }
 		}),
-		clearShared: assign({ shareId: null, pageId: null }),
+		clearSaved: assign({ pageId: null, publicId: null }),
 		markSupabaseReady: assign({ supabaseReady: true }),
 		markSupabaseUnavailable: assign({ supabaseReady: false }),
 	},
@@ -81,8 +81,8 @@ export const whiteboardMachine = setup({
 	id: 'whiteboard',
 	initial: 'local',
 	context: {
-		shareId: null,
 		pageId: null,
+		publicId: null,
 		supabaseReady: false,
 	},
 
@@ -94,23 +94,23 @@ export const whiteboardMachine = setup({
 
 	states: {
 		local: {
-			entry: 'clearShared',
+			entry: 'clearSaved',
 			on: {
-				ENTER_SHARED: {
-					target: 'shared',
-					actions: 'setShared',
+				ENTER_SAVED: {
+					target: 'saved',
+					actions: 'setSaved',
 				},
 			},
 		},
 
-		shared: {
+		saved: {
 			initial: 'connecting',
 			on: {
-				LEAVE_SHARED: { target: 'local' },
-				// Allow re-entry for page changes while already shared
-				ENTER_SHARED: {
+				LEAVE_SAVED: { target: 'local' },
+				// Allow re-entry for page changes while already synced
+				ENTER_SAVED: {
 					target: '.connecting',
-					actions: 'setShared',
+					actions: 'setSaved',
 				},
 			},
 			states: {
@@ -159,47 +159,47 @@ type MachineState = SnapshotFrom<typeof whiteboardMachine>
 
 /** Current sync status for the connection indicator. */
 export function getSyncStatus(state: MachineState): SyncStatus {
-	if (state.matches({ shared: 'serverSync' })) return { status: 'server-sync' }
-	if (state.matches({ shared: 'supabaseSync' })) return { status: 'supabase-sync' }
-	if (state.matches({ shared: 'connecting' })) return { status: 'loading' }
-	if (state.matches({ shared: 'offline' })) return { status: 'error' }
+	if (state.matches({ saved: 'serverSync' })) return { status: 'server-sync' }
+	if (state.matches({ saved: 'supabaseSync' })) return { status: 'supabase-sync' }
+	if (state.matches({ saved: 'connecting' })) return { status: 'loading' }
+	if (state.matches({ saved: 'offline' })) return { status: 'error' }
 	return { status: 'local' }
 }
 
 /** Whether the current page is editable (shared pages need active sync). */
 export function isEditable(state: MachineState): boolean {
 	if (state.matches('local')) return true
-	if (state.matches({ shared: 'supabaseSync' })) return true
-	if (state.matches({ shared: 'serverSync' })) return true
+	if (state.matches({ saved: 'supabaseSync' })) return true
+	if (state.matches({ saved: 'serverSync' })) return true
 	return false
 }
 
 /** Whether the supabase direct-write sync should be running. */
 export function shouldRunSupabaseSync(state: MachineState): boolean {
-	return state.matches({ shared: 'supabaseSync' })
+	return state.matches({ saved: 'supabaseSync' })
 }
 
 /** Whether the server sync WebSocket should be running. */
 export function shouldRunServerSync(state: MachineState): boolean {
-	return state.matches({ shared: 'serverSync' })
+	return state.matches({ saved: 'serverSync' })
 }
 
 /** Whether we should attempt a sync server connection (during connecting or supabaseSync). */
 export function shouldAttemptServerConnection(state: MachineState): boolean {
-	return state.matches({ shared: 'connecting' }) || state.matches({ shared: 'supabaseSync' })
+	return state.matches({ saved: 'connecting' }) || state.matches({ saved: 'supabaseSync' })
 }
 
 /** Whether we're on a shared page (any shared sub-state). */
 export function isSharedPage(state: MachineState): boolean {
-	return state.matches('shared')
+	return state.matches('saved')
 }
 
 /** Whether we're actively trying to connect. */
 export function isConnecting(state: MachineState): boolean {
-	return state.matches({ shared: 'connecting' })
+	return state.matches({ saved: 'connecting' })
 }
 
 /** Whether the sync server is the active sync method. */
 export function isServerSynced(state: MachineState): boolean {
-	return state.matches({ shared: 'serverSync' })
+	return state.matches({ saved: 'serverSync' })
 }

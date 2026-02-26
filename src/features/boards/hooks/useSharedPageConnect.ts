@@ -5,7 +5,6 @@
 
 import { useEffect } from 'react'
 import type { TLPageId } from '@tldraw/tlschema'
-import { getPageIdForShareId } from '../persistence'
 import { loadSharedPage } from '../supabase'
 import { isSupabaseConfigured } from '../supabase'
 import { mergeRemotePageIntoStore } from '../lib/storeMerge'
@@ -27,11 +26,11 @@ export function useSharedPageConnect(
 	gridRef: React.MutableRefObject<GridRef>
 ): void {
 	const connecting = machineIsConnecting(state)
-	const shareId = state.context.shareId
 	const pageId = state.context.pageId
+	const publicId = state.context.publicId
 
 	useEffect(() => {
-		if (!connecting || !shareId) return
+		if (!connecting || !pageId) return
 		const controller = new AbortController()
 
 		if (!isSupabaseConfigured()) {
@@ -43,14 +42,14 @@ export function useSharedPageConnect(
 			return
 		}
 
-		void loadSharedPage(shareId)
+		void loadSharedPage(publicId ?? pageId)
 			.then((remote) => {
 				if (controller.signal.aborted) return
 
 				if (remote?.document?.store) {
-					mergeRemotePageIntoStore(store, remote, shareId, pageId ?? '', gridRef)
-					const actualPageId = pageId || getPageIdForShareId(shareId) || ''
-					send({ type: 'SUPABASE_CONNECTED', pageId: actualPageId || undefined })
+					// For saved pages, the canonical id is the pageId itself.
+					mergeRemotePageIntoStore(store, remote, pageId, pageId ?? '', gridRef)
+					send({ type: 'SUPABASE_CONNECTED', pageId: pageId || undefined })
 					requestAnimationFrame(() => {
 						if (!controller.signal.aborted) {
 							store.update(TLINSTANCE_ID, (i) => ({ ...i }))
@@ -67,5 +66,5 @@ export function useSharedPageConnect(
 			})
 
 		return () => controller.abort()
-	}, [connecting, shareId, pageId, store, send, gridRef])
+	}, [connecting, pageId, publicId, store, send, gridRef])
 }

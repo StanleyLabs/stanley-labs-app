@@ -111,9 +111,9 @@ export function useWhiteboardOrchestration(): WhiteboardOrchestrationResult {
 	const needsServerBridge =
 		isSyncServerConfigured() &&
 		(shouldAttemptServerConnection(state) || shouldRunServerSync(state)) &&
-		Boolean(state.context.shareId)
+		Boolean(state.context.pageId)
 
-	const syncUri = state.context.shareId ? buildSyncUri(state.context.shareId) : ''
+	const syncUri = state.context.pageId ? buildSyncUri(state.context.pageId) : ''
 
 	const [serverRetryKey, setServerRetryKey] = useState(0)
 	const bumpServerRetry = useCallback(() => setServerRetryKey((k) => k + 1), [])

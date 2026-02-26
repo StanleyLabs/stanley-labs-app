@@ -53,7 +53,7 @@ export function OpenSharedLinkPopover() {
 			}
 			const pageId = getPageIdForShareId(shareId) ?? ''
 			setShareIdInUrl(shareId)
-			send({ type: 'ENTER_SHARED', shareId, pageId })
+			send({ type: 'ENTER_SAVED', pageId: pageId || '', publicId: shareId })
 			setInput('')
 			setPopoverOpen(false)
 			editor.menus.clearOpenMenus()

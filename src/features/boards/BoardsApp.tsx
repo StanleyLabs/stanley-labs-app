@@ -32,7 +32,7 @@ function App() {
 			<ConnectionIndicatorProvider onRetry={() => send({ type: 'RETRY' })}>
 				{needsServerBridge && (
 					<ServerSyncBridge
-						key={`${state.context.shareId}-${serverRetryKey}`}
+						key={`${state.context.pageId}-${serverRetryKey}`}
 						persistStore={store}
 						pageId={state.context.pageId ?? ''}
 						syncUri={syncUri}

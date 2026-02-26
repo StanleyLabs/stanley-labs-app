@@ -2,8 +2,8 @@
  * Watches the store's current page and synchronizes machine events.
  *
  * Three responsibilities:
- *   1. useLayoutEffect — on mount, read URL and send ENTER_SHARED.
- *   2. useEffect       — deferred fallback: if still local with share URL, send ENTER_SHARED.
+ *   1. useLayoutEffect — on mount, read URL (/boards/s/:id) and send ENTER_SAVED.
+ *   2. useEffect       — deferred fallback: if still local with share URL, send ENTER_SAVED.
  *   3. useEffect       — on page *change*, update URL and send events.
  *
  * The page-change effect never re-reads the URL to override the store; it only
@@ -16,7 +16,6 @@ import { TLINSTANCE_ID } from 'tldraw'
 import type { TLStore } from 'tldraw'
 import {
 	getShareIdFromUrl,
-	setShareIdInUrl,
 	clearShareIdFromUrl,
 	getShareIdForPage,
 	getPageIdForShareId,
@@ -29,14 +28,12 @@ import type { whiteboardMachine } from '../machine'
 type Send = (event: WhiteboardEvent) => void
 type MachineState = SnapshotFrom<typeof whiteboardMachine>
 
-function sendEnterShared(
+function sendEnterSaved(
 	sendRef: React.MutableRefObject<Send>,
-	prevShareIdRef: React.MutableRefObject<string | null>,
-	shareId: string
+	pageId: string,
+	publicId?: string | null
 ): void {
-	const pageId = getPageIdForShareId(shareId) ?? ''
-	prevShareIdRef.current = shareId
-	sendRef.current({ type: 'ENTER_SHARED', shareId, pageId })
+	sendRef.current({ type: 'ENTER_SAVED', pageId, publicId: publicId ?? null })
 }
 
 export function usePageTracker(
@@ -46,13 +43,12 @@ export function usePageTracker(
 ): void {
 	const sendRef = useRef(send)
 	sendRef.current = send
-	const prevShareId = useRef<string | null>(null)
 	const didBootstrapRef = useRef(false)
 
 	useLayoutEffect(() => {
-		const shareIdFromUrl = getShareIdFromUrl()
-		if (!shareIdFromUrl) return
-		const pageId = getPageIdForShareId(shareIdFromUrl) ?? ''
+		const publicIdFromUrl = getShareIdFromUrl()
+		if (!publicIdFromUrl) return
+		const pageId = getPageIdForShareId(publicIdFromUrl) ?? ''
 		if (pageId) {
 			try {
 				store.update(TLINSTANCE_ID, (i) => ({ ...i, currentPageId: pageId as import('@tldraw/tlschema').TLPageId }))
@@ -60,16 +56,18 @@ export function usePageTracker(
 				/* page may not exist in store yet */
 			}
 		}
-		sendEnterShared(sendRef, prevShareId, shareIdFromUrl)
+		// Enter saved mode using the canonical page id (if known). Public id is optional metadata.
+		sendEnterSaved(sendRef, pageId || '', publicIdFromUrl)
 	}, [store])
 
 	useEffect(() => {
 		// Run after paint so the URL is stable; catches cases where useLayoutEffect ran too early.
 		const id = setTimeout(() => {
 			if (!stateRef.current.matches('local')) return
-			const shareId = getShareIdFromUrl()
-			if (!shareId) return
-			sendEnterShared(sendRef, prevShareId, shareId)
+			const publicId = getShareIdFromUrl()
+			if (!publicId) return
+			const pageId = getPageIdForShareId(publicId) ?? ''
+			sendEnterSaved(sendRef, pageId || '', publicId)
 		}, 0)
 		return () => clearTimeout(id)
 	}, [stateRef])
@@ -86,33 +84,21 @@ export function usePageTracker(
 			if (prevPageIdRef.current === pageId) return
 			prevPageIdRef.current = pageId
 
-			const shareId = getShareIdForPage(pageId)
-			if (shareId) {
-				setShareIdInUrl(shareId)
-				if (prevShareId.current !== shareId) {
-					sendEnterShared(sendRef, prevShareId, shareId)
-				}
-			} else {
-				// Page not in share map.
-				// If we're currently in a shared machine state (or we previously were), force a clean exit.
-				if (prevShareId.current || !stateRef.current.matches('local')) {
-					prevShareId.current = null
-					sendRef.current({ type: 'LEAVE_SHARED' })
-					clearShareIdFromUrl()
-					return
-				}
+			// Always enter saved mode for the active page. This enables sync + connection indicator
+			// for private pages as well.
+			sendEnterSaved(sendRef, pageId)
 
-				const shareIdFromUrl = getShareIdFromUrl()
-				if (shareIdFromUrl && !didBootstrapRef.current) {
-					// Initial load case: URL has shareId but the share map hasn't been populated yet.
-					sendEnterShared(sendRef, prevShareId, shareIdFromUrl)
-				} else if (!shareIdFromUrl) {
-					clearShareIdFromUrl()
-				}
+			// Keep URL clean for private pages. Only /boards/s/:publicId is used when explicitly opening a shared link.
+			if (!getShareIdFromUrl()) clearShareIdFromUrl()
+
+			// If this page has a public id mapping, keep it in the machine context (for share UI).
+			const publicIdForPage = getShareIdForPage(pageId)
+			if (publicIdForPage) {
+				sendEnterSaved(sendRef, pageId, publicIdForPage)
 			}
 		}
 
-		if (!prevShareId.current) onPageChange()
+		onPageChange()
 
 		return store.listen(onPageChange)
 	}, [store])
