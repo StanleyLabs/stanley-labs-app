@@ -7,10 +7,13 @@ import {
 } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
-import {
-  clearCloudPageIds,
-  setActiveUserId,
-} from "../features/boards/persistence";
+// Board-specific localStorage cleanup on auth changes
+function setActiveUserId(id: string | null): void {
+  // No-op: boards hook handles its own namespace via useBoards
+}
+function clearCloudPageIds(): void {
+  try { localStorage.removeItem('whiteboard-cloud-page-ids') } catch { /* ignore */ }
+}
 
 interface AuthState {
   user: User | null;

@@ -1,215 +1,325 @@
 /**
- * Whiteboard state machine.
+ * Boards state machine.
  *
- * Manages the sync lifecycle for shared pages.  Everything else (React
- * components, persistence effects) reads derived values from the machine
- * state and sends events back.
+ * Single machine managing the full boards lifecycle:
+ *   - Auth mode (guest vs authed)
+ *   - Page list and selection
+ *   - Sync lifecycle for the active page
+ *   - Permissions (owner/editor/viewer)
  *
  * States
- * ──────
- *   local                     – editing a local-only page
- *   shared.connecting         – loading shared page data from Supabase
- *   shared.supabaseSync       – syncing via direct Supabase writes
- *   shared.serverSync         – syncing via WebSocket sync server
- *   shared.offline            – shared page but no connection (read-only)
+ * ------
+ *   guest              - logged-out user, localStorage persistence
+ *     guest.idle       - default local editing state
+ *     guest.viewing    - viewing a shared link (read-only or edit based on access)
  *
- * Transitions
- * ───────────
- *   local → ENTER_SHARED → shared.connecting
- *   shared.connecting → SUPABASE_CONNECTED → shared.supabaseSync
- *   shared.connecting → SUPABASE_FAILED   → shared.offline
- *   shared.connecting → SERVER_CONNECTED  → shared.serverSync  (guard: pageId set)
- *   shared.supabaseSync → SERVER_CONNECTED      → shared.serverSync
- *   shared.supabaseSync → SUPABASE_DISCONNECTED → shared.connecting
- *   shared.serverSync   → SERVER_DISCONNECTED   → shared.supabaseSync
- *   shared.offline → RETRY → shared.connecting
- *   shared.* → LEAVE_SHARED → local
+ *   authed             - logged-in user, Supabase persistence
+ *     authed.loading   - fetching page list from Supabase
+ *     authed.ready     - page list loaded, active page selected
+ *       ready.local        - active page loaded, persisting to Supabase (no realtime sync)
+ *       ready.connecting   - connecting to sync server for shared page
+ *       ready.serverSync   - synced via WebSocket sync server
+ *       ready.offline      - shared page but connection failed
+ *
+ * The machine does NOT own the tldraw store - it emits state that
+ * the orchestration hook reads to drive persistence and sync.
  */
 
 import { setup, assign, type SnapshotFrom } from 'xstate'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-export interface WhiteboardContext {
-	/** Room id used for WebSocket sync (opaque). */
-	roomId: string | null
-	/** Current tldraw page id in the local store (page:...). */
-	tldrawPageId: string | null
-	/** Optional public share slug from URL (only when visiting /boards/s/:slug). */
+export type PageRole = 'owner' | 'editor' | 'viewer'
+
+export interface PageEntry {
+	/** DB page uuid */
+	dbId: string
+	/** tldraw page id (page:xxx) */
+	tldrawId: string
+	title: string
+	visibility: 'private' | 'public'
 	publicSlug: string | null
-	/** Whether the Supabase singleton is ready. */
-	supabaseReady: boolean
+	publicAccess: 'view' | 'edit' | null
+	role: PageRole
 }
 
-export type WhiteboardEvent =
-	| { type: 'ENTER_SAVED'; roomId: string; tldrawPageId: string; publicSlug?: string | null }
-	| { type: 'LEAVE_SAVED' }
+export interface BoardsContext {
+	userId: string | null
+
+	/** All pages the user has access to (authed only). */
+	pages: PageEntry[]
+
+	/** Currently active page DB id. */
+	activePageDbId: string | null
+	/** Currently active page tldraw id. */
+	activePageTldrawId: string | null
+	/** Role on the active page. */
+	activeRole: PageRole | null
+	/** Public slug when viewing a shared link. */
+	activeSlug: string | null
+
+	/** Whether Supabase client is ready. */
+	supabaseReady: boolean
+
+	/** Error message for loading failures. */
+	error: string | null
+}
+
+export type BoardsEvent =
+	// Auth
+	| { type: 'LOGIN'; userId: string }
+	| { type: 'LOGOUT' }
+
+	// Supabase init
 	| { type: 'SUPABASE_READY' }
 	| { type: 'SUPABASE_UNAVAILABLE' }
-	| { type: 'SUPABASE_CONNECTED'; pageId?: string }
-	| { type: 'SUPABASE_FAILED' }
+
+	// Page list (authed)
+	| { type: 'PAGES_LOADED'; pages: PageEntry[] }
+	| { type: 'PAGES_FAILED'; error: string }
+	| { type: 'RELOAD_PAGES' }
+
+	// Page selection
+	| { type: 'SELECT_PAGE'; dbId: string; tldrawId: string; role: PageRole; slug?: string | null }
+	| { type: 'DESELECT_PAGE' }
+
+	// Shared link visit (guest or authed)
+	| { type: 'VISIT_SHARED'; dbId: string; tldrawId: string; slug: string; role: PageRole }
+
+	// Sync lifecycle
 	| { type: 'SERVER_CONNECTED' }
 	| { type: 'SERVER_DISCONNECTED' }
-	| { type: 'SUPABASE_DISCONNECTED' }
 	| { type: 'RETRY' }
-
-export type SyncStatus =
-	| { status: 'local' }
-	| { status: 'loading' }
-	| { status: 'error' }
-	| { status: 'supabase-sync' }
-	| { status: 'server-sync' }
 
 // ── Machine ────────────────────────────────────────────────────────────────────
 
-export const whiteboardMachine = setup({
+const initialContext: BoardsContext = {
+	userId: null,
+	pages: [],
+	activePageDbId: null,
+	activePageTldrawId: null,
+	activeRole: null,
+	activeSlug: null,
+	supabaseReady: false,
+	error: null,
+}
+
+export const boardsMachine = setup({
 	types: {
-		context: {} as WhiteboardContext,
-		events: {} as WhiteboardEvent,
+		context: {} as BoardsContext,
+		events: {} as BoardsEvent,
 	},
 	actions: {
-		setSaved: assign(({ event }) => {
-			const e = event as Extract<WhiteboardEvent, { type: 'ENTER_SAVED' }>
-			return { roomId: e.roomId, tldrawPageId: e.tldrawPageId, publicSlug: e.publicSlug ?? null }
+		setUser: assign(({ event }) => {
+			const e = event as Extract<BoardsEvent, { type: 'LOGIN' }>
+			return { userId: e.userId }
 		}),
-		clearSaved: assign({ roomId: null, tldrawPageId: null, publicSlug: null }),
+		clearUser: assign({ userId: null, pages: [], activePageDbId: null, activePageTldrawId: null, activeRole: null, activeSlug: null }),
+		setPages: assign(({ event }) => {
+			const e = event as Extract<BoardsEvent, { type: 'PAGES_LOADED' }>
+			return { pages: e.pages, error: null }
+		}),
+		setError: assign(({ event }) => {
+			const e = event as Extract<BoardsEvent, { type: 'PAGES_FAILED' }>
+			return { error: e.error }
+		}),
+		selectPage: assign(({ event }) => {
+			const e = event as Extract<BoardsEvent, { type: 'SELECT_PAGE' }>
+			return {
+				activePageDbId: e.dbId,
+				activePageTldrawId: e.tldrawId,
+				activeRole: e.role,
+				activeSlug: e.slug ?? null,
+			}
+		}),
+		clearActivePage: assign({
+			activePageDbId: null,
+			activePageTldrawId: null,
+			activeRole: null,
+			activeSlug: null,
+		}),
+		visitShared: assign(({ event }) => {
+			const e = event as Extract<BoardsEvent, { type: 'VISIT_SHARED' }>
+			return {
+				activePageDbId: e.dbId,
+				activePageTldrawId: e.tldrawId,
+				activeRole: e.role,
+				activeSlug: e.slug,
+			}
+		}),
 		markSupabaseReady: assign({ supabaseReady: true }),
-		markSupabaseUnavailable: assign({ supabaseReady: false }),
 	},
 	guards: {
-		hasRoomId: ({ context }) => Boolean(context.roomId),
-		hasTldrawPageId: ({ context }) => Boolean(context.tldrawPageId),
+		isPageShared: ({ context }) => {
+			if (!context.activePageDbId) return false
+			const page = context.pages.find((p) => p.dbId === context.activePageDbId)
+			return page?.visibility === 'public' || Boolean(context.activeSlug)
+		},
 	},
-
 }).createMachine({
-	id: 'whiteboard',
-	initial: 'local',
-	context: {
-		roomId: null,
-		tldrawPageId: null,
-		publicSlug: null,
-		supabaseReady: false,
-	},
+	id: 'boards',
+	initial: 'guest',
+	context: initialContext,
 
-	// Global events: supabase init can happen in any state
 	on: {
 		SUPABASE_READY: { actions: 'markSupabaseReady' },
-		SUPABASE_UNAVAILABLE: { actions: 'markSupabaseUnavailable' },
+		SUPABASE_UNAVAILABLE: {},
 	},
 
 	states: {
-		local: {
-			entry: 'clearSaved',
+		guest: {
 			on: {
-				ENTER_SAVED: {
-					target: 'saved',
-					actions: 'setSaved',
+				LOGIN: { target: 'authed', actions: 'setUser' },
+				VISIT_SHARED: { target: '.viewing', actions: 'visitShared' },
+			},
+			initial: 'idle',
+			states: {
+				idle: {},
+				viewing: {
+					on: {
+						DESELECT_PAGE: { target: 'idle', actions: 'clearActivePage' },
+						// Allow sync server for shared page viewing
+						SERVER_CONNECTED: { target: 'viewingSynced' },
+					},
+				},
+				viewingSynced: {
+					on: {
+						DESELECT_PAGE: { target: 'idle', actions: 'clearActivePage' },
+						SERVER_DISCONNECTED: { target: 'viewing' },
+					},
 				},
 			},
 		},
 
-		saved: {
-			initial: 'connecting',
+		authed: {
 			on: {
-				LEAVE_SAVED: { target: 'local' },
-				// Allow re-entry for page changes while already synced
-				ENTER_SAVED: {
-					target: '.connecting',
-					actions: 'setSaved',
-				},
+				LOGOUT: { target: 'guest', actions: 'clearUser' },
 			},
+			initial: 'loading',
 			states: {
-			connecting: {
-				on: {
-					SUPABASE_CONNECTED: {
-						target: 'supabaseSync',
-						actions: assign(({ context, event }) => ({
-							tldrawPageId: (event as { pageId?: string }).pageId || context.tldrawPageId,
-						})),
-					},
-					SUPABASE_FAILED: { target: 'offline' },
-					// If the server connects before Supabase and we already know the
-					// pageId (revisiting a share), skip supabaseSync entirely.
-					SERVER_CONNECTED: {
-						target: 'serverSync',
-						guard: 'hasTldrawPageId',
+				loading: {
+					on: {
+						PAGES_LOADED: { target: 'ready', actions: 'setPages' },
+						PAGES_FAILED: { target: 'ready', actions: 'setError' },
 					},
 				},
-			},
-			supabaseSync: {
-				on: {
-					SERVER_CONNECTED: { target: 'serverSync' },
-					// Consecutive Supabase write failures → re-fetch from source
-					SUPABASE_DISCONNECTED: { target: 'connecting' },
+				ready: {
+					on: {
+						SELECT_PAGE: { target: '.local', actions: 'selectPage' },
+						VISIT_SHARED: { target: '.connecting', actions: 'visitShared' },
+						RELOAD_PAGES: { target: 'loading' },
+					},
+					initial: 'local',
+					states: {
+						local: {
+							on: {
+								SERVER_CONNECTED: {
+									target: 'serverSync',
+									guard: 'isPageShared',
+								},
+								DESELECT_PAGE: { actions: 'clearActivePage' },
+							},
+						},
+						connecting: {
+							on: {
+								SERVER_CONNECTED: 'serverSync',
+								SERVER_DISCONNECTED: 'offline',
+							},
+						},
+						serverSync: {
+							on: {
+								SERVER_DISCONNECTED: 'local',
+								DESELECT_PAGE: { target: 'local', actions: 'clearActivePage' },
+								// Allow page switches while synced
+								SELECT_PAGE: { target: 'local', actions: 'selectPage' },
+							},
+						},
+						offline: {
+							on: {
+								RETRY: 'connecting',
+								DESELECT_PAGE: { target: 'local', actions: 'clearActivePage' },
+							},
+						},
+					},
 				},
 			},
-			serverSync: {
-				on: {
-					SERVER_DISCONNECTED: { target: 'supabaseSync' },
-				},
-			},
-			offline: {
-				on: {
-					RETRY: { target: 'connecting' },
-				},
-			},
-		},
 		},
 	},
 })
 
 // ── Derived state helpers ──────────────────────────────────────────────────────
 
-type MachineState = SnapshotFrom<typeof whiteboardMachine>
+export type MachineState = SnapshotFrom<typeof boardsMachine>
 
-/** Current sync status for the connection indicator. */
-export function getSyncStatus(state: MachineState): SyncStatus {
-	if (state.matches({ saved: 'serverSync' })) return { status: 'server-sync' }
-	if (state.matches({ saved: 'supabaseSync' })) return { status: 'supabase-sync' }
-	if (state.matches({ saved: 'connecting' })) return { status: 'loading' }
-	if (state.matches({ saved: 'offline' })) return { status: 'error' }
-	return { status: 'local' }
+export function isGuest(state: MachineState): boolean {
+	return state.matches('guest')
 }
 
-/** Whether the current page is editable (shared pages need active sync). */
+export function isAuthed(state: MachineState): boolean {
+	return state.matches('authed')
+}
+
+export function isLoading(state: MachineState): boolean {
+	return state.matches({ authed: 'loading' })
+}
+
+export function isReady(state: MachineState): boolean {
+	return state.matches({ authed: 'ready' })
+}
+
 export function isEditable(state: MachineState): boolean {
-	if (state.matches('local')) return true
-	if (state.matches({ saved: 'supabaseSync' })) return true
-	if (state.matches({ saved: 'serverSync' })) return true
+	const { activeRole } = state.context
+	// Guest idle = editing local pages
+	if (state.matches({ guest: 'idle' })) return true
+	// Guest viewing a shared page: editable only if public_access=edit
+	if (state.matches({ guest: 'viewing' }) || state.matches({ guest: 'viewingSynced' })) {
+		// Role will be set to 'editor' if access=edit, 'viewer' otherwise
+		return activeRole === 'editor' || activeRole === 'owner'
+	}
+	// Authed: check role
+	if (isAuthed(state)) {
+		return activeRole === 'owner' || activeRole === 'editor'
+	}
 	return false
 }
 
-/** Whether the supabase direct-write sync should be running. */
-export function shouldRunSupabaseSync(state: MachineState): boolean {
-	return state.matches({ saved: 'supabaseSync' })
+export function isViewingSharedLink(state: MachineState): boolean {
+	return Boolean(state.context.activeSlug)
 }
 
-/** Whether the server sync WebSocket should be running. */
-export function shouldRunServerSync(state: MachineState): boolean {
-	return state.matches({ saved: 'serverSync' })
-}
-
-/** Whether we should attempt a sync server connection (during connecting or supabaseSync). */
-export function shouldAttemptServerConnection(state: MachineState): boolean {
-	return state.matches({ saved: 'connecting' }) || state.matches({ saved: 'supabaseSync' })
-}
-
-/** Whether we're on any synced (cloud/server) page. */
-export function isSyncedPage(state: MachineState): boolean {
-	return state.matches('saved')
-}
-
-/** Whether the current page was opened via a public share link (/boards/s/:id). */
-export function isSharedPage(state: MachineState): boolean {
-	return Boolean(state.context.publicSlug)
-}
-
-/** Whether we're actively trying to connect. */
-export function isConnecting(state: MachineState): boolean {
-	return state.matches({ saved: 'connecting' })
-}
-
-/** Whether the sync server is the active sync method. */
 export function isServerSynced(state: MachineState): boolean {
-	return state.matches({ saved: 'serverSync' })
+	return (
+		state.matches({ authed: { ready: 'serverSync' } }) ||
+		state.matches({ guest: 'viewingSynced' })
+	)
+}
+
+export function shouldAttemptSync(state: MachineState): boolean {
+	return (
+		state.matches({ authed: { ready: 'connecting' } }) ||
+		state.matches({ authed: { ready: 'local' } }) ||
+		state.matches({ guest: 'viewing' })
+	)
+}
+
+export function isActivePageShared(state: MachineState): boolean {
+	const { activePageDbId, activeSlug, pages } = state.context
+	if (activeSlug) return true
+	if (!activePageDbId) return false
+	const page = pages.find((p) => p.dbId === activePageDbId)
+	return page?.visibility === 'public'
+}
+
+export function isOwner(state: MachineState): boolean {
+	return state.context.activeRole === 'owner'
+}
+
+/** Get the sync status for the connection indicator. */
+export function getSyncStatus(state: MachineState): 'local' | 'loading' | 'synced' | 'server-sync' | 'offline' {
+	if (state.matches({ authed: { ready: 'serverSync' } }) || state.matches({ guest: 'viewingSynced' })) return 'server-sync'
+	if (state.matches({ authed: { ready: 'connecting' } })) return 'loading'
+	if (state.matches({ authed: { ready: 'offline' } })) return 'offline'
+	if (state.matches({ authed: { ready: 'local' } }) && state.context.activePageDbId) return 'synced'
+	if (state.matches({ authed: 'loading' })) return 'loading'
+	return 'local'
 }

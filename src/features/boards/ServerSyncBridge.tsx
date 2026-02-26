@@ -8,7 +8,7 @@ import { useEffect, useRef } from 'react'
 import { useSync } from '@tldraw/sync'
 import { inlineBase64AssetStore } from 'tldraw'
 import type { TLStore } from 'tldraw'
-import type { WhiteboardEvent } from './machine'
+import type { BoardsEvent } from './machine'
 import {
 	syncToPersist,
 	persistToSync,
@@ -17,7 +17,7 @@ import {
 
 const SERVER_RETRY_INTERVAL_MS = 10_000
 
-type Send = (event: WhiteboardEvent) => void
+type Send = (event: BoardsEvent) => void
 
 export interface ServerSyncBridgeProps {
 	persistStore: TLStore

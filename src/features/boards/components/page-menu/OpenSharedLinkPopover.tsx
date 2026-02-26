@@ -13,7 +13,22 @@ import {
 	TldrawUiPopoverTrigger,
 	useToasts,
 } from 'tldraw'
-import { parseShareIdFromPastedText } from '../../persistence'
+/** Extract a share slug from pasted text (full URL or plain slug). */
+function parseShareIdFromPastedText(text: string): string | null {
+	const trimmed = text.trim()
+	if (!trimmed) return null
+	try {
+		const url = new URL(trimmed)
+		const parts = url.pathname.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean)
+		const sIndex = parts.indexOf('s')
+		if (sIndex >= 0 && parts[sIndex + 1]) {
+			try { return decodeURIComponent(parts[sIndex + 1]!) } catch { return parts[sIndex + 1]! }
+		}
+		return null
+	} catch {
+		return trimmed
+	}
+}
 
 export function OpenSharedLinkPopover() {
 	const toasts = useToasts()

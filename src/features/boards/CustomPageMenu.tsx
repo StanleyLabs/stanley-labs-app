@@ -1,5 +1,8 @@
 /**
- * Page menu with share icon for pages linked to a shared URL.
+ * Page menu with share/link controls.
+ *
+ * Guest users: local pages, "Login to share" hint, can open shared links.
+ * Authed users: DB pages, share button for owners, copy link for shared pages.
  */
 
 import type { TLPageId } from '@tldraw/tlschema'
@@ -24,6 +27,7 @@ import {
 	useUiEvents,
 } from 'tldraw'
 import { useSortablePages } from './hooks/useSortablePages'
+import { useBoardsMachine } from './MachineContext'
 import {
 	OpenSharedLinkPopover,
 	SharePageButton,
@@ -35,27 +39,23 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 	const trackEvent = useUiEvents()
 	const msg = useTranslation()
 	const breakpoint = useBreakpoint()
+	const { user } = useAuth()
+	const { state } = useBoardsMachine()
 
 	const [isEditing, setIsEditing] = useState(false)
 	const handleOpenChange = useCallback(() => setIsEditing(false), [])
-
 	const [isOpen, onOpenChange] = useMenuIsOpen('page-menu', handleOpenChange)
-	const { user } = useAuth()
 
 	const ITEM_HEIGHT = 36
-
 	const pages = useValue('pages', () => editor.getPages(), [editor])
 	const currentPage = useValue('currentPage', () => editor.getCurrentPage(), [editor])
 	const currentPageId = useValue('currentPageId', () => editor.getCurrentPageId(), [editor])
-
 	const isReadonlyMode = useReadonly()
-
 	const maxPageCountReached = useValue(
 		'maxPageCountReached',
 		() => editor.getPages().length >= editor.options.maxPages,
 		[editor]
 	)
-
 	const isCoarsePointer = useValue(
 		'isCoarsePointer',
 		() => editor.getInstanceState().isCoarsePointer,
@@ -63,18 +63,13 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 	)
 
 	useEffect(
-		function closePageMenuOnEnterPressAfterPressingEnterToConfirmRename() {
+		function closeOnEnter() {
 			function handleKeyDown() {
 				if (isEditing) return
-				if (document.activeElement === document.body) {
-					editor.menus.clearOpenMenus()
-				}
+				if (document.activeElement === document.body) editor.menus.clearOpenMenus()
 			}
-
 			document.addEventListener('keydown', handleKeyDown, { passive: true })
-			return () => {
-				document.removeEventListener('keydown', handleKeyDown)
-			}
+			return () => document.removeEventListener('keydown', handleKeyDown)
 		},
 		[editor, isEditing]
 	)
@@ -95,40 +90,30 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 
 	useEffect(() => {
 		if (!isOpen) return
-		if (user) window.dispatchEvent(new Event('whiteboard-cloud-refresh'))
 		editor.timers.requestAnimationFrame(() => {
 			const elm = document.querySelector(`[data-pageid="${currentPageId}"]`) as HTMLDivElement
-
-			if (elm) {
-				elm.querySelector('button')?.focus()
-
-				const container = rSortableContainer.current
-				if (!container) return
-
-				const elmTopPosition = elm.offsetTop
-				const containerScrollTopPosition = container.scrollTop
-				if (elmTopPosition < containerScrollTopPosition) {
-					container.scrollTo({ top: elmTopPosition })
-				}
-				const elmBottomPosition = elmTopPosition + ITEM_HEIGHT
-				const containerScrollBottomPosition = container.scrollTop + container.offsetHeight
-				if (elmBottomPosition > containerScrollBottomPosition) {
-					container.scrollTo({ top: elmBottomPosition - container.offsetHeight })
-				}
-			}
+			if (!elm) return
+			elm.querySelector('button')?.focus()
+			const container = rSortableContainer.current
+			if (!container) return
+			const elmTop = elm.offsetTop
+			if (elmTop < container.scrollTop) container.scrollTo({ top: elmTop })
+			const elmBottom = elmTop + ITEM_HEIGHT
+			const containerBottom = container.scrollTop + container.offsetHeight
+			if (elmBottom > containerBottom) container.scrollTo({ top: elmBottom - container.offsetHeight })
 		})
 	}, [ITEM_HEIGHT, currentPageId, isOpen, editor, rSortableContainer])
 
-	const handleCreatePageClick = useCallback(() => {
+	const handleCreatePage = useCallback(() => {
 		if (isReadonlyMode) return
 
 		if (user) {
-			// v2: create page in DB first, then create locally with the DB-generated tldraw_page_id.
+			// Authed: create in DB first
 			void (async () => {
-				const { createPage } = await import('./v2/pagesApi')
+				const { createPage } = await import('./api')
 				const pageName = msg('page-menu.new-page-initial-name')
 				const newPage = await createPage({ title: pageName })
-				if (!newPage?.tldraw_page_id) return
+				if (!newPage) return
 
 				editor.run(() => {
 					editor.markHistoryStoppingPoint('creating page')
@@ -139,10 +124,9 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 
 				editor.timers.requestAnimationFrame(() => {
 					const elm = document.querySelector(`[data-pageid="${newPage.tldraw_page_id}"]`) as HTMLDivElement
-					if (elm) elm.querySelector('button')?.focus()
+					elm?.querySelector('button')?.focus()
 				})
 
-				// Notify the workspace hook to update its mapping.
 				window.dispatchEvent(new Event('v2-pages-changed'))
 				editor.menus.clearOpenMenus()
 				trackEvent('new-page', { source: 'page-menu' })
@@ -150,26 +134,22 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 			return
 		}
 
-		// Guest: create locally as before.
+		// Guest: create locally
 		editor.run(() => {
 			editor.markHistoryStoppingPoint('creating page')
 			const newPageId = PageRecordType.createId()
 			editor.createPage({ name: msg('page-menu.new-page-initial-name'), id: newPageId })
 			editor.setCurrentPage(newPageId)
-
 			setIsEditing(true)
 
 			editor.timers.requestAnimationFrame(() => {
 				const elm = document.querySelector(`[data-pageid="${newPageId}"]`) as HTMLDivElement
-
-				if (elm) {
-					elm.querySelector('button')?.focus()
-				}
+				elm?.querySelector('button')?.focus()
 			})
 		})
 		editor.menus.clearOpenMenus()
 		trackEvent('new-page', { source: 'page-menu' })
-	}, [editor, msg, isReadonlyMode, trackEvent])
+	}, [editor, msg, isReadonlyMode, trackEvent, user])
 
 	const changePage = useCallback(
 		(id: TLPageId) => {
@@ -182,31 +162,25 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 	const renamePage = useCallback(
 		(id: TLPageId, name: string) => {
 			editor.renamePage(id, name)
-			if (user) window.dispatchEvent(new Event('whiteboard-cloud-flush'))
 			trackEvent('rename-page', { source: 'page-menu' })
 		},
-		[editor, trackEvent, user]
+		[editor, trackEvent]
+	)
+
+	// Build a lookup from tldraw page id to PageEntry for share button
+	const pageEntryByTldraw = new Map(
+		state.context.pages.map((p) => [p.tldrawId, p])
 	)
 
 	return (
 		<TldrawUiPopover id="pages" onOpenChange={onOpenChange} open={isOpen}>
 			<TldrawUiPopoverTrigger data-testid="main.page-menu">
-				<TldrawUiButton
-					type="menu"
-					title={currentPage.name}
-					data-testid="page-menu.button"
-					className="tlui-page-menu__trigger"
-				>
+				<TldrawUiButton type="menu" title={currentPage.name} className="tlui-page-menu__trigger">
 					<div className="tlui-page-menu__name">{currentPage.name}</div>
 					<TldrawUiButtonIcon icon="chevron-down" small />
 				</TldrawUiButton>
 			</TldrawUiPopoverTrigger>
-			<TldrawUiPopoverContent
-				side="bottom"
-				align="start"
-				sideOffset={0}
-				disableEscapeKeyDown={isEditing}
-			>
+			<TldrawUiPopoverContent side="bottom" align="start" sideOffset={0} disableEscapeKeyDown={isEditing}>
 				<div className="tlui-page-menu__wrapper">
 					<div className="tlui-page-menu__header">
 						<div className="tlui-page-menu__header__title">{msg('page-menu.title')}</div>
@@ -214,7 +188,6 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 							<div className="tlui-buttons__horizontal">
 								<TldrawUiButton
 									type="icon"
-									data-testid="page-menu.edit"
 									title={msg(isEditing ? 'page-menu.edit-done' : 'page-menu.edit-start')}
 									onClick={toggleEditing}
 								>
@@ -222,14 +195,9 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 								</TldrawUiButton>
 								<TldrawUiButton
 									type="icon"
-									data-testid="page-menu.create"
-									title={msg(
-										maxPageCountReached
-											? 'page-menu.max-page-count-reached'
-											: 'page-menu.create-new-page'
-									)}
+									title={msg(maxPageCountReached ? 'page-menu.max-page-count-reached' : 'page-menu.create-new-page')}
 									disabled={maxPageCountReached}
-									onClick={handleCreatePageClick}
+									onClick={handleCreatePage}
 								>
 									<TldrawUiButtonIcon icon="plus" />
 								</TldrawUiButton>
@@ -237,7 +205,6 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 						)}
 					</div>
 					<div
-						data-testid="page-menu.list"
 						className="tlui-page-menu__list tlui-menu__group"
 						style={{ height: ITEM_HEIGHT * pages.length + 4 }}
 						ref={rSortableContainer}
@@ -248,11 +215,11 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 								offsetY: 0,
 								isSelected: false,
 							}
+							const entry = pageEntryByTldraw.get(page.id)
 
 							return isEditing ? (
 								<div
 									key={page.id + '_editing'}
-									data-testid="page-menu.item"
 									data-pageid={page.id}
 									className="tlui-page_menu__item__sortable"
 									style={{
@@ -279,9 +246,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 											className="tlui-page-menu__item__button"
 											onClick={() => {
 												const name = window.prompt('Rename page', page.name)
-												if (name && name !== page.name) {
-													renamePage(page.id, name)
-												}
+												if (name && name !== page.name) renamePage(page.id, name)
 											}}
 											onDoubleClick={toggleEditing}
 										>
@@ -289,10 +254,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 											<TldrawUiButtonLabel>{page.name}</TldrawUiButtonLabel>
 										</TldrawUiButton>
 									) : (
-										<div
-											className="tlui-page_menu__item__sortable__title"
-											style={{ height: ITEM_HEIGHT }}
-										>
+										<div className="tlui-page_menu__item__sortable__title" style={{ height: ITEM_HEIGHT }}>
 											<PageItemInput
 												id={page.id}
 												name={page.name}
@@ -302,7 +264,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 											/>
 										</div>
 									)}
-									<SharePageButton pageId={page.id} />
+									<SharePageButton pageId={page.id} entry={entry} isLoggedIn={!!user} />
 									{!isReadonlyMode && (
 										<div className="tlui-page_menu__item__submenu" data-isediting={isEditing}>
 											<CustomPageItemSubmenu
@@ -310,18 +272,14 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 												item={page}
 												listSize={pages.length}
 												pages={pages}
+												entry={entry}
 												trackEvent={trackEvent as (name: string, data?: unknown) => void}
 											/>
 										</div>
 									)}
 								</div>
 							) : (
-								<div
-									key={page.id}
-									data-pageid={page.id}
-									data-testid="page-menu.item"
-									className="tlui-page-menu__item"
-								>
+								<div key={page.id} data-pageid={page.id} className="tlui-page-menu__item">
 									<TldrawUiButton
 										type="normal"
 										className="tlui-page-menu__item__button"
@@ -329,18 +287,16 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 										onDoubleClick={toggleEditing}
 										title={msg('page-menu.go-to-page')}
 										onKeyDown={(e) => {
-											if (e.key === 'Enter') {
-												if (page.id === currentPage.id) {
-													toggleEditing()
-													stopEventPropagation(e)
-												}
+											if (e.key === 'Enter' && page.id === currentPage.id) {
+												toggleEditing()
+												stopEventPropagation(e)
 											}
 										}}
 									>
 										<TldrawUiButtonCheck checked={page.id === currentPage.id} />
 										<TldrawUiButtonLabel>{page.name}</TldrawUiButtonLabel>
 									</TldrawUiButton>
-									<SharePageButton pageId={page.id} />
+									<SharePageButton pageId={page.id} entry={entry} isLoggedIn={!!user} />
 									{!isReadonlyMode && (
 										<div className="tlui-page_menu__item__submenu">
 											<CustomPageItemSubmenu
@@ -348,17 +304,14 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 												item={page}
 												listSize={pages.length}
 												pages={pages}
+												entry={entry}
 												onRename={() => {
 													if (tlenv.isIos) {
 														const name = window.prompt('Rename page', page.name)
-														if (name && name !== page.name) {
-															renamePage(page.id, name)
-														}
+														if (name && name !== page.name) renamePage(page.id, name)
 													} else {
 														setIsEditing(true)
-														if (currentPageId !== page.id) {
-															changePage(page.id)
-														}
+														if (currentPageId !== page.id) changePage(page.id)
 													}
 												}}
 												trackEvent={trackEvent as (name: string, data?: unknown) => void}

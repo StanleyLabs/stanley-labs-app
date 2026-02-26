@@ -1,19 +1,17 @@
 /**
- * React context for the whiteboard state machine.
- * Components read sync state and send events through this context.
+ * React context for the boards state machine.
  */
 
 import { createContext, useContext } from 'react'
-import type { SnapshotFrom } from 'xstate'
-import type { whiteboardMachine, WhiteboardEvent } from './machine'
+import type { MachineState, BoardsEvent } from './machine'
 
-type MachineState = SnapshotFrom<typeof whiteboardMachine>
-type Send = (event: WhiteboardEvent) => void
+interface MachineCtxValue {
+	state: MachineState
+	send: (event: BoardsEvent) => void
+}
 
-export const MachineCtx = createContext<{ state: MachineState; send: Send } | null>(null)
+export const MachineCtx = createContext<MachineCtxValue>(null as any)
 
-export function useMachineCtx() {
-	const ctx = useContext(MachineCtx)
-	if (!ctx) throw new Error('useMachineCtx must be used inside MachineCtx.Provider')
-	return ctx
+export function useBoardsMachine() {
+	return useContext(MachineCtx)
 }
