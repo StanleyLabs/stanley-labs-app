@@ -211,12 +211,21 @@ export function useBoards(): BoardsOrchestration {
 		if (isGuestViewingShared) return
 
 		const persist = () => {
+			// Double-check: don't persist if we're now viewing a shared page
+			if (stateRef.current.context.activeSlug || getSlugFromUrl()) return
 			try {
 				const snap = store.getStoreSnapshot('all') as { store: Record<string, unknown>; schema: unknown }
-				// Filter out cameras
+				// Filter out cameras and any shared page records (keyed by tldrawToDb)
+				const sharedTldrawIds = new Set<string>()
+				for (const [tid] of tldrawToDb.current) sharedTldrawIds.add(tid)
+
 				const filtered: Record<string, unknown> = {}
 				for (const [id, rec] of Object.entries(snap.store)) {
-					if ((rec as any)?.typeName !== 'camera') filtered[id] = rec
+					const r = rec as any
+					if (r?.typeName === 'camera') continue
+					// Skip page records and shapes belonging to shared pages
+					if (sharedTldrawIds.has(id) || sharedTldrawIds.has(r?.parentId)) continue
+					filtered[id] = rec
 				}
 				const inst = store.get(TLINSTANCE_ID) as { currentPageId?: string } | undefined
 				const json = JSON.stringify({
@@ -241,7 +250,7 @@ export function useBoards(): BoardsOrchestration {
 			window.removeEventListener('beforeunload', flush)
 			window.removeEventListener('pagehide', flush)
 		}
-	}, [store, userId])
+	}, [store, userId, isGuestViewingShared])
 
 	// ── Guest: cross-tab sync via storage event ────────────────────────────────
 
