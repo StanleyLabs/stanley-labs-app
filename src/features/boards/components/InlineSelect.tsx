@@ -107,6 +107,8 @@ export function InlineSelect<T extends string>({ value, onChange, options, disab
 				ref={triggerRef}
 				type="button"
 				onClick={() => !disabled && setOpen((v) => !v)}
+				onMouseEnter={(e) => { if (!disabled) (e.currentTarget as HTMLElement).style.background = 'var(--color-muted-2)' }}
+				onMouseLeave={(e) => { if (!open) (e.currentTarget as HTMLElement).style.background = 'var(--color-muted-0, rgba(0,0,0,0.04))' }}
 				disabled={disabled}
 				style={{
 					display: 'inline-flex',
@@ -116,8 +118,8 @@ export function InlineSelect<T extends string>({ value, onChange, options, disab
 					fontSize: 12,
 					fontWeight: 500,
 					borderRadius: 6,
-					border: 'none',
-					background: open ? 'var(--color-muted-2)' : 'transparent',
+					border: '1px solid var(--color-panel-contrast)',
+					background: open ? 'var(--color-muted-2)' : 'var(--color-muted-0, rgba(0,0,0,0.04))',
 					color: selected?.color ?? 'var(--color-text-1)',
 					cursor: disabled ? 'default' : 'pointer',
 					opacity: disabled ? 0.5 : 1,
