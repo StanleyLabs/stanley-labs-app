@@ -289,11 +289,17 @@ export function useBoards(): BoardsOrchestration {
 			const page = await api.resolveSlug(slug)
 			if (cancelled || !page) return
 
-			const role: 'editor' | 'viewer' = page.public_access === 'edit' ? 'editor' : 'viewer'
+			let role: 'owner' | 'editor' | 'viewer' = page.public_access === 'edit' ? 'editor' : 'viewer'
 
-			// Add self as viewer if logged in
+			// If logged in, check existing membership (owner stays owner)
 			if (userId) {
-				void api.addSelfAsViewer(page.id)
+				const myPages = await api.listMyPages()
+				const existing = myPages.find((p) => p.page.id === page.id)
+				if (existing) {
+					role = existing.role as 'owner' | 'editor' | 'viewer'
+				} else {
+					void api.addSelfAsViewer(page.id)
+				}
 			}
 
 			// Load and apply snapshot
@@ -446,7 +452,6 @@ export function useBoards(): BoardsOrchestration {
 	useEffect(() => {
 		const editor = editorInstance
 		if (!editor || !userId) return
-		if (getSlugFromUrl()) return // Don't override shared link visit
 
 		let prevPageId: string | null = null
 
