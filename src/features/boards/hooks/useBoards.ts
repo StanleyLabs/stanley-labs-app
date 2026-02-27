@@ -28,7 +28,6 @@ import {
 	type PageEntry,
 } from '../machine'
 import { useAuth } from '../../../lib/AuthContext'
-import { supabase } from '../../../lib/supabase'
 import * as api from '../api'
 import { getContentAsJsonDocForPage } from '../sharePage'
 import { buildSyncUri, isSyncServerConfigured } from '../sharePage'
@@ -204,7 +203,8 @@ export function useBoards(): BoardsOrchestration {
 
 	// ── Guest: persist to localStorage (skip when viewing a shared page) ───────
 
-	const isGuestViewingShared = !userId && Boolean(state.context.activeSlug)
+	// Guard: skip localStorage persist if guest is on a shared page (slug in URL or context)
+	const isGuestViewingShared = !userId && (Boolean(state.context.activeSlug) || Boolean(getSlugFromUrl()))
 
 	useEffect(() => {
 		if (userId) return
@@ -355,62 +355,60 @@ export function useBoards(): BoardsOrchestration {
 		return () => { cancelled = true }
 	}, [store, userId, send])
 
-	// ── Realtime: watch shared page visibility (kick guest if no longer public) ─
+	// ── Guest: re-validate shared page on tab focus ───────────────────────────
 
 	const activeDbId = state.context.activePageDbId
+	const activeSlug = state.context.activeSlug
 
 	useEffect(() => {
-		// Only subscribe for guests viewing shared pages
-		if (!activeDbId || userId) return
+		if (userId || !activeDbId || !activeSlug) return
 
-		const channel = supabase
-			.channel(`page-visibility:${activeDbId}`)
-			.on(
-				'postgres_changes',
-				{
-					event: 'UPDATE',
-					schema: 'public',
-					table: 'pages',
-					filter: `id=eq.${activeDbId}`,
-				},
-				(payload) => {
-					const newVis = (payload.new as any)?.visibility
-					if (newVis && newVis !== 'public') {
-						// Page is no longer public - remove from tldraw store + localStorage
-						const tldrawId = stateRef.current.context.activePageTldrawId
-						if (tldrawId && editorRef.current) {
-							const editor = editorRef.current
-							const pages = editor.getPages()
-							if (pages.length > 1) {
-								editor.deletePage(tldrawId as TLPageId)
-							}
+		const removeSharedPage = () => {
+			const tldrawId = stateRef.current.context.activePageTldrawId
+			if (tldrawId && editorRef.current) {
+				const pages = editorRef.current.getPages()
+				if (pages.length > 1) {
+					editorRef.current.deletePage(tldrawId as TLPageId)
+				}
+			}
+			send({ type: 'DESELECT_PAGE' })
+			setUrlToBoards()
+			// Scrub from localStorage
+			try {
+				const raw = lsLoad()
+				if (raw && tldrawId) {
+					const doc = JSON.parse(raw)
+					if (doc?.document?.store) {
+						const s = doc.document.store as Record<string, any>
+						for (const [id, rec] of Object.entries(s)) {
+							if (id === tldrawId || (rec as any)?.parentId === tldrawId) delete s[id]
 						}
-						send({ type: 'DESELECT_PAGE' })
-						setUrlToBoards()
-						// Flush localStorage so the shared page doesn't persist
-						try {
-							const raw = lsLoad()
-							if (raw) {
-								const doc = JSON.parse(raw)
-								if (doc?.document?.store) {
-									const store = doc.document.store as Record<string, any>
-									for (const [id, rec] of Object.entries(store)) {
-										if ((rec as any)?.parentId === tldrawId || id === tldrawId) {
-											delete store[id]
-										}
-									}
-									lsSave(JSON.stringify(doc))
-								}
-							}
-						} catch { /* ignore */ }
-						window.dispatchEvent(new CustomEvent('boards:shared-page-unavailable'))
+						lsSave(JSON.stringify(doc))
 					}
 				}
-			)
-			.subscribe()
+			} catch { /* ignore */ }
+			window.dispatchEvent(new CustomEvent('boards:shared-page-unavailable'))
+		}
 
-		return () => { void supabase.removeChannel(channel) }
-	}, [activeDbId, userId, send])
+		const checkVisibility = async () => {
+			const page = await api.resolveSlug(activeSlug)
+			if (!page) removeSharedPage()
+		}
+
+		// Check on tab focus
+		const onFocus = () => { void checkVisibility() }
+		window.addEventListener('focus', onFocus)
+
+		// Also poll every 30s while the tab is visible
+		const interval = setInterval(() => {
+			if (!document.hidden) void checkVisibility()
+		}, 30_000)
+
+		return () => {
+			window.removeEventListener('focus', onFocus)
+			clearInterval(interval)
+		}
+	}, [userId, activeDbId, activeSlug, send])
 
 	// ── Authed: load pages from Supabase ───────────────────────────────────────
 
