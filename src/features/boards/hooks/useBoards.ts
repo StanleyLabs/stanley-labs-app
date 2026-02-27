@@ -656,6 +656,22 @@ export function useBoards(): BoardsOrchestration {
 		Boolean(state.context.activePageDbId) &&
 		activePageShared
 
+	// Debug sync bridge conditions (remove after debugging)
+	useEffect(() => {
+		if (!state.context.activePageDbId) return
+		const uri = state.context.activePageDbId ? buildSyncUri(state.context.activePageDbId) : ''
+		console.log('[sync-debug]', {
+			configured: isSyncServerConfigured(),
+			shouldSync: shouldAttemptSync(state),
+			hasDbId: Boolean(state.context.activePageDbId),
+			shared: activePageShared,
+			needsBridge: needsServerBridge,
+			machineValue: JSON.stringify(state.value),
+			slug: state.context.activeSlug,
+			uri,
+		})
+	}, [state, activePageShared, needsServerBridge])
+
 	const syncUri = state.context.activePageDbId
 		? buildSyncUri(state.context.activePageDbId)
 		: ''
