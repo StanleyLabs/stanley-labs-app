@@ -872,6 +872,8 @@ export function useBoards(): BoardsOrchestration {
 				role: 'owner',
 				slug: page.publicSlug ?? null,
 			})
+			// Explicitly persist so reload returns to this page
+			lsSetLastPage(page.tldrawId)
 		}, [send]),
 	}
 }
