@@ -517,14 +517,6 @@ export function useBoards(): BoardsOrchestration {
 				}
 			}
 
-			// Sync page names from DB (tldraw may auto-rename to avoid duplicates with the default page)
-			for (const entry of entries) {
-				const page = editor.getPage(entry.tldrawId as TLPageId)
-				if (page && page.name !== entry.title) {
-					editor.updatePage({ id: entry.tldrawId as TLPageId, name: entry.title })
-				}
-			}
-
 			// Select initial page
 			const lastSelected = lsGetLastPage()
 			const allPages = editor.getPages()
@@ -559,6 +551,14 @@ export function useBoards(): BoardsOrchestration {
 			}
 
 			loadedRef.current = true
+
+			// Sync page names tldraw → DB (tldraw may have auto-renamed to avoid duplicates)
+			for (const entry of entries) {
+				const page = editor.getPage(entry.tldrawId as TLPageId)
+				if (page && page.name !== entry.title) {
+					void api.updatePage(entry.dbId, { title: page.name })
+				}
+			}
 
 			// Notify machine AFTER tldraw is fully set up (pages created, default removed, page selected)
 			// This transitions out of 'loading' and makes the canvas visible

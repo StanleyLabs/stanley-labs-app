@@ -150,6 +150,13 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 					elm?.querySelector('button')?.focus()
 				})
 
+				// Sync auto-renamed title to DB (tldraw may rename to avoid duplicates)
+				const actualName = editor.getPage(newPage.tldraw_page_id as any)?.name
+				if (actualName && actualName !== pageName) {
+					const { updatePage } = await import('./api')
+					void updatePage(newPage.id, { title: actualName })
+				}
+
 				editor.menus.clearOpenMenus()
 				trackEvent('new-page', { source: 'page-menu' })
 			})()
