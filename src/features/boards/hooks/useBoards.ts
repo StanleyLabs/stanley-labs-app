@@ -28,6 +28,7 @@ import {
 	type PageEntry,
 } from '../machine'
 import { useAuth } from '../../../lib/AuthContext'
+import { supabase } from '../../../lib/supabase'
 import * as api from '../api'
 import { getContentAsJsonDocForPage } from '../sharePage'
 import { buildSyncUri, isSyncServerConfigured } from '../sharePage'
@@ -344,6 +345,40 @@ export function useBoards(): BoardsOrchestration {
 
 		return () => { cancelled = true }
 	}, [store, userId, send])
+
+	// ── Realtime: watch shared page visibility (kick guest if no longer public) ─
+
+	const activeDbId = state.context.activePageDbId
+	const isGuestViewing =
+		state.matches({ guest: 'viewing' }) || state.matches({ guest: 'viewingSynced' })
+
+	useEffect(() => {
+		if (!activeDbId || !isGuestViewing) return
+
+		const channel = supabase
+			.channel(`page-visibility:${activeDbId}`)
+			.on(
+				'postgres_changes',
+				{
+					event: 'UPDATE',
+					schema: 'public',
+					table: 'pages',
+					filter: `id=eq.${activeDbId}`,
+				},
+				(payload) => {
+					const newVis = (payload.new as any)?.visibility
+					if (newVis && newVis !== 'public') {
+						// Page is no longer public - remove it
+						send({ type: 'DESELECT_PAGE' })
+						setUrlToBoards()
+						window.dispatchEvent(new CustomEvent('boards:shared-page-unavailable'))
+					}
+				}
+			)
+			.subscribe()
+
+		return () => { void supabase.removeChannel(channel) }
+	}, [activeDbId, isGuestViewing, send])
 
 	// ── Authed: load pages from Supabase ───────────────────────────────────────
 
