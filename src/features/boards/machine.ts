@@ -76,6 +76,7 @@ export type BoardsEvent =
 
 	// Page list (authed)
 	| { type: 'PAGES_LOADED'; pages: PageEntry[] }
+	| { type: 'PAGE_ADDED'; page: PageEntry }
 	| { type: 'PAGES_FAILED'; error: string }
 	| { type: 'RELOAD_PAGES' }
 
@@ -119,6 +120,10 @@ export const boardsMachine = setup({
 		setPages: assign(({ event }) => {
 			const e = event as Extract<BoardsEvent, { type: 'PAGES_LOADED' }>
 			return { pages: e.pages, error: null }
+		}),
+		addPage: assign(({ context, event }) => {
+			const e = event as Extract<BoardsEvent, { type: 'PAGE_ADDED' }>
+			return { pages: [...context.pages, e.page] }
 		}),
 		setError: assign(({ event }) => {
 			const e = event as Extract<BoardsEvent, { type: 'PAGES_FAILED' }>
@@ -212,7 +217,7 @@ export const boardsMachine = setup({
 				},
 				ready: {
 					on: {
-						PAGES_LOADED: { actions: 'setPages' },
+						PAGE_ADDED: { actions: 'addPage' },
 						SELECT_PAGE: { target: '.local', actions: 'selectPage' },
 						VISIT_SHARED: { target: '.connecting', actions: 'visitShared' },
 						RELOAD_PAGES: { target: 'loading' },

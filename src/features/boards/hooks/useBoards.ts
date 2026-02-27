@@ -854,19 +854,16 @@ export function useBoards(): BoardsOrchestration {
 		registerPage: useCallback((page: { dbId: string; tldrawId: string; title: string; visibility?: string; publicSlug?: string | null; publicAccess?: string | null }) => {
 			tldrawToDb.current.set(page.tldrawId, page.dbId)
 			send({
-				type: 'PAGES_LOADED',
-				pages: [
-					...state.context.pages,
-					{
-						dbId: page.dbId,
-						tldrawId: page.tldrawId,
-						title: page.title,
-						visibility: (page.visibility ?? 'private') as PageEntry['visibility'],
-						publicSlug: page.publicSlug ?? null,
-						publicAccess: (page.publicAccess ?? null) as 'view' | 'edit' | null,
-						role: 'owner',
-					},
-				],
+				type: 'PAGE_ADDED',
+				page: {
+					dbId: page.dbId,
+					tldrawId: page.tldrawId,
+					title: page.title,
+					visibility: (page.visibility ?? 'private') as PageEntry['visibility'],
+					publicSlug: page.publicSlug ?? null,
+					publicAccess: (page.publicAccess ?? null) as 'view' | 'edit' | null,
+					role: 'owner',
+				},
 			})
 			send({
 				type: 'SELECT_PAGE',
@@ -875,6 +872,6 @@ export function useBoards(): BoardsOrchestration {
 				role: 'owner',
 				slug: page.publicSlug ?? null,
 			})
-		}, [send, state.context.pages]),
+		}, [send]),
 	}
 }
