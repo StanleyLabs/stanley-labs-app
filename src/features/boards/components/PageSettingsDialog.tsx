@@ -203,13 +203,16 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 			if (newVis === 'public') {
 				const slug = await api.sharePage(entry.dbId, publicAccess)
 				if (slug) {
+					window.history.replaceState({}, '', `/boards/s/${slug}`)
 					toasts.addToast({ title: 'Page is now public.', severity: 'success' })
 				}
 			} else if (newVis === 'shared') {
 				await api.setMembersOnly(entry.dbId)
+				window.history.replaceState({}, '', '/boards')
 				toasts.addToast({ title: 'Page is now shared with members only.', severity: 'success' })
 			} else {
 				await api.unsharePage(entry.dbId)
+				window.history.replaceState({}, '', '/boards')
 				toasts.addToast({ title: 'Page is now private.', severity: 'success' })
 			}
 			// Broadcast visibility change so guests get kicked instantly
