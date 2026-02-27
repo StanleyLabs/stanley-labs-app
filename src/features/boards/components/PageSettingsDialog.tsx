@@ -183,8 +183,9 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 	const [addBusy, setAddBusy] = useState(false)
 
 	// Public link
-	const publicUrl = entry.publicSlug
-		? `${window.location.origin}/boards/s/${entry.publicSlug}`
+	const [localPublicSlug, setLocalPublicSlug] = useState<string | null>(entry.publicSlug)
+	const publicUrl = localPublicSlug
+		? `${window.location.origin}/boards/s/${localPublicSlug}`
 		: null
 
 	const refreshMembers = useCallback(async () => {
@@ -216,15 +217,18 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 			if (newVis === 'public') {
 				const slug = await api.sharePage(entry.dbId, publicAccess)
 				if (slug) {
+					setLocalPublicSlug(slug)
 					window.history.replaceState({}, '', `/boards/s/${slug}`)
 					toasts.addToast({ title: 'Page is now public.', severity: 'success' })
 				}
 			} else if (newVis === 'shared') {
 				await api.setMembersOnly(entry.dbId)
+				setLocalPublicSlug(null)
 				window.history.replaceState({}, '', '/boards')
 				toasts.addToast({ title: 'Page is now shared with members only.', severity: 'success' })
 			} else {
 				await api.unsharePage(entry.dbId)
+				setLocalPublicSlug(null)
 				window.history.replaceState({}, '', '/boards')
 				toasts.addToast({ title: 'Page is now private.', severity: 'success' })
 			}
