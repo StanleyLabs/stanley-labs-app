@@ -376,12 +376,57 @@ export function useBoards(): BoardsOrchestration {
 
 	// ── Shared page removal (single function used by broadcast, focus check, and menu) ──
 
+	/** Stores the tldraw ID of the page being removed, so the cleanup effect can act. */
+	const pendingRemovalRef = useRef<string | null>(null)
+
 	const removeSharedPage = useCallback(() => {
-		// Nuke all whiteboard localStorage - guests should log in for persistence
-		try { localStorage.removeItem(LS_KEY) } catch { /* ignore */ }
-		try { localStorage.removeItem(LS_LAST_PAGE) } catch { /* ignore */ }
-		window.location.replace('/boards')
-	}, [])
+		const tldrawId = stateRef.current.context.activePageTldrawId
+		pendingRemovalRef.current = tldrawId
+		// Phase 1: transition machine to idle (unmounts sync bridge on next render)
+		send({ type: 'DESELECT_PAGE' })
+		setUrlToBoards()
+	}, [send])
+
+	// Phase 2: after machine transitions and bridge unmounts, clean up tldraw + localStorage
+	useEffect(() => {
+		const tldrawId = pendingRemovalRef.current
+		if (!tldrawId) return
+		// Only run when machine is back in guest.idle (bridge is unmounted)
+		if (!state.matches({ guest: 'idle' })) return
+		pendingRemovalRef.current = null
+
+		const editor = editorRef.current
+		if (editor) {
+			const pages = editor.getPages()
+			if (pages.length <= 1) {
+				const freshId = PageRecordType.createId()
+				editor.createPage({ name: 'Page 1', id: freshId })
+				editor.setCurrentPage(freshId)
+			}
+			try { editor.deletePage(tldrawId as TLPageId) } catch { /* ignore */ }
+		}
+
+		// Clean tldrawToDb mapping
+		tldrawToDb.current.delete(tldrawId)
+
+		// Scrub from localStorage
+		try {
+			const raw = lsLoad()
+			if (raw) {
+				const doc = JSON.parse(raw)
+				if (doc?.document?.store) {
+					const s = doc.document.store as Record<string, any>
+					for (const [id, rec] of Object.entries(s)) {
+						if (id === tldrawId || (rec as any)?.parentId === tldrawId) delete s[id]
+					}
+					if (doc.session?.currentPageId === tldrawId) delete doc.session.currentPageId
+					lsSave(JSON.stringify(doc))
+				}
+			}
+		} catch { /* ignore */ }
+
+		window.dispatchEvent(new CustomEvent('boards:shared-page-unavailable'))
+	}, [state.value]) // re-runs when machine state changes
 
 	const activeDbId = state.context.activePageDbId
 	const activeSlug = state.context.activeSlug
