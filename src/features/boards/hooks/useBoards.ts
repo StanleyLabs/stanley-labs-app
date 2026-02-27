@@ -135,6 +135,7 @@ export function useBoards(): BoardsOrchestration {
 	const tldrawToDb = useRef(new Map<string, string>())
 	const hydratingRef = useRef(false)
 	const loadedRef = useRef(false)
+	const creatingFirstPageRef = useRef(false)
 
 	const { user } = useAuth()
 	const userId = user?.id ?? null
@@ -368,10 +369,11 @@ export function useBoards(): BoardsOrchestration {
 
 			tldrawToDb.current = map
 
-			// Create first page if user has none
-			if (entries.length === 0) {
+			// Create first page if user has none (guard against repeated attempts)
+			if (entries.length === 0 && !creatingFirstPageRef.current) {
+				creatingFirstPageRef.current = true
 				const newPage = await api.createPage({ title: 'Page 1' })
-				if (cancelled || !newPage) return
+				if (cancelled || !newPage) { creatingFirstPageRef.current = false; return }
 				map.set(newPage.tldraw_page_id, newPage.id)
 				tldrawToDb.current = map
 				editor.createPage({ id: newPage.tldraw_page_id as TLPageId, name: newPage.title })

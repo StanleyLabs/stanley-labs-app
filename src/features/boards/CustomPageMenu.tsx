@@ -7,7 +7,7 @@
 
 import type { TLPageId } from '@tldraw/tlschema'
 import { stopEventPropagation, tlenv, useEditor, useValue } from '@tldraw/editor'
-import { memo, useCallback, useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../lib/AuthContext'
 import {
 	PageItemInput,
@@ -51,12 +51,15 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 
 	// For authed users, only show pages that exist in the DB.
 	// For guests, show all tldraw pages.
-	const pages = user
-		? allTldrawPages.filter((p) => state.context.pages.some((e) => e.tldrawId === p.id))
-		: allTldrawPages
-
-	// If filtering removed all pages, fall back to showing all (avoids empty menu during loading)
-	const displayPages = pages.length > 0 ? pages : allTldrawPages
+	const dbPageIds = useMemo(
+		() => new Set(state.context.pages.map((e) => e.tldrawId)),
+		[state.context.pages]
+	)
+	const displayPages = useMemo(() => {
+		if (!user) return allTldrawPages
+		const filtered = allTldrawPages.filter((p) => dbPageIds.has(p.id))
+		return filtered.length > 0 ? filtered : allTldrawPages
+	}, [user, allTldrawPages, dbPageIds])
 	const currentPage = useValue('currentPage', () => editor.getCurrentPage(), [editor])
 	const currentPageId = useValue('currentPageId', () => editor.getCurrentPageId(), [editor])
 	const isReadonlyMode = useReadonly()
