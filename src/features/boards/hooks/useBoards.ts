@@ -117,12 +117,6 @@ export interface BoardsOrchestration {
 	pageEntryMap: Map<string, PageEntry>
 	/** Editor mount handler */
 	onEditorMount: (editor: TldrawEditor) => () => void
-	/** Whether the user has any pages (always true for guests) */
-	hasPages: boolean
-	/** Whether pages are currently loading */
-	isLoading: boolean
-	/** Create the first page (for empty state) */
-	createFirstPage: () => Promise<void>
 	/** Remove a shared page from the guest's view (scrubs localStorage + navigates) */
 	removeSharedPage: () => void
 }
@@ -471,8 +465,24 @@ export function useBoards(): BoardsOrchestration {
 		let cancelled = false
 
 		const loadPages = async () => {
-			const rows = await api.listMyPages()
+			let rows = await api.listMyPages()
 			if (cancelled) return
+
+			// No pages yet? Adopt tldraw's default page instead of fighting it.
+			if (rows.length === 0) {
+				const defaultPage = editor.getPages()[0]
+				if (defaultPage) {
+					const created = await api.createPage({
+						title: defaultPage.name,
+						tldrawPageId: defaultPage.id,
+					})
+					if (cancelled) return
+					if (created) {
+						rows = await api.listMyPages()
+						if (cancelled) return
+					}
+				}
+			}
 
 			const entries: PageEntry[] = rows.map((r) => ({
 				dbId: r.page.id,
@@ -815,14 +825,7 @@ export function useBoards(): BoardsOrchestration {
 		return map
 	}, [state.context.pages])
 
-	const hasPages = !userId || state.context.pages.length > 0
-	const isLoading = state.matches({ authed: 'loading' })
 
-	const createFirstPage = useCallback(async () => {
-		await api.createPage({ title: 'Page 1' })
-		// Re-enter loading so the standard load effect fetches from DB and syncs to tldraw
-		send({ type: 'RELOAD_PAGES' })
-	}, [send])
 
 	return {
 		store,
@@ -842,9 +845,7 @@ export function useBoards(): BoardsOrchestration {
 		tldrawToDb,
 		pageEntryMap,
 		onEditorMount: handleEditorMount,
-		hasPages,
-		isLoading,
-		createFirstPage,
+
 		removeSharedPage,
 	}
 }

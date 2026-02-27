@@ -50,13 +50,12 @@ export interface MyPageEntry {
 
 /** Create a new page. Returns the full row including generated tldraw_page_id. */
 export async function createPage(
-	opts: { title?: string; visibility?: PageVisibility } = {}
+	opts: { title?: string; visibility?: PageVisibility; tldrawPageId?: string } = {}
 ): Promise<PageRow | null> {
 	const user = (await supabase.auth.getUser()).data.user
 	if (!user?.id) return null
 
-	const shortId = crypto.randomUUID().replace(/-/g, '').slice(0, 21)
-	const tldrawPageId = `page:${shortId}`
+	const tldrawPageId = opts.tldrawPageId ?? `page:${crypto.randomUUID().replace(/-/g, '').slice(0, 21)}`
 
 	const { data, error } = await supabase
 		.from('pages')

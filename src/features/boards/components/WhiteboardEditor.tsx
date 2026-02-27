@@ -108,7 +108,6 @@ export function WhiteboardEditor({ boards }: { boards: BoardsOrchestration }) {
 		isUserInteractingRef,
 		onIdleEnd,
 		onEditorMount,
-		isLoading,
 	} = boards
 
 	const overrides = useMemo(() => [createPasteActionOverride()], [])
@@ -126,7 +125,7 @@ export function WhiteboardEditor({ boards }: { boards: BoardsOrchestration }) {
 	)
 
 	return (
-		<div style={{ position: 'absolute', inset: 0, visibility: isLoading ? 'hidden' : 'visible' }}>
+		<div style={{ position: 'absolute', inset: 0 }}>
 			<Tldraw
 				store={store}
 				licenseKey={licenseKey}
