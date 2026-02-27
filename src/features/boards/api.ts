@@ -156,7 +156,7 @@ export async function listMyPages(): Promise<MyPageEntry[]> {
 	const { data, error } = await supabase
 		.from('page_members')
 		.select('page_id,role,pages(*)')
-		.order('created_at', { ascending: false })
+		.order('created_at', { ascending: true })
 	if (error || !data) return []
 	return (data as any[])
 		.filter((r) => r.pages?.id)
