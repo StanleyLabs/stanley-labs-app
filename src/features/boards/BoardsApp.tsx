@@ -65,10 +65,10 @@ function EmptyState({ onCreate }: { onCreate: () => Promise<void> }) {
 
 function App() {
 	const boards = useBoards()
-	const { state, send, needsServerBridge, syncUri, serverRetryKey, bumpServerRetry, hasPages, isLoading, createFirstPage } = boards
+	const { state, send, needsServerBridge, syncUri, serverRetryKey, bumpServerRetry, hasPages, isLoading, createFirstPage, removeSharedPage } = boards
 
 	return (
-		<MachineCtx.Provider value={{ state, send }}>
+		<MachineCtx.Provider value={{ state, send, removeSharedPage }}>
 			<ConnectionIndicatorProvider onRetry={() => send({ type: 'RETRY' })}>
 				{!hasPages && !isLoading ? (
 					<EmptyState onCreate={createFirstPage} />

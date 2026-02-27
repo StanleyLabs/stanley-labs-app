@@ -8,6 +8,7 @@ import type { MachineState, BoardsEvent } from './machine'
 interface MachineCtxValue {
 	state: MachineState
 	send: (event: BoardsEvent) => void
+	removeSharedPage?: () => void
 }
 
 export const MachineCtx = createContext<MachineCtxValue>(null as any)

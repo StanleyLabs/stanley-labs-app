@@ -123,6 +123,8 @@ export interface BoardsOrchestration {
 	isLoading: boolean
 	/** Create the first page (for empty state) */
 	createFirstPage: () => Promise<void>
+	/** Remove a shared page from the guest's view (scrubs localStorage + navigates) */
+	removeSharedPage: () => void
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
@@ -372,7 +374,14 @@ export function useBoards(): BoardsOrchestration {
 		return () => { cancelled = true }
 	}, [store, userId, send])
 
-	// ── Guest: watch for shared page becoming unavailable ──────────────────────
+	// ── Shared page removal (single function used by broadcast, focus check, and menu) ──
+
+	const removeSharedPage = useCallback(() => {
+		// Nuke all whiteboard localStorage - guests should log in for persistence
+		try { localStorage.removeItem(LS_KEY) } catch { /* ignore */ }
+		try { localStorage.removeItem(LS_LAST_PAGE) } catch { /* ignore */ }
+		window.location.replace('/boards')
+	}, [])
 
 	const activeDbId = state.context.activePageDbId
 	const activeSlug = state.context.activeSlug
@@ -380,54 +389,23 @@ export function useBoards(): BoardsOrchestration {
 	useEffect(() => {
 		if (userId || !activeDbId || !activeSlug) return
 
-		const removeSharedPage = () => {
-			const tldrawId = stateRef.current.context.activePageTldrawId
-
-			// Scrub shared page from localStorage before navigating
-			try {
-				const raw = lsLoad()
-				if (raw && tldrawId) {
-					const doc = JSON.parse(raw)
-					if (doc?.document?.store) {
-						const s = doc.document.store as Record<string, any>
-						for (const [id, rec] of Object.entries(s)) {
-							if (id === tldrawId || (rec as any)?.parentId === tldrawId) delete s[id]
-						}
-						// Also clear session's currentPageId if it points to the removed page
-						if (doc.session?.currentPageId === tldrawId) {
-							delete doc.session.currentPageId
-						}
-						lsSave(JSON.stringify(doc))
-					}
-				}
-			} catch { /* ignore */ }
-
-			// Clean navigate - tldraw has too many internal sync paths to fight
-			window.location.replace('/boards')
-		}
-
-		const checkVisibility = async () => {
-			const page = await api.resolveSlug(activeSlug)
-			if (!page) removeSharedPage()
-		}
-
 		// Listen for broadcast from owner changing visibility
 		const channel = supabase
 			.channel(`page-broadcast:${activeDbId}`)
-			.on('broadcast', { event: 'visibility-changed' }, () => {
-				removeSharedPage()
-			})
+			.on('broadcast', { event: 'visibility-changed' }, () => removeSharedPage())
 			.subscribe()
 
 		// Fallback: re-check on tab focus
-		const onFocus = () => { void checkVisibility() }
+		const onFocus = () => {
+			void api.resolveSlug(activeSlug).then((page) => { if (!page) removeSharedPage() })
+		}
 		window.addEventListener('focus', onFocus)
 
 		return () => {
 			window.removeEventListener('focus', onFocus)
 			void supabase.removeChannel(channel)
 		}
-	}, [userId, activeDbId, activeSlug, send])
+	}, [userId, activeDbId, activeSlug, removeSharedPage])
 
 	// ── Authed: load pages from Supabase ───────────────────────────────────────
 
@@ -830,5 +808,6 @@ export function useBoards(): BoardsOrchestration {
 		hasPages,
 		isLoading,
 		createFirstPage,
+		removeSharedPage,
 	}
 }

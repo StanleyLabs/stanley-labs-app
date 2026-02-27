@@ -27,6 +27,7 @@ import {
 import { ConfirmDeleteDialog } from '../../ConfirmDeleteDialog'
 import { PageSettingsDialog } from '../PageSettingsDialog'
 import { useAuth } from '../../../../lib/AuthContext'
+import { useBoardsMachine } from '../../MachineContext'
 import * as api from '../../api'
 import type { PageEntry } from '../../machine'
 import { onMovePage } from './onMovePage'
@@ -55,8 +56,10 @@ export function CustomPageItemSubmenu({
 	const dialogs = useDialogs()
 	const toasts = useToasts()
 	const { user } = useAuth()
+	const { removeSharedPage } = useBoardsMachine()
 	const isLoggedIn = Boolean(user)
 	const isOwner = entry?.role === 'owner'
+	const isGuestSharedPage = !isLoggedIn && Boolean(entry)
 
 	const onDuplicate = useCallback(() => {
 		editor.markHistoryStoppingPoint('creating page')
@@ -87,10 +90,15 @@ export function CustomPageItemSubmenu({
 	}, [entry, dialogs])
 
 	const performDelete = useCallback(async () => {
+		// Guest viewing a shared page: clean navigate (tldraw sync fights in-place removal)
+		if (isGuestSharedPage && removeSharedPage) {
+			removeSharedPage()
+			return
+		}
+
 		editor.markHistoryStoppingPoint('deleting page')
 
 		if (isLoggedIn && entry?.dbId) {
-			// Delete from DB first, then remove from tldraw, then reload
 			if (isOwner) {
 				await api.deletePage(entry.dbId)
 			} else {
@@ -101,7 +109,7 @@ export function CustomPageItemSubmenu({
 		editor.deletePage(item.id as TLPageId)
 		window.dispatchEvent(new Event('v2-pages-changed'))
 		trackEvent('delete-page', { source: 'page-menu' })
-	}, [editor, item.id, isLoggedIn, isOwner, entry, trackEvent])
+	}, [editor, item.id, isLoggedIn, isOwner, isGuestSharedPage, removeSharedPage, entry, trackEvent])
 
 	const onDelete = useCallback(() => {
 		if (!isLoggedIn) {
