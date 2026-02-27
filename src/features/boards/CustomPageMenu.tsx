@@ -127,6 +127,17 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 				const newPage = await createPage({ title: pageName })
 				if (!newPage) return
 
+				// Register in machine + tldrawToDb BEFORE switching pages,
+				// so the page change tracker sees it in the map
+				registerPage?.({
+					dbId: newPage.id,
+					tldrawId: newPage.tldraw_page_id,
+					title: newPage.title,
+					visibility: newPage.visibility,
+					publicSlug: newPage.public_slug,
+					publicAccess: newPage.public_access,
+				})
+
 				editor.run(() => {
 					editor.markHistoryStoppingPoint('creating page')
 					editor.createPage({ name: pageName, id: newPage.tldraw_page_id as any })
@@ -137,16 +148,6 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 				editor.timers.requestAnimationFrame(() => {
 					const elm = document.querySelector(`[data-pageid="${newPage.tldraw_page_id}"]`) as HTMLDivElement
 					elm?.querySelector('button')?.focus()
-				})
-
-				// Register in machine + tldrawToDb without full reload
-				registerPage?.({
-					dbId: newPage.id,
-					tldrawId: newPage.tldraw_page_id,
-					title: newPage.title,
-					visibility: newPage.visibility,
-					publicSlug: newPage.public_slug,
-					publicAccess: newPage.public_access,
 				})
 
 				editor.menus.clearOpenMenus()
