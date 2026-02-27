@@ -70,25 +70,22 @@ function App() {
 	return (
 		<MachineCtx.Provider value={{ state, send, removeSharedPage }}>
 			<ConnectionIndicatorProvider onRetry={() => send({ type: 'RETRY' })}>
-				{!hasPages && !isLoading ? (
-					<EmptyState onCreate={createFirstPage} />
-				) : (
-					<>
-						{needsServerBridge && (
-							<ServerSyncBridge
-								key={`${state.context.activePageDbId}-${serverRetryKey}`}
-								persistStore={boards.store}
-								pageId={state.context.activePageTldrawId ?? ''}
-								syncUri={syncUri}
-								send={send}
-								isUserInteractingRef={boards.isUserInteractingRef}
-								applySyncRef={boards.applySyncRef}
-								onRetry={bumpServerRetry}
-							/>
-						)}
-						<WhiteboardEditor boards={boards} />
-					</>
-				)}
+				{needsServerBridge && (
+						<ServerSyncBridge
+							key={`${state.context.activePageDbId}-${serverRetryKey}`}
+							persistStore={boards.store}
+							pageId={state.context.activePageTldrawId ?? ''}
+							syncUri={syncUri}
+							send={send}
+							isUserInteractingRef={boards.isUserInteractingRef}
+							applySyncRef={boards.applySyncRef}
+							onRetry={bumpServerRetry}
+						/>
+					)}
+					<WhiteboardEditor boards={boards} />
+					{!hasPages && !isLoading && (
+						<EmptyState onCreate={createFirstPage} />
+					)}
 			</ConnectionIndicatorProvider>
 		</MachineCtx.Provider>
 	)

@@ -818,37 +818,11 @@ export function useBoards(): BoardsOrchestration {
 	const hasPages = !userId || state.context.pages.length > 0
 	const isLoading = state.matches({ authed: 'loading' })
 
-	// After createFirstPage, we need the loading effect to run and properly sync
-	// the DB page into tldraw. But loading requires editorInstance (which isn't
-	// mounted yet during empty state). So we: (1) create the DB page, (2) set a
-	// flag, (3) send PAGES_LOADED so hasPages flips and the editor mounts,
-	// (4) an effect sees the flag + editor and sends RELOAD_PAGES to re-enter loading.
-	const needsReloadRef = useRef(false)
-
 	const createFirstPage = useCallback(async () => {
-		const newPage = await api.createPage({ title: 'Page 1' })
-		if (!newPage) return
-
-		// Build a minimal entry so the machine has pages (hasPages → true → editor mounts)
-		const entry: PageEntry = {
-			dbId: newPage.id,
-			tldrawId: newPage.tldraw_page_id,
-			title: newPage.title,
-			visibility: (newPage.visibility ?? 'private') as PageEntry['visibility'],
-			publicSlug: newPage.public_slug ?? null,
-			publicAccess: newPage.public_access ?? null,
-			role: 'owner',
-		}
-		needsReloadRef.current = true
-		send({ type: 'PAGES_LOADED', pages: [entry] })
-	}, [send])
-
-	// Once the editor mounts after createFirstPage, re-enter loading to do a proper sync
-	useEffect(() => {
-		if (!needsReloadRef.current || !editorInstance) return
-		needsReloadRef.current = false
+		await api.createPage({ title: 'Page 1' })
+		// Re-enter loading so the standard load effect fetches from DB and syncs to tldraw
 		send({ type: 'RELOAD_PAGES' })
-	}, [editorInstance, send])
+	}, [send])
 
 	return {
 		store,
