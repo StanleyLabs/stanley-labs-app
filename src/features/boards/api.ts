@@ -73,6 +73,12 @@ export async function createPage(
 		console.warn('[api] createPage failed:', error?.message)
 		return null
 	}
+
+	// Add creator as owner in page_members
+	await supabase
+		.from('page_members')
+		.upsert({ page_id: data.id, user_id: user.id, role: 'owner' }, { onConflict: 'page_id,user_id' })
+
 	return data as PageRow
 }
 

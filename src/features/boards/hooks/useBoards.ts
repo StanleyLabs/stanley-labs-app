@@ -331,9 +331,12 @@ export function useBoards(): BoardsOrchestration {
 
 	// ── Authed: load pages from Supabase ───────────────────────────────────────
 
+	// Track whether the machine is in loading state to trigger re-loads
+	const isInLoadingState = state.matches({ authed: 'loading' })
+
 	useEffect(() => {
 		if (!userId) return
-		if (!stateRef.current.context.supabaseReady && !stateRef.current.matches({ authed: 'loading' })) return
+		if (!isInLoadingState) return
 		const editor = editorInstance
 		if (!editor) return
 		let cancelled = false
@@ -354,7 +357,6 @@ export function useBoards(): BoardsOrchestration {
 
 			send({ type: 'PAGES_LOADED', pages: entries })
 
-			const editor = editorInstance
 			const map = new Map<string, string>()
 
 			// Ensure all DB pages exist in tldraw
@@ -437,7 +439,7 @@ export function useBoards(): BoardsOrchestration {
 
 		void loadPages()
 		return () => { cancelled = true }
-	}, [userId, state.context.supabaseReady, send, editorInstance])
+	}, [userId, isInLoadingState, send, editorInstance])
 
 	// ── Authed: track page changes ─────────────────────────────────────────────
 
