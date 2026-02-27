@@ -294,11 +294,14 @@ export function isServerSynced(state: MachineState): boolean {
 	)
 }
 
+/** Whether the sync bridge component should be mounted. */
 export function shouldAttemptSync(state: MachineState): boolean {
 	return (
 		state.matches({ authed: { ready: 'connecting' } }) ||
 		state.matches({ authed: { ready: 'local' } }) ||
-		state.matches({ guest: 'viewing' })
+		state.matches({ authed: { ready: 'serverSync' } }) ||
+		state.matches({ guest: 'viewing' }) ||
+		state.matches({ guest: 'viewingSynced' })
 	)
 }
 
