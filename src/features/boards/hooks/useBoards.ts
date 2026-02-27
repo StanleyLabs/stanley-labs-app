@@ -522,11 +522,18 @@ export function useBoards(): BoardsOrchestration {
 			const allPages = editor.getPages()
 			let target: TLPageId | null = null
 
+			console.log('[load-debug] lastSelected from LS:', lastSelected)
+			console.log('[load-debug] map keys:', [...map.keys()])
+			console.log('[load-debug] allPages:', allPages.map(p => `${p.id} (${p.name})`))
+			console.log('[load-debug] lastSelected in map?', lastSelected ? map.has(lastSelected) : 'N/A')
+			console.log('[load-debug] lastSelected in allPages?', lastSelected ? allPages.some(p => p.id === lastSelected) : 'N/A')
+
 			if (lastSelected && map.has(lastSelected) && allPages.some((p) => p.id === lastSelected)) {
 				target = lastSelected as TLPageId
 			} else {
 				const first = allPages.find((p) => map.has(p.id))
 				if (first) target = first.id
+				console.log('[load-debug] FALLBACK to first DB page:', first?.id, first?.name)
 			}
 
 			// If lastSelected failed, try the most recently created page
@@ -584,6 +591,7 @@ export function useBoards(): BoardsOrchestration {
 
 			const dbId = tldrawToDb.current.get(cur)
 
+			console.log('[onChange-debug] page switched to:', cur, 'dbId:', dbId, 'loadedRef:', loadedRef.current)
 			// Only persist last page if it's a DB-backed page
 			if (dbId) lsSetLastPage(cur)
 			if (!dbId) {
@@ -837,6 +845,7 @@ export function useBoards(): BoardsOrchestration {
 	// ── registerPage: call BEFORE editor.setCurrentPage so onChange sees it ──
 
 	const registerPage = useCallback((page: { dbId: string; tldrawId: string; title: string; visibility?: string; publicSlug?: string | null; publicAccess?: string | null }) => {
+		console.log('[registerPage-debug] registering:', page.tldrawId, page.title)
 		tldrawToDb.current.set(page.tldrawId, page.dbId)
 		send({
 			type: 'PAGE_ADDED',
