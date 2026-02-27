@@ -84,14 +84,14 @@ export function InlineSelect<T extends string>({ value, onChange, options, disab
 						fontSize: 12,
 						fontWeight: 500,
 						color: o.color ?? 'var(--color-text-1)',
-						background: o.value === value ? 'var(--color-muted-2)' : 'transparent',
+						background: o.value === value ? 'var(--color-muted-2)' : 'var(--color-panel)',
 						border: 'none',
 						cursor: 'pointer',
 						textAlign: 'left',
 						borderRadius: 0,
 					}}
 					onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-muted-2)' }}
-					onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = o.value === value ? 'var(--color-muted-2)' : 'transparent' }}
+					onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = o.value === value ? 'var(--color-muted-2)' : 'var(--color-panel)' }}
 					onClick={() => { onChange(o.value); setOpen(false) }}
 				>
 					{o.label}
