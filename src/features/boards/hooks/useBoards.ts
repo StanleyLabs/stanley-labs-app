@@ -474,6 +474,7 @@ export function useBoards(): BoardsOrchestration {
 			}
 
 			const entry = stateRef.current.context.pages.find((p) => p.dbId === dbId)
+			const slug = entry?.publicSlug ?? stateRef.current.context.activeSlug
 			send({
 				type: 'SELECT_PAGE',
 				dbId,
@@ -483,8 +484,8 @@ export function useBoards(): BoardsOrchestration {
 			})
 
 			// Update URL
-			if (entry?.visibility === 'public' && entry?.publicSlug) {
-				setUrlToSlug(entry.publicSlug)
+			if (slug && (entry?.visibility === 'public' || !userId)) {
+				setUrlToSlug(slug)
 			} else {
 				setUrlToBoards()
 			}

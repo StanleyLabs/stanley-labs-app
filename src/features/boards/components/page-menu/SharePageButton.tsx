@@ -1,14 +1,13 @@
 /**
  * Copy-link button in the page menu row.
  *
- * - Guest: returns null
- * - Authed + private page: returns null
- * - Authed + shared page: copy link icon (positioned via parent CSS)
+ * Shows for any page with a public slug (works for both guests and authed users).
  */
 
 import { useCallback } from 'react'
 import { TldrawUiButton, TldrawUiButtonIcon, useToasts } from 'tldraw'
 import type { PageEntry } from '../../machine'
+import { useBoardsMachine } from '../../MachineContext'
 
 interface Props {
 	pageId: string
@@ -16,20 +15,24 @@ interface Props {
 	isLoggedIn: boolean
 }
 
-export function SharePageButton({ entry, isLoggedIn }: Props) {
+export function SharePageButton({ pageId, entry }: Props) {
 	const toasts = useToasts()
+	const { state } = useBoardsMachine()
+
+	// For the active shared page (including guest viewing), use activeSlug from context
+	const isActivePage = state.context.activePageTldrawId === pageId
+	const slug = entry?.publicSlug ?? (isActivePage ? state.context.activeSlug : null)
 
 	const handleCopyLink = useCallback((e: React.MouseEvent) => {
 		e.stopPropagation()
-		if (!entry?.publicSlug) return
-		const url = `${window.location.origin}/boards/s/${entry.publicSlug}`
+		if (!slug) return
+		const url = `${window.location.origin}/boards/s/${slug}`
 		void navigator.clipboard.writeText(url).then(() => {
 			toasts.addToast({ title: 'Link copied!', severity: 'success' })
 		})
-	}, [entry, toasts])
+	}, [slug, toasts])
 
-	// Only show for shared/public pages with a slug
-	if (!entry || entry.visibility !== 'public' || !entry.publicSlug) return null
+	if (!slug) return null
 
 	return (
 		<div className="tlui-page_menu__item__share">

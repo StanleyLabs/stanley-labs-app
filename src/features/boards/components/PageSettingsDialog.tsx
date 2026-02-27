@@ -7,7 +7,7 @@
  *   - Public: anyone with the link can open (view or edit option)
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
 	TldrawUiButton,
 	TldrawUiButtonIcon,
@@ -24,6 +24,8 @@ import type { PageRole } from '../api'
 import * as api from '../api'
 import { useAuth } from '../../../lib/AuthContext'
 import { supabase } from '../../../lib/supabase'
+import { InlineSelect } from './InlineSelect'
+import type { InlineSelectOption } from './InlineSelect'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -102,13 +104,17 @@ async function removeMember(pageId: string, userId: string): Promise<void> {
 
 // ── Role pill ──────────────────────────────────────────────────────────────────
 
-function rolePillClass(role: PageRole): string {
-	const base = 'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium'
-	switch (role) {
-		case 'owner': return `${base} bg-purple-500/20 text-purple-300`
-		case 'editor': return `${base} bg-blue-500/20 text-blue-300`
-		case 'viewer':
-		default: return `${base} bg-white/10 text-gray-300`
+function rolePillStyle(role: PageRole): React.CSSProperties {
+	const color = ROLE_COLORS[role] ?? '#9ca3af'
+	return {
+		display: 'inline-flex',
+		alignItems: 'center',
+		borderRadius: 9999,
+		padding: '1px 8px',
+		fontSize: 10,
+		fontWeight: 500,
+		color,
+		background: `${color}20`,
 	}
 }
 
@@ -119,10 +125,16 @@ export interface PageSettingsDialogProps extends TLUiDialogProps {
 	onUpdated: () => void
 }
 
-const ROLE_OPTIONS: { value: PageRole; label: string }[] = [
-	{ value: 'viewer', label: 'Viewer' },
-	{ value: 'editor', label: 'Editor' },
-	{ value: 'owner', label: 'Owner' },
+const ROLE_COLORS: Record<PageRole, string> = {
+	owner: '#a78bfa',
+	editor: '#60a5fa',
+	viewer: '#9ca3af',
+}
+
+const ROLE_OPTIONS: InlineSelectOption<PageRole>[] = [
+	{ value: 'viewer', label: 'Viewer', color: ROLE_COLORS.viewer },
+	{ value: 'editor', label: 'Editor', color: ROLE_COLORS.editor },
+	{ value: 'owner', label: 'Owner', color: ROLE_COLORS.owner },
 ]
 
 const PUBLIC_ACCESS_OPTIONS: { value: 'view' | 'edit'; label: string }[] = [
@@ -300,21 +312,12 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 		flex: 1,
 		minWidth: 0,
 		padding: '6px 10px',
-		fontSize: 12,
+		fontSize: 16, // 16px prevents iOS auto-zoom on focus
 		border: '1px solid var(--tl-color-divider)',
 		borderRadius: 6,
 		background: 'var(--tl-color-background)',
 		color: 'var(--tl-color-text)',
 		outline: 'none',
-	}
-
-	const selectStyle: React.CSSProperties = {
-		padding: '6px 8px',
-		fontSize: 12,
-		border: '1px solid var(--tl-color-divider)',
-		borderRadius: 6,
-		background: 'var(--tl-color-background)',
-		color: 'var(--tl-color-text)',
 	}
 
 	return (
@@ -452,21 +455,17 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 												<div style={{ fontSize: 12, fontWeight: 500, color: 'var(--tl-color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
 													{m.email}{isMe ? ' (you)' : ''}
 												</div>
-												<span className={rolePillClass(m.role)} style={{ marginTop: 2 }}>
+												<span style={{ ...rolePillStyle(m.role), marginTop: 2 }}>
 													{m.role}
 												</span>
 											</div>
 											{canEdit && (
 												<div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-													<select
+													<InlineSelect
 														value={m.role}
-														onChange={(e) => void handleRoleChange(m.userId, e.target.value as PageRole)}
-														style={selectStyle}
-													>
-														{ROLE_OPTIONS.map((o) => (
-															<option key={o.value} value={o.value}>{o.label}</option>
-														))}
-													</select>
+														onChange={(v) => void handleRoleChange(m.userId, v)}
+														options={ROLE_OPTIONS}
+													/>
 													<button
 														type="button"
 														onClick={() => void handleRemoveMember(m.userId)}
@@ -506,15 +505,11 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 										onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAddMember() } }}
 										style={inputStyle}
 									/>
-									<select
+									<InlineSelect
 										value={addRole}
-										onChange={(e) => setAddRole(e.target.value as PageRole)}
-										style={selectStyle}
-									>
-										{ROLE_OPTIONS.map((o) => (
-											<option key={o.value} value={o.value}>{o.label}</option>
-										))}
-									</select>
+										onChange={(v) => setAddRole(v)}
+										options={ROLE_OPTIONS}
+									/>
 									<TldrawUiButton
 										type="normal"
 										onClick={() => void handleAddMember()}
