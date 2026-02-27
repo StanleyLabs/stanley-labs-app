@@ -293,7 +293,17 @@ export function useBoards(): BoardsOrchestration {
 			const page = await api.resolveSlug(slug)
 			if (cancelled) return
 			if (!page) {
-				// Page is no longer public - clean up URL and notify
+				// Slug didn't resolve as public. If logged in, check if user owns/has access.
+				if (userId) {
+					const myPages = await api.listMyPages()
+					const match = myPages.find((p) => p.page.public_slug === slug)
+					if (match) {
+						// User has access (e.g. owner visiting old shared link) - redirect to boards
+						setUrlToBoards()
+						return
+					}
+				}
+				// Truly unavailable
 				setUrlToBoards()
 				send({ type: 'DESELECT_PAGE' })
 				window.dispatchEvent(new CustomEvent('boards:shared-page-unavailable'))
@@ -348,11 +358,10 @@ export function useBoards(): BoardsOrchestration {
 	// ── Realtime: watch shared page visibility (kick guest if no longer public) ─
 
 	const activeDbId = state.context.activePageDbId
-	const isGuestViewing =
-		state.matches({ guest: 'viewing' }) || state.matches({ guest: 'viewingSynced' })
 
 	useEffect(() => {
-		if (!activeDbId || !isGuestViewing) return
+		// Only subscribe for guests viewing shared pages
+		if (!activeDbId || userId) return
 
 		const channel = supabase
 			.channel(`page-visibility:${activeDbId}`)
@@ -401,7 +410,7 @@ export function useBoards(): BoardsOrchestration {
 			.subscribe()
 
 		return () => { void supabase.removeChannel(channel) }
-	}, [activeDbId, isGuestViewing, send])
+	}, [activeDbId, userId, send])
 
 	// ── Authed: load pages from Supabase ───────────────────────────────────────
 
