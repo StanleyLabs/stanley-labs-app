@@ -692,6 +692,8 @@ export function useBoards(): BoardsOrchestration {
 		if (!editor || !userId) return
 
 		const unlisten = editor.store.listen((entry) => {
+			// Skip renames during hydration or before initial load
+			if (hydratingRef.current || !loadedRef.current) return
 			for (const [, to] of Object.values(entry.changes.updated)) {
 				if ((to as any)?.typeName === 'page' && (to as any)?.name) {
 					const tldrawId = (to as any).id as string
