@@ -534,6 +534,7 @@ export function useBoards(): BoardsOrchestration {
 			if (target) {
 				const cur = editor.getCurrentPageId()
 				if (target !== cur) editor.setCurrentPage(target)
+				lsSetLastPage(target as string)
 
 				const dbId = map.get(target as string)
 				const entry = entries.find((e) => e.dbId === dbId)
