@@ -201,10 +201,13 @@ export function useBoards(): BoardsOrchestration {
 		} catch { /* ignore parse errors */ }
 	}, [store, userId])
 
-	// ── Guest: persist to localStorage ─────────────────────────────────────────
+	// ── Guest: persist to localStorage (skip when viewing a shared page) ───────
+
+	const isGuestViewingShared = !userId && Boolean(state.context.activeSlug)
 
 	useEffect(() => {
 		if (userId) return
+		if (isGuestViewingShared) return
 
 		const persist = () => {
 			try {
@@ -520,6 +523,34 @@ export function useBoards(): BoardsOrchestration {
 			t.flush()
 		}
 	}, [editorInstance, userId])
+
+	// ── Guest shared page: persist snapshots to Supabase ───────────────────────
+
+	useEffect(() => {
+		if (userId) return // authed users handled above
+		if (!isGuestViewingShared) return
+		const editor = editorInstance
+		if (!editor) return
+
+		const activeDbId = stateRef.current.context.activePageDbId
+		const activeTldrawId = stateRef.current.context.activePageTldrawId
+		if (!activeDbId || !activeTldrawId) return
+
+		const persist = () => {
+			if (hydratingRef.current) return
+			void getContentAsJsonDocForPage(editor as any, activeTldrawId as TLPageId).then((doc) => {
+				if (doc) void api.saveSnapshot(activeDbId, doc)
+			})
+		}
+
+		const t = throttle(persist, SAVE_THROTTLE_MS)
+		const unlisten = editor.store.listen(t.run, { scope: 'document' })
+
+		return () => {
+			unlisten()
+			t.flush()
+		}
+	}, [editorInstance, userId, isGuestViewingShared])
 
 	// ── Authed: sync page renames to DB ────────────────────────────────────────
 
