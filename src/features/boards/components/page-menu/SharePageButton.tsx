@@ -1,9 +1,9 @@
 /**
- * Share/link button in the page menu.
+ * Copy-link button in the page menu row.
  *
- * - Guest: shows nothing (login to share hint is in the submenu)
- * - Authed + private page: no button shown
- * - Authed + shared page: copy link button
+ * - Guest: returns null
+ * - Authed + private page: returns null
+ * - Authed + shared page: copy link icon (positioned via parent CSS)
  */
 
 import { useCallback } from 'react'
@@ -19,7 +19,8 @@ interface Props {
 export function SharePageButton({ entry, isLoggedIn }: Props) {
 	const toasts = useToasts()
 
-	const handleCopyLink = useCallback(() => {
+	const handleCopyLink = useCallback((e: React.MouseEvent) => {
+		e.stopPropagation()
 		if (!entry?.publicSlug) return
 		const url = `${window.location.origin}/boards/s/${entry.publicSlug}`
 		void navigator.clipboard.writeText(url).then(() => {
@@ -33,8 +34,10 @@ export function SharePageButton({ entry, isLoggedIn }: Props) {
 	if (!entry || entry.visibility !== 'public' || !entry.publicSlug) return null
 
 	return (
-		<TldrawUiButton type="icon" title="Copy share link" onClick={handleCopyLink}>
-			<TldrawUiButtonIcon icon="link" small />
-		</TldrawUiButton>
+		<div className="tlui-page_menu__item__share">
+			<TldrawUiButton type="icon" title="Copy share link" onClick={handleCopyLink}>
+				<TldrawUiButtonIcon icon="link" small />
+			</TldrawUiButton>
+		</div>
 	)
 }
