@@ -474,15 +474,26 @@ export function useBoards(): BoardsOrchestration {
 			// Create first page if user has none (guard against repeated attempts)
 			if (entries.length === 0 && !creatingFirstPageRef.current) {
 				creatingFirstPageRef.current = true
-				const newPage = await api.createPage({ title: 'Page 1' })
+
+				// Reuse existing tldraw page if there is exactly one (e.g. auto-created after last delete)
+				const existingPages = editor.getPages()
+				const reusePage = existingPages.length === 1 ? existingPages[0] : null
+
+				const newPage = await api.createPage({ title: reusePage?.name ?? 'Page 1' })
 				if (cancelled || !newPage) { creatingFirstPageRef.current = false; return }
-				map.set(newPage.tldraw_page_id, newPage.id)
+
+				if (reusePage) {
+					// Remap the existing tldraw page to the new DB page
+					map.set(reusePage.id, newPage.id)
+				} else {
+					map.set(newPage.tldraw_page_id, newPage.id)
+					editor.createPage({ id: newPage.tldraw_page_id as TLPageId, name: newPage.title })
+				}
 				tldrawToDb.current = map
-				editor.createPage({ id: newPage.tldraw_page_id as TLPageId, name: newPage.title })
 
 				const newEntry: PageEntry = {
 					dbId: newPage.id,
-					tldrawId: newPage.tldraw_page_id,
+					tldrawId: reusePage?.id ?? newPage.tldraw_page_id,
 					title: newPage.title,
 					visibility: 'private',
 					publicSlug: null,
@@ -490,12 +501,13 @@ export function useBoards(): BoardsOrchestration {
 					role: 'owner',
 				}
 				send({ type: 'PAGES_LOADED', pages: [newEntry] })
+				creatingFirstPageRef.current = false
 			}
 
-			// Remove local-only pages not in DB
+			// Remove local-only pages not in DB (but never delete the last page)
 			const localPages = editor.getPages()
 			for (const lp of localPages) {
-				if (!map.has(lp.id) && (localPages.length > 1 || map.size > 0)) {
+				if (!map.has(lp.id) && localPages.length > 1) {
 					try { editor.deletePage(lp.id) } catch { /* ignore */ }
 				}
 			}

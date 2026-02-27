@@ -86,18 +86,19 @@ export function CustomPageItemSubmenu({
 		})
 	}, [entry, dialogs])
 
-	const performDelete = useCallback(() => {
+	const performDelete = useCallback(async () => {
 		editor.markHistoryStoppingPoint('deleting page')
-		editor.deletePage(item.id as TLPageId)
 
 		if (isLoggedIn && entry?.dbId) {
+			// Delete from DB first, then remove from tldraw, then reload
 			if (isOwner) {
-				void api.deletePage(entry.dbId)
+				await api.deletePage(entry.dbId)
 			} else {
-				void api.removeSelfFromPage(entry.dbId)
+				await api.removeSelfFromPage(entry.dbId)
 			}
 		}
 
+		editor.deletePage(item.id as TLPageId)
 		window.dispatchEvent(new Event('v2-pages-changed'))
 		trackEvent('delete-page', { source: 'page-menu' })
 	}, [editor, item.id, isLoggedIn, isOwner, entry, trackEvent])
