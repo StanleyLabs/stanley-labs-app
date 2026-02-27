@@ -11,7 +11,7 @@ import { supabase } from '../../lib/supabase'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-export type PageVisibility = 'private' | 'public'
+export type PageVisibility = 'private' | 'members' | 'public'
 export type PublicAccess = 'view' | 'edit'
 export type PageRole = 'owner' | 'editor' | 'viewer'
 
@@ -140,9 +140,14 @@ export async function sharePage(
 	return ok ? slug : null
 }
 
-/** Make a page private: set visibility to private. Keeps slug for re-sharing. */
+/** Make a page private: set visibility to private, clear slug/access (DB constraint requires it). */
 export async function unsharePage(pageId: string): Promise<boolean> {
-	return updatePage(pageId, { visibility: 'private' })
+	return updatePage(pageId, { visibility: 'private', public_slug: null, public_access: null })
+}
+
+/** Set page to members-only mode: clear slug/access, set visibility. */
+export async function setMembersOnly(pageId: string): Promise<boolean> {
+	return updatePage(pageId, { visibility: 'members', public_slug: null, public_access: null })
 }
 
 // ── Page Members ───────────────────────────────────────────────────────────────

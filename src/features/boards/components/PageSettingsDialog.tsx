@@ -136,12 +136,12 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 	const toasts = useToasts()
 	const isOwner = entry.role === 'owner'
 
-	// Visibility state: map DB state to our three modes
-	const initialVisibility: Visibility = entry.visibility === 'public'
-		? (entry.publicSlug ? 'public' : 'shared')
+	// Visibility state: map DB state to our three UI modes
+	const initialVisibility: Visibility =
+		entry.visibility === 'public' ? 'public'
+		: entry.visibility === 'members' ? 'shared'
 		: 'private'
 
-	// If there are members beyond the owner, treat as 'shared' even if DB says private
 	const [visibility, setVisibility] = useState<Visibility>(initialVisibility)
 	const [publicAccess, setPublicAccess] = useState<'view' | 'edit'>(entry.publicAccess ?? 'view')
 	const [saving, setSaving] = useState(false)
@@ -193,12 +193,12 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 				if (slug) {
 					toasts.addToast({ title: 'Page is now public.', severity: 'success' })
 				}
-			} else if (newVis === 'private') {
+			} else if (newVis === 'shared') {
+				await api.setMembersOnly(entry.dbId)
+				toasts.addToast({ title: 'Page is now shared with members only.', severity: 'success' })
+			} else {
 				await api.unsharePage(entry.dbId)
 				toasts.addToast({ title: 'Page is now private.', severity: 'success' })
-			} else {
-				// shared = private visibility but with members
-				await api.unsharePage(entry.dbId)
 			}
 			onUpdated()
 		} catch {

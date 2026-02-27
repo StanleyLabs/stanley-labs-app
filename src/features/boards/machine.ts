@@ -37,7 +37,7 @@ export interface PageEntry {
 	/** tldraw page id (page:xxx) */
 	tldrawId: string
 	title: string
-	visibility: 'private' | 'public'
+	visibility: 'private' | 'members' | 'public'
 	publicSlug: string | null
 	publicAccess: 'view' | 'edit' | null
 	role: PageRole
