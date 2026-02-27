@@ -85,6 +85,7 @@ export type BoardsEvent =
 
 	// Shared link visit (guest or authed)
 	| { type: 'VISIT_SHARED'; dbId: string; tldrawId: string; slug: string; role: PageRole }
+	| { type: 'UPDATE_ROLE'; role: PageRole }
 
 	// Sync lifecycle
 	| { type: 'SERVER_CONNECTED' }
@@ -147,6 +148,10 @@ export const boardsMachine = setup({
 				activeSlug: e.slug,
 			}
 		}),
+		updateRole: assign(({ event }) => {
+			const e = event as Extract<BoardsEvent, { type: 'UPDATE_ROLE' }>
+			return { activeRole: e.role }
+		}),
 		markSupabaseReady: assign({ supabaseReady: true }),
 	},
 	guards: {
@@ -180,12 +185,14 @@ export const boardsMachine = setup({
 						DESELECT_PAGE: { target: 'idle', actions: 'clearActivePage' },
 						// Allow sync server for shared page viewing
 						SERVER_CONNECTED: { target: 'viewingSynced' },
+						UPDATE_ROLE: { actions: 'updateRole' },
 					},
 				},
 				viewingSynced: {
 					on: {
 						DESELECT_PAGE: { target: 'idle', actions: 'clearActivePage' },
 						SERVER_DISCONNECTED: { target: 'viewing' },
+						UPDATE_ROLE: { actions: 'updateRole' },
 					},
 				},
 			},

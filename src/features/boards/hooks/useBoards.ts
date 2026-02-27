@@ -438,6 +438,12 @@ export function useBoards(): BoardsOrchestration {
 		const channel = supabase
 			.channel(`page-broadcast:${activeDbId}`)
 			.on('broadcast', { event: 'visibility-changed' }, () => removeSharedPage())
+			.on('broadcast', { event: 'access-changed' }, (payload) => {
+				const role = (payload.payload as any)?.role
+				if (role === 'editor' || role === 'viewer') {
+					send({ type: 'UPDATE_ROLE', role })
+				}
+			})
 			.subscribe()
 
 		// Fallback: re-check on tab focus

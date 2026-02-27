@@ -238,6 +238,14 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 		setPublicAccess(access)
 		if (visibility === 'public') {
 			await api.sharePage(entry.dbId, access)
+			const ch = supabase.channel(`page-broadcast:${entry.dbId}`)
+			ch.subscribe(async (status) => {
+				if (status === 'SUBSCRIBED') {
+					const role: PageRole = access === 'edit' ? 'editor' : 'viewer'
+					await ch.send({ type: 'broadcast', event: 'access-changed', payload: { role } })
+					setTimeout(() => { void supabase.removeChannel(ch) }, 500)
+				}
+			})
 			onUpdated()
 		}
 	}, [visibility, entry.dbId, onUpdated])
