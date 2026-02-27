@@ -212,6 +212,7 @@ export const boardsMachine = setup({
 				},
 				ready: {
 					on: {
+						PAGES_LOADED: { actions: 'setPages' },
 						SELECT_PAGE: { target: '.local', actions: 'selectPage' },
 						VISIT_SHARED: { target: '.connecting', actions: 'visitShared' },
 						RELOAD_PAGES: { target: 'loading' },
