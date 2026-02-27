@@ -140,14 +140,14 @@ export async function sharePage(
 	return ok ? slug : null
 }
 
-/** Make a page private: set visibility to private, clear slug/access (DB constraint requires it). */
+/** Make a page private: set visibility to private. Keeps slug/access for re-sharing. */
 export async function unsharePage(pageId: string): Promise<boolean> {
-	return updatePage(pageId, { visibility: 'private', public_slug: null, public_access: null })
+	return updatePage(pageId, { visibility: 'private' })
 }
 
-/** Set page to members-only mode: clear slug/access, set visibility. */
+/** Set page to members-only mode. Keeps slug/access for re-sharing. */
 export async function setMembersOnly(pageId: string): Promise<boolean> {
-	return updatePage(pageId, { visibility: 'members', public_slug: null, public_access: null })
+	return updatePage(pageId, { visibility: 'members' })
 }
 
 // ── Page Members ───────────────────────────────────────────────────────────────
