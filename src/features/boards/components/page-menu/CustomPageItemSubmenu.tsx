@@ -56,10 +56,10 @@ export function CustomPageItemSubmenu({
 	const dialogs = useDialogs()
 	const toasts = useToasts()
 	const { user } = useAuth()
-	const { removeSharedPage } = useBoardsMachine()
+	const { state, removeSharedPage } = useBoardsMachine()
 	const isLoggedIn = Boolean(user)
 	const isOwner = entry?.role === 'owner'
-	const isGuestSharedPage = !isLoggedIn && Boolean(entry)
+	const isGuestSharedPage = !isLoggedIn && Boolean(state.context.activeSlug)
 
 	const onDuplicate = useCallback(() => {
 		editor.markHistoryStoppingPoint('creating page')
