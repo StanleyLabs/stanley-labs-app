@@ -7,7 +7,7 @@
  *   - Public: anyone with the link can open (view or edit option)
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import {
 	TldrawUiButton,
 	TldrawUiButtonIcon,
@@ -163,6 +163,19 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 	const [membersLoading, setMembersLoading] = useState(false)
 	const [membersError, setMembersError] = useState<string | null>(null)
 
+	// Broadcast channel for realtime updates
+	const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+
+	useEffect(() => {
+		const ch = supabase.channel(`page-broadcast:${entry.dbId}`)
+		ch.subscribe()
+		channelRef.current = ch
+		return () => {
+			void supabase.removeChannel(ch)
+			channelRef.current = null
+		}
+	}, [entry.dbId])
+
 	// Add member form
 	const [addEmail, setAddEmail] = useState('')
 	const [addRole, setAddRole] = useState<PageRole>('viewer')
@@ -216,14 +229,11 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 				toasts.addToast({ title: 'Page is now private.', severity: 'success' })
 			}
 			// Broadcast visibility change so guests get kicked instantly
-			if (newVis !== 'public') {
-				const ch = supabase.channel(`page-broadcast:${entry.dbId}`)
-				ch.subscribe(async (status) => {
-					if (status === 'SUBSCRIBED') {
-						await ch.send({ type: 'broadcast', event: 'visibility-changed', payload: { visibility: newVis } })
-						// Small delay to ensure delivery before cleanup
-						setTimeout(() => { void supabase.removeChannel(ch) }, 500)
-					}
+			if (newVis !== 'public' && channelRef.current) {
+				await channelRef.current.send({
+					type: 'broadcast',
+					event: 'visibility-changed',
+					payload: { visibility: newVis }
 				})
 			}
 			onUpdated()
@@ -238,14 +248,14 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 		setPublicAccess(access)
 		if (visibility === 'public') {
 			await api.sharePage(entry.dbId, access)
-			const ch = supabase.channel(`page-broadcast:${entry.dbId}`)
-			ch.subscribe(async (status) => {
-				if (status === 'SUBSCRIBED') {
-					const role: PageRole = access === 'edit' ? 'editor' : 'viewer'
-					await ch.send({ type: 'broadcast', event: 'access-changed', payload: { role } })
-					setTimeout(() => { void supabase.removeChannel(ch) }, 500)
-				}
-			})
+			if (channelRef.current) {
+				const role: PageRole = access === 'edit' ? 'editor' : 'viewer'
+				await channelRef.current.send({
+					type: 'broadcast',
+					event: 'access-changed',
+					payload: { role }
+				})
+			}
 			onUpdated()
 		}
 	}, [visibility, entry.dbId, onUpdated])

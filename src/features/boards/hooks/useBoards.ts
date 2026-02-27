@@ -456,7 +456,7 @@ export function useBoards(): BoardsOrchestration {
 			window.removeEventListener('focus', onFocus)
 			void supabase.removeChannel(channel)
 		}
-	}, [userId, activeDbId, activeSlug, removeSharedPage])
+	}, [userId, activeDbId, activeSlug, removeSharedPage, send])
 
 	// ── Authed: load pages from Supabase ───────────────────────────────────────
 
