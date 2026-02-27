@@ -552,20 +552,6 @@ export function useBoards(): BoardsOrchestration {
 		return () => { cancelled = true }
 	}, [userId, isInLoadingState, send, editorInstance])
 
-	// ── Authed: clean up default pages after editor mounts (for createFirstPage flow) ──
-
-	useEffect(() => {
-		const editor = editorInstance
-		if (!editor || !userId || !loadedRef.current) return
-		// Remove any tldraw pages that aren't tracked in DB
-		const pages = editor.getPages()
-		for (const p of pages) {
-			if (!tldrawToDb.current.has(p.id) && pages.length > 1) {
-				try { editor.deletePage(p.id) } catch { /* ignore */ }
-			}
-		}
-	}, [editorInstance, userId])
-
 	// ── Authed: track page changes ─────────────────────────────────────────────
 
 	useEffect(() => {
@@ -832,24 +818,18 @@ export function useBoards(): BoardsOrchestration {
 	const hasPages = !userId || state.context.pages.length > 0
 	const isLoading = state.matches({ authed: 'loading' })
 
+	// After createFirstPage, we need the loading effect to run and properly sync
+	// the DB page into tldraw. But loading requires editorInstance (which isn't
+	// mounted yet during empty state). So we: (1) create the DB page, (2) set a
+	// flag, (3) send PAGES_LOADED so hasPages flips and the editor mounts,
+	// (4) an effect sees the flag + editor and sends RELOAD_PAGES to re-enter loading.
+	const needsReloadRef = useRef(false)
+
 	const createFirstPage = useCallback(async () => {
 		const newPage = await api.createPage({ title: 'Page 1' })
 		if (!newPage) return
 
-		const dbTldrawId = newPage.tldraw_page_id as TLPageId
-
-		// Add the DB page to the store and switch to it.
-		// Don't remove old pages here — tldraw crashes if page state records
-		// (selectedShapeIds etc.) aren't initialized for the new page yet.
-		// The loading effect will clean up stale pages when the editor mounts.
-		store.mergeRemoteChanges(() => {
-			store.put([PageRecordType.create({ id: dbTldrawId, name: newPage.title, index: 'a1' as any })])
-			const instance = store.get(TLINSTANCE_ID)
-			if (instance) store.put([{ ...instance, currentPageId: dbTldrawId }])
-		})
-		tldrawToDb.current.set(dbTldrawId as string, newPage.id)
-		loadedRef.current = true
-
+		// Build a minimal entry so the machine has pages (hasPages → true → editor mounts)
 		const entry: PageEntry = {
 			dbId: newPage.id,
 			tldrawId: newPage.tldraw_page_id,
@@ -859,9 +839,16 @@ export function useBoards(): BoardsOrchestration {
 			publicAccess: newPage.public_access ?? null,
 			role: 'owner',
 		}
+		needsReloadRef.current = true
 		send({ type: 'PAGES_LOADED', pages: [entry] })
-		send({ type: 'SELECT_PAGE', dbId: newPage.id, tldrawId: dbTldrawId as string, role: 'owner', slug: newPage.public_slug ?? null })
-	}, [store, send])
+	}, [send])
+
+	// Once the editor mounts after createFirstPage, re-enter loading to do a proper sync
+	useEffect(() => {
+		if (!needsReloadRef.current || !editorInstance) return
+		needsReloadRef.current = false
+		send({ type: 'RELOAD_PAGES' })
+	}, [editorInstance, send])
 
 	return {
 		store,
