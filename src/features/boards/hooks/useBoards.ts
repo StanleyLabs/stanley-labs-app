@@ -824,15 +824,17 @@ export function useBoards(): BoardsOrchestration {
 		const newPage = await api.createPage({ title: 'Page 1' })
 		if (!newPage) return
 
-		// Reuse existing tldraw page if there's exactly one
-		const existing = editor.getPages()
-		if (existing.length === 1) {
-			tldrawToDb.current.set(existing[0].id, newPage.id)
-			editor.renamePage(existing[0].id, newPage.title)
-		} else {
-			tldrawToDb.current.set(newPage.tldraw_page_id, newPage.id)
-			editor.createPage({ id: newPage.tldraw_page_id as TLPageId, name: newPage.title })
-			editor.setCurrentPage(newPage.tldraw_page_id as TLPageId)
+		// Always use the DB-generated tldraw ID for consistency
+		const dbTldrawId = newPage.tldraw_page_id as TLPageId
+		editor.createPage({ id: dbTldrawId, name: newPage.title })
+		editor.setCurrentPage(dbTldrawId)
+		tldrawToDb.current.set(dbTldrawId as string, newPage.id)
+
+		// Delete the default page(s) that aren't in the DB
+		for (const p of editor.getPages()) {
+			if (p.id !== dbTldrawId) {
+				try { editor.deletePage(p.id) } catch { /* ignore */ }
+			}
 		}
 
 		window.dispatchEvent(new Event('v2-pages-changed'))
