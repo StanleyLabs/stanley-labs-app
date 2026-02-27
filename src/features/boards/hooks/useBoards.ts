@@ -381,35 +381,41 @@ export function useBoards(): BoardsOrchestration {
 
 		const removeSharedPage = () => {
 			const tldrawId = stateRef.current.context.activePageTldrawId
-			const editor = editorRef.current
-			if (tldrawId && editor) {
-				const pages = editor.getPages()
-				if (pages.length <= 1) {
-					// tldraw requires at least one page - create a fresh one first
-					const freshId = PageRecordType.createId()
-					editor.createPage({ name: 'Page 1', id: freshId })
-					editor.setCurrentPage(freshId)
-				}
-				try { editor.deletePage(tldrawId as TLPageId) } catch { /* ignore */ }
-			}
-			// Also clean up the tldrawToDb mapping
+
+			// 1. Clean up mapping immediately
 			if (tldrawId) tldrawToDb.current.delete(tldrawId)
+
+			// 2. Transition machine to idle first - this unmounts the sync bridge
 			send({ type: 'DESELECT_PAGE' })
 			setUrlToBoards()
-			// Scrub from localStorage
-			try {
-				const raw = lsLoad()
-				if (raw && tldrawId) {
-					const doc = JSON.parse(raw)
-					if (doc?.document?.store) {
-						const s = doc.document.store as Record<string, any>
-						for (const [id, rec] of Object.entries(s)) {
-							if (id === tldrawId || (rec as any)?.parentId === tldrawId) delete s[id]
-						}
-						lsSave(JSON.stringify(doc))
+
+			// 3. After React re-renders (sync bridge unmounted), clean up tldraw + localStorage
+			requestAnimationFrame(() => {
+				const editor = editorRef.current
+				if (tldrawId && editor) {
+					const pages = editor.getPages()
+					if (pages.length <= 1) {
+						const freshId = PageRecordType.createId()
+						editor.createPage({ name: 'Page 1', id: freshId })
+						editor.setCurrentPage(freshId)
 					}
+					try { editor.deletePage(tldrawId as TLPageId) } catch { /* ignore */ }
 				}
-			} catch { /* ignore */ }
+				// Scrub from localStorage
+				try {
+					const raw = lsLoad()
+					if (raw && tldrawId) {
+						const doc = JSON.parse(raw)
+						if (doc?.document?.store) {
+							const s = doc.document.store as Record<string, any>
+							for (const [id, rec] of Object.entries(s)) {
+								if (id === tldrawId || (rec as any)?.parentId === tldrawId) delete s[id]
+							}
+							lsSave(JSON.stringify(doc))
+						}
+					}
+				} catch { /* ignore */ }
+			})
 			window.dispatchEvent(new CustomEvent('boards:shared-page-unavailable'))
 		}
 
