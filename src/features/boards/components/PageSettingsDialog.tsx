@@ -214,9 +214,14 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 			}
 			// Broadcast visibility change so guests get kicked instantly
 			if (newVis !== 'public') {
-				void supabase
-					.channel(`page-broadcast:${entry.dbId}`)
-					.send({ type: 'broadcast', event: 'visibility-changed', payload: { visibility: newVis } })
+				const ch = supabase.channel(`page-broadcast:${entry.dbId}`)
+				ch.subscribe(async (status) => {
+					if (status === 'SUBSCRIBED') {
+						await ch.send({ type: 'broadcast', event: 'visibility-changed', payload: { visibility: newVis } })
+						// Small delay to ensure delivery before cleanup
+						setTimeout(() => { void supabase.removeChannel(ch) }, 500)
+					}
+				})
 			}
 			onUpdated()
 		} catch {
