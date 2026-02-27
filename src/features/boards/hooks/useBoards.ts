@@ -28,6 +28,7 @@ import {
 	type PageEntry,
 } from '../machine'
 import { useAuth } from '../../../lib/AuthContext'
+import { supabase } from '../../../lib/supabase'
 import * as api from '../api'
 import { getContentAsJsonDocForPage } from '../sharePage'
 import { buildSyncUri, isSyncServerConfigured } from '../sharePage'
@@ -364,7 +365,7 @@ export function useBoards(): BoardsOrchestration {
 		return () => { cancelled = true }
 	}, [store, userId, send])
 
-	// ── Guest: re-validate shared page on tab focus ───────────────────────────
+	// ── Guest: watch for shared page becoming unavailable ──────────────────────
 
 	const activeDbId = state.context.activePageDbId
 	const activeSlug = state.context.activeSlug
@@ -404,18 +405,21 @@ export function useBoards(): BoardsOrchestration {
 			if (!page) removeSharedPage()
 		}
 
-		// Check on tab focus
+		// Listen for broadcast from owner changing visibility
+		const channel = supabase
+			.channel(`page-broadcast:${activeDbId}`)
+			.on('broadcast', { event: 'visibility-changed' }, () => {
+				removeSharedPage()
+			})
+			.subscribe()
+
+		// Fallback: re-check on tab focus
 		const onFocus = () => { void checkVisibility() }
 		window.addEventListener('focus', onFocus)
 
-		// Also poll every 30s while the tab is visible
-		const interval = setInterval(() => {
-			if (!document.hidden) void checkVisibility()
-		}, 30_000)
-
 		return () => {
 			window.removeEventListener('focus', onFocus)
-			clearInterval(interval)
+			void supabase.removeChannel(channel)
 		}
 	}, [userId, activeDbId, activeSlug, send])
 

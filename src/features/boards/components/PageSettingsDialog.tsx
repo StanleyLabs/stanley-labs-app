@@ -212,6 +212,12 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 				await api.unsharePage(entry.dbId)
 				toasts.addToast({ title: 'Page is now private.', severity: 'success' })
 			}
+			// Broadcast visibility change so guests get kicked instantly
+			if (newVis !== 'public') {
+				void supabase
+					.channel(`page-broadcast:${entry.dbId}`)
+					.send({ type: 'broadcast', event: 'visibility-changed', payload: { visibility: newVis } })
+			}
 			onUpdated()
 		} catch {
 			toasts.addToast({ title: 'Failed to update visibility.', severity: 'error' })
