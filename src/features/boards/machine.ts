@@ -40,6 +40,7 @@ export interface PageEntry {
 	visibility: 'private' | 'members' | 'public'
 	publicSlug: string | null
 	publicAccess: 'view' | 'edit' | null
+	sortIndex: string | null
 	role: PageRole
 }
 

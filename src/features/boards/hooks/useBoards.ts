@@ -477,6 +477,7 @@ export function useBoards(): BoardsOrchestration {
 					const created = await api.createPage({
 						title: defaultPage.name,
 						tldrawPageId: defaultPage.id,
+						sortIndex: defaultPage.index,
 					})
 					if (cancelled) return
 					if (created) {
@@ -493,17 +494,29 @@ export function useBoards(): BoardsOrchestration {
 				visibility: r.page.visibility as 'private' | 'public',
 				publicSlug: r.page.public_slug,
 				publicAccess: r.page.public_access as 'view' | 'edit' | null,
+				sortIndex: r.page.sort_index ?? null,
 				role: r.role,
 			}))
 
 			const map = new Map<string, string>()
 
-			// Ensure all DB pages exist in tldraw
-			for (const entry of entries) {
+			// Ensure all DB pages exist in tldraw (with stored sort order)
+			for (let i = 0; i < entries.length; i++) {
+				const entry = entries[i]
 				map.set(entry.tldrawId, entry.dbId)
 				const exists = editor.getPages().some((p) => p.id === entry.tldrawId)
 				if (!exists) {
-					editor.createPage({ id: entry.tldrawId as TLPageId, name: entry.title })
+					editor.createPage({
+						id: entry.tldrawId as TLPageId,
+						name: entry.title,
+						...(entry.sortIndex ? { index: entry.sortIndex as any } : {}),
+					})
+				} else if (entry.sortIndex) {
+					// Page exists (e.g. adopted default) - update its index to match DB
+					const page = editor.getPage(entry.tldrawId as TLPageId)
+					if (page && page.index !== entry.sortIndex) {
+						editor.updatePage({ id: entry.tldrawId as TLPageId, index: entry.sortIndex as any })
+					}
 				}
 			}
 
@@ -552,12 +565,14 @@ export function useBoards(): BoardsOrchestration {
 
 			loadedRef.current = true
 
-			// Sync page names tldraw → DB (tldraw may have auto-renamed to avoid duplicates)
+			// Sync page names + sort order tldraw → DB (tldraw may have auto-renamed or reindexed)
 			for (const entry of entries) {
 				const page = editor.getPage(entry.tldrawId as TLPageId)
-				if (page && page.name !== entry.title) {
-					void api.updatePage(entry.dbId, { title: page.name })
-				}
+				if (!page) continue
+				const patch: Record<string, string> = {}
+				if (page.name !== entry.title) patch.title = page.name
+				if (page.index !== (entry.sortIndex ?? '')) patch.sort_index = page.index
+				if (Object.keys(patch).length) void api.updatePage(entry.dbId, patch)
 			}
 
 			// Notify machine AFTER tldraw is fully set up (pages created, default removed, page selected)
@@ -711,20 +726,24 @@ export function useBoards(): BoardsOrchestration {
 		}
 	}, [editorInstance, userId, isGuestViewingShared])
 
-	// ── Authed: sync page renames to DB ────────────────────────────────────────
+	// ── Authed: sync page renames and reorders to DB ──────────────────────────
 
 	useEffect(() => {
 		const editor = editorInstance
 		if (!editor || !userId) return
 
 		const unlisten = editor.store.listen((entry) => {
-			// Skip renames during hydration or before initial load
+			// Skip during hydration or before initial load
 			if (hydratingRef.current || !loadedRef.current) return
 			for (const [, to] of Object.values(entry.changes.updated)) {
-				if ((to as any)?.typeName === 'page' && (to as any)?.name) {
+				if ((to as any)?.typeName === 'page') {
 					const tldrawId = (to as any).id as string
 					const dbId = tldrawToDb.current.get(tldrawId)
-					if (dbId) void api.updatePage(dbId, { title: (to as any).name })
+					if (!dbId) continue
+					const patch: Record<string, string> = {}
+					if ((to as any).name) patch.title = (to as any).name
+					if ((to as any).index) patch.sort_index = (to as any).index
+					if (Object.keys(patch).length) void api.updatePage(dbId, patch)
 				}
 			}
 		}, { scope: 'document' })
@@ -845,7 +864,7 @@ export function useBoards(): BoardsOrchestration {
 
 	// ── registerPage: call BEFORE editor.setCurrentPage so onChange sees it ──
 
-	const registerPage = useCallback((page: { dbId: string; tldrawId: string; title: string; visibility?: string; publicSlug?: string | null; publicAccess?: string | null }) => {
+	const registerPage = useCallback((page: { dbId: string; tldrawId: string; title: string; visibility?: string; publicSlug?: string | null; publicAccess?: string | null; sortIndex?: string | null }) => {
 		tldrawToDb.current.set(page.tldrawId, page.dbId)
 		send({
 			type: 'PAGE_ADDED',
@@ -856,6 +875,7 @@ export function useBoards(): BoardsOrchestration {
 				visibility: (page.visibility ?? 'private') as PageEntry['visibility'],
 				publicSlug: page.publicSlug ?? null,
 				publicAccess: (page.publicAccess ?? null) as 'view' | 'edit' | null,
+				sortIndex: page.sortIndex ?? null,
 				role: 'owner',
 			},
 		})

@@ -23,6 +23,7 @@ export interface PageRow {
 	visibility: PageVisibility
 	public_slug: string | null
 	public_access: PublicAccess | null
+	sort_index: string | null
 	created_at: string
 	updated_at: string
 }
@@ -50,7 +51,7 @@ export interface MyPageEntry {
 
 /** Create a new page. Returns the full row including generated tldraw_page_id. */
 export async function createPage(
-	opts: { title?: string; visibility?: PageVisibility; tldrawPageId?: string } = {}
+	opts: { title?: string; visibility?: PageVisibility; tldrawPageId?: string; sortIndex?: string } = {}
 ): Promise<PageRow | null> {
 	const user = (await supabase.auth.getUser()).data.user
 	if (!user?.id) return null
@@ -64,6 +65,7 @@ export async function createPage(
 			title: opts.title ?? 'Untitled',
 			visibility: opts.visibility ?? 'private',
 			tldraw_page_id: tldrawPageId,
+			...(opts.sortIndex ? { sort_index: opts.sortIndex } : {}),
 		})
 		.select('*')
 		.single()
@@ -81,10 +83,10 @@ export async function createPage(
 	return data as PageRow
 }
 
-/** Update page metadata (title, visibility, slug, access). */
+/** Update page metadata (title, visibility, slug, access, sort_index). */
 export async function updatePage(
 	pageId: string,
-	patch: Partial<Pick<PageRow, 'title' | 'visibility' | 'public_slug' | 'public_access'>>
+	patch: Partial<Pick<PageRow, 'title' | 'visibility' | 'public_slug' | 'public_access'>> & { sort_index?: string }
 ): Promise<boolean> {
 	if (!pageId) return false
 	const { error } = await supabase.from('pages').update(patch).eq('id', pageId)
@@ -156,11 +158,17 @@ export async function listMyPages(): Promise<MyPageEntry[]> {
 	const { data, error } = await supabase
 		.from('page_members')
 		.select('page_id,role,pages(*)')
-		.order('created_at', { ascending: true })
 	if (error || !data) return []
 	return (data as any[])
 		.filter((r) => r.pages?.id)
 		.map((r) => ({ page_id: r.page_id, role: r.role, page: r.pages }))
+		.sort((a, b) => {
+			const ai = a.page.sort_index ?? ''
+			const bi = b.page.sort_index ?? ''
+			if (ai && bi) return ai < bi ? -1 : ai > bi ? 1 : 0
+			// Pages without sort_index: fall back to created_at
+			return (a.page.created_at ?? '').localeCompare(b.page.created_at ?? '')
+		})
 }
 
 /** Add the current user as a viewer of a page. */
