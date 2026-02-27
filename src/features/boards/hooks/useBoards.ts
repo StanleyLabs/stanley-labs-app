@@ -117,6 +117,12 @@ export interface BoardsOrchestration {
 	pageEntryMap: Map<string, PageEntry>
 	/** Editor mount handler */
 	onEditorMount: (editor: TldrawEditor) => () => void
+	/** Whether the user has any pages (always true for guests) */
+	hasPages: boolean
+	/** Whether pages are currently loading */
+	isLoading: boolean
+	/** Create the first page (for empty state) */
+	createFirstPage: () => Promise<void>
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
@@ -136,7 +142,7 @@ export function useBoards(): BoardsOrchestration {
 	const tldrawToDb = useRef(new Map<string, string>())
 	const hydratingRef = useRef(false)
 	const loadedRef = useRef(false)
-	const creatingFirstPageRef = useRef(false)
+
 
 	const { user } = useAuth()
 	const userId = user?.id ?? null
@@ -471,39 +477,6 @@ export function useBoards(): BoardsOrchestration {
 
 			tldrawToDb.current = map
 
-			// Create first page if user has none (guard against repeated attempts)
-			if (entries.length === 0 && !creatingFirstPageRef.current) {
-				creatingFirstPageRef.current = true
-
-				// Reuse existing tldraw page if there is exactly one (e.g. auto-created after last delete)
-				const existingPages = editor.getPages()
-				const reusePage = existingPages.length === 1 ? existingPages[0] : null
-
-				const newPage = await api.createPage({ title: reusePage?.name ?? 'Page 1' })
-				if (cancelled || !newPage) { creatingFirstPageRef.current = false; return }
-
-				if (reusePage) {
-					// Remap the existing tldraw page to the new DB page
-					map.set(reusePage.id, newPage.id)
-				} else {
-					map.set(newPage.tldraw_page_id, newPage.id)
-					editor.createPage({ id: newPage.tldraw_page_id as TLPageId, name: newPage.title })
-				}
-				tldrawToDb.current = map
-
-				const newEntry: PageEntry = {
-					dbId: newPage.id,
-					tldrawId: reusePage?.id ?? newPage.tldraw_page_id,
-					title: newPage.title,
-					visibility: 'private',
-					publicSlug: null,
-					publicAccess: null,
-					role: 'owner',
-				}
-				send({ type: 'PAGES_LOADED', pages: [newEntry] })
-				creatingFirstPageRef.current = false
-			}
-
 			// Remove local-only pages not in DB (but never delete the last page)
 			const localPages = editor.getPages()
 			for (const lp of localPages) {
@@ -820,6 +793,29 @@ export function useBoards(): BoardsOrchestration {
 		return map
 	}, [state.context.pages])
 
+	const hasPages = !userId || state.context.pages.length > 0
+	const isLoading = state.matches({ authed: 'loading' })
+
+	const createFirstPage = useCallback(async () => {
+		const editor = editorRef.current
+		if (!editor) return
+		const newPage = await api.createPage({ title: 'Page 1' })
+		if (!newPage) return
+
+		// Reuse existing tldraw page if there's exactly one
+		const existing = editor.getPages()
+		if (existing.length === 1) {
+			tldrawToDb.current.set(existing[0].id, newPage.id)
+			editor.renamePage(existing[0].id, newPage.title)
+		} else {
+			tldrawToDb.current.set(newPage.tldraw_page_id, newPage.id)
+			editor.createPage({ id: newPage.tldraw_page_id as TLPageId, name: newPage.title })
+			editor.setCurrentPage(newPage.tldraw_page_id as TLPageId)
+		}
+
+		window.dispatchEvent(new Event('v2-pages-changed'))
+	}, [])
+
 	return {
 		store,
 		state,
@@ -838,5 +834,8 @@ export function useBoards(): BoardsOrchestration {
 		tldrawToDb,
 		pageEntryMap,
 		onEditorMount: handleEditorMount,
+		hasPages,
+		isLoading,
+		createFirstPage,
 	}
 }
