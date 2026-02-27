@@ -819,26 +819,37 @@ export function useBoards(): BoardsOrchestration {
 	const isLoading = state.matches({ authed: 'loading' })
 
 	const createFirstPage = useCallback(async () => {
-		const editor = editorRef.current
-		if (!editor) return
 		const newPage = await api.createPage({ title: 'Page 1' })
 		if (!newPage) return
 
-		// Always use the DB-generated tldraw ID for consistency
 		const dbTldrawId = newPage.tldraw_page_id as TLPageId
-		editor.createPage({ id: dbTldrawId, name: newPage.title })
-		editor.setCurrentPage(dbTldrawId)
+
+		// Create the page in the tldraw store so the editor sees it on mount.
+		// Also remove default page(s) and point the instance to the new page.
+		store.mergeRemoteChanges(() => {
+			store.put([PageRecordType.create({ id: dbTldrawId, name: newPage.title, index: 'a1' as any })])
+			// Point instance to the new page
+			const instance = store.get(TLINSTANCE_ID)
+			if (instance) store.put([{ ...instance, currentPageId: dbTldrawId }])
+			// Remove default pages
+			const allPages = store.allRecords().filter((r): r is any => r.typeName === 'page' && r.id !== dbTldrawId)
+			if (allPages.length) store.remove(allPages.map((p: any) => p.id))
+		})
 		tldrawToDb.current.set(dbTldrawId as string, newPage.id)
+		loadedRef.current = true
 
-		// Delete the default page(s) that aren't in the DB
-		for (const p of editor.getPages()) {
-			if (p.id !== dbTldrawId) {
-				try { editor.deletePage(p.id) } catch { /* ignore */ }
-			}
+		const entry: PageEntry = {
+			dbId: newPage.id,
+			tldrawId: newPage.tldraw_page_id,
+			title: newPage.title,
+			visibility: (newPage.visibility ?? 'private') as PageEntry['visibility'],
+			publicSlug: newPage.public_slug ?? null,
+			publicAccess: newPage.public_access ?? null,
+			role: 'owner',
 		}
-
-		window.dispatchEvent(new Event('v2-pages-changed'))
-	}, [])
+		send({ type: 'PAGES_LOADED', pages: [entry] })
+		send({ type: 'SELECT_PAGE', dbId: newPage.id, tldrawId: dbTldrawId as string, role: 'owner', slug: newPage.public_slug ?? null })
+	}, [store, send])
 
 	return {
 		store,
