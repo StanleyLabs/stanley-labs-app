@@ -277,7 +277,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 										</div>
 									)}
 									<SharePageButton pageId={page.id} entry={entry} isLoggedIn={!!user} />
-									{!isReadonlyMode && (
+									{!isReadonlyMode && page.id === currentPageId && (
 										<div className="tlui-page_menu__item__submenu" data-isediting={isEditing}>
 											<CustomPageItemSubmenu
 												index={index}
@@ -309,7 +309,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 										<TldrawUiButtonLabel>{page.name}</TldrawUiButtonLabel>
 									</TldrawUiButton>
 									<SharePageButton pageId={page.id} entry={entry} isLoggedIn={!!user} />
-									{!isReadonlyMode && (
+									{!isReadonlyMode && page.id === currentPageId && (
 										<div className="tlui-page_menu__item__submenu">
 											<CustomPageItemSubmenu
 												index={index}
