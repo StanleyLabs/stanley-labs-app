@@ -541,8 +541,9 @@ export function useBoards(): BoardsOrchestration {
 			// Hydrate active page snapshot
 			const activeTldraw = editor.getCurrentPageId() as string
 			const activeDb = map.get(activeTldraw)
+			const activeEntry = entries.find((e) => e.dbId === activeDb)
 			if (activeDb) {
-				await hydrateFromDb(editor, activeDb, activeTldraw)
+				await hydrateFromDb(editor, activeDb, activeTldraw, activeEntry?.title)
 			}
 		}
 
@@ -712,9 +713,18 @@ export function useBoards(): BoardsOrchestration {
 
 	// ── Hydrate helper ─────────────────────────────────────────────────────────
 
-	async function hydrateFromDb(editor: TldrawEditor, dbPageId: string, tldrawPageId: string) {
+	async function hydrateFromDb(editor: TldrawEditor, dbPageId: string, tldrawPageId: string, forceTitle?: string) {
 		const snap = await api.loadSnapshot(dbPageId)
-		if (!snap?.document) return
+		if (!snap?.document) {
+			// No snapshot yet - ensure title matches DB
+			if (forceTitle) {
+				const current = editor.getPage(tldrawPageId as TLPageId)
+				if (current && current.name !== forceTitle) {
+					editor.renamePage(tldrawPageId as TLPageId, forceTitle)
+				}
+			}
+			return
+		}
 
 		const doc = (snap.document as any)?.document ?? snap.document
 		if (!doc?.store || !doc?.schema) return
@@ -769,6 +779,14 @@ export function useBoards(): BoardsOrchestration {
 				editor.store.mergeRemoteChanges(() => {
 					editor.store.put(records as any[])
 				})
+			}
+
+			// Enforce title from DB (source of truth)
+			if (forceTitle) {
+				const current = editor.getPage(tldrawPageId as TLPageId)
+				if (current && current.name !== forceTitle) {
+					editor.renamePage(tldrawPageId as TLPageId, forceTitle)
+				}
 			}
 		} catch { /* ignore */ }
 		hydratingRef.current = false
