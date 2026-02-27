@@ -108,8 +108,17 @@ export function ServerSyncBridge({
 				pushingToSyncRef,
 			})
 
-		const unlistenSync = syncStore.listen(doSyncToPersist)
-		const unlistenPersist = persistStore.listen(doPersistToSync)
+		const guardedSyncToPersist = () => {
+			if (!applySyncRef.current) return // removed or disconnected
+			doSyncToPersist()
+		}
+		const guardedPersistToSync = () => {
+			if (!applySyncRef.current) return
+			doPersistToSync()
+		}
+
+		const unlistenSync = syncStore.listen(guardedSyncToPersist)
+		const unlistenPersist = persistStore.listen(guardedPersistToSync)
 
 		doPersistToSync()
 

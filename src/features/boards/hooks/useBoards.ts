@@ -138,6 +138,8 @@ export function useBoards(): BoardsOrchestration {
 	const editorRef = useRef<TldrawEditor | null>(null)
 	const [editorInstance, setEditorInstance] = useState<TldrawEditor | null>(null)
 	const isUserInteractingRef = useRef(false)
+	/** When true, shared page is being removed - block all sync/persist writes */
+	const removingSharedPageRef = useRef(false)
 	const applySyncRef = useRef<(() => void) | null>(null)
 	const tldrawToDb = useRef(new Map<string, string>())
 	const hydratingRef = useRef(false)
@@ -218,7 +220,8 @@ export function useBoards(): BoardsOrchestration {
 		if (isGuestViewingShared) return
 
 		const persist = () => {
-			// Double-check: don't persist if we're now viewing a shared page
+			// Don't persist during shared page removal or while viewing shared page
+			if (removingSharedPageRef.current) return
 			if (stateRef.current.context.activeSlug || getSlugFromUrl()) return
 			try {
 				const snap = store.getStoreSnapshot('all') as { store: Record<string, unknown>; schema: unknown }
@@ -382,40 +385,49 @@ export function useBoards(): BoardsOrchestration {
 		const removeSharedPage = () => {
 			const tldrawId = stateRef.current.context.activePageTldrawId
 
-			// 1. Clean up mapping immediately
+			// Block all sync/persist writes immediately
+			removingSharedPageRef.current = true
+
+			// Disconnect the applySyncRef so the bridge can't push back
+			applySyncRef.current = null
+
+			// Clean up mapping
 			if (tldrawId) tldrawToDb.current.delete(tldrawId)
 
-			// 2. Transition machine to idle first - this unmounts the sync bridge
+			// Transition machine (will unmount sync bridge on next render)
 			send({ type: 'DESELECT_PAGE' })
 			setUrlToBoards()
 
-			// 3. After React re-renders (sync bridge unmounted), clean up tldraw + localStorage
-			requestAnimationFrame(() => {
-				const editor = editorRef.current
-				if (tldrawId && editor) {
-					const pages = editor.getPages()
-					if (pages.length <= 1) {
-						const freshId = PageRecordType.createId()
-						editor.createPage({ name: 'Page 1', id: freshId })
-						editor.setCurrentPage(freshId)
-					}
-					try { editor.deletePage(tldrawId as TLPageId) } catch { /* ignore */ }
+			// Delete from tldraw synchronously
+			const editor = editorRef.current
+			if (tldrawId && editor) {
+				const pages = editor.getPages()
+				if (pages.length <= 1) {
+					const freshId = PageRecordType.createId()
+					editor.createPage({ name: 'Page 1', id: freshId })
+					editor.setCurrentPage(freshId)
 				}
-				// Scrub from localStorage
-				try {
-					const raw = lsLoad()
-					if (raw && tldrawId) {
-						const doc = JSON.parse(raw)
-						if (doc?.document?.store) {
-							const s = doc.document.store as Record<string, any>
-							for (const [id, rec] of Object.entries(s)) {
-								if (id === tldrawId || (rec as any)?.parentId === tldrawId) delete s[id]
-							}
-							lsSave(JSON.stringify(doc))
+				try { editor.deletePage(tldrawId as TLPageId) } catch { /* ignore */ }
+			}
+
+			// Scrub from localStorage
+			try {
+				const raw = lsLoad()
+				if (raw && tldrawId) {
+					const doc = JSON.parse(raw)
+					if (doc?.document?.store) {
+						const s = doc.document.store as Record<string, any>
+						for (const [id, rec] of Object.entries(s)) {
+							if (id === tldrawId || (rec as any)?.parentId === tldrawId) delete s[id]
 						}
+						lsSave(JSON.stringify(doc))
 					}
-				} catch { /* ignore */ }
-			})
+				}
+			} catch { /* ignore */ }
+
+			// Re-enable after bridge has time to unmount
+			setTimeout(() => { removingSharedPageRef.current = false }, 1000)
+
 			window.dispatchEvent(new CustomEvent('boards:shared-page-unavailable'))
 		}
 
