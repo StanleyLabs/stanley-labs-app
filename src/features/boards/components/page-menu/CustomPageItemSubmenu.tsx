@@ -165,8 +165,8 @@ export function CustomPageItemSubmenu({
 						</TldrawUiMenuGroup>
 					)}
 
-					{/* Login to share hint (guest) */}
-					{!isLoggedIn && (
+					{/* Login to share hint (guest, only on their own local pages) */}
+					{!isLoggedIn && !entry && (
 						<TldrawUiMenuGroup id="share-hint">
 							<TldrawUiMenuItem
 								id="login-to-share"

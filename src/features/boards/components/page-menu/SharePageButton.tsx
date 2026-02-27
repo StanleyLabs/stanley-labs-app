@@ -28,9 +28,7 @@ export function SharePageButton({ entry, isLoggedIn }: Props) {
 		})
 	}, [entry, toasts])
 
-	// Guest: no share button
-	if (!isLoggedIn) return null
-	// Private page: no link button
+	// Only show for shared/public pages with a slug
 	if (!entry || entry.visibility !== 'public' || !entry.publicSlug) return null
 
 	return (
