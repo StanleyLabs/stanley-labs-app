@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useMemo } from 'react'
-import { Tldraw, DefaultMenuPanel, useEditor } from 'tldraw'
+import { Tldraw, DefaultMenuPanel, useEditor, useToasts } from 'tldraw'
 import { HandTool } from '../handToolCursor'
 import { createPasteActionOverride } from '../pasteJson'
 import { ConnectionIndicator } from '../ConnectionIndicator'
@@ -69,6 +69,22 @@ function UserInteractionTracker({
 	return null
 }
 
+/** Listens for shared-page-unavailable events and shows a toast. */
+function SharedPageUnavailableListener() {
+	const toasts = useToasts()
+	useEffect(() => {
+		const handler = () => {
+			toasts.addToast({
+				title: 'This shared page is no longer available.',
+				severity: 'warning',
+			})
+		}
+		window.addEventListener('boards:shared-page-unavailable', handler)
+		return () => window.removeEventListener('boards:shared-page-unavailable', handler)
+	}, [toasts])
+	return null
+}
+
 function MenuPanelWithIndicator() {
 	return (
 		<div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 3, marginTop: 4 }}>
@@ -124,6 +140,7 @@ export function WhiteboardEditor({ boards }: { boards: BoardsOrchestration }) {
 				onMount={onMount}
 			>
 				<SyncThemeToDocument />
+				<SharedPageUnavailableListener />
 				<ReadonlyTracker editable={editable} />
 				{activePageShared && serverSynced && (
 					<UserInteractionTracker

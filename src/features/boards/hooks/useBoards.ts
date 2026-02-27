@@ -290,7 +290,15 @@ export function useBoards(): BoardsOrchestration {
 
 		void (async () => {
 			const page = await api.resolveSlug(slug)
-			if (cancelled || !page) return
+			if (cancelled) return
+			if (!page) {
+				// Page is no longer public - clean up URL and notify
+				setUrlToBoards()
+				send({ type: 'DESELECT_PAGE' })
+				// Dispatch a custom event so the editor can show feedback
+				window.dispatchEvent(new CustomEvent('boards:shared-page-unavailable', { detail: { slug } }))
+				return
+			}
 
 			let role: 'owner' | 'editor' | 'viewer' = page.public_access === 'edit' ? 'editor' : 'viewer'
 
