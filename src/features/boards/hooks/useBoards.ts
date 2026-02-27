@@ -296,8 +296,7 @@ export function useBoards(): BoardsOrchestration {
 				// Page is no longer public - clean up URL and notify
 				setUrlToBoards()
 				send({ type: 'DESELECT_PAGE' })
-				// Dispatch a custom event so the editor can show feedback
-				window.dispatchEvent(new CustomEvent('boards:shared-page-unavailable', { detail: { slug } }))
+				window.dispatchEvent(new CustomEvent('boards:shared-page-unavailable'))
 				return
 			}
 
@@ -368,9 +367,33 @@ export function useBoards(): BoardsOrchestration {
 				(payload) => {
 					const newVis = (payload.new as any)?.visibility
 					if (newVis && newVis !== 'public') {
-						// Page is no longer public - remove it
+						// Page is no longer public - remove from tldraw store + localStorage
+						const tldrawId = stateRef.current.context.activePageTldrawId
+						if (tldrawId && editorRef.current) {
+							const editor = editorRef.current
+							const pages = editor.getPages()
+							if (pages.length > 1) {
+								editor.deletePage(tldrawId as TLPageId)
+							}
+						}
 						send({ type: 'DESELECT_PAGE' })
 						setUrlToBoards()
+						// Flush localStorage so the shared page doesn't persist
+						try {
+							const raw = lsLoad()
+							if (raw) {
+								const doc = JSON.parse(raw)
+								if (doc?.document?.store) {
+									const store = doc.document.store as Record<string, any>
+									for (const [id, rec] of Object.entries(store)) {
+										if ((rec as any)?.parentId === tldrawId || id === tldrawId) {
+											delete store[id]
+										}
+									}
+									lsSave(JSON.stringify(doc))
+								}
+							}
+						} catch { /* ignore */ }
 						window.dispatchEvent(new CustomEvent('boards:shared-page-unavailable'))
 					}
 				}
