@@ -561,13 +561,15 @@ export function useBoards(): BoardsOrchestration {
 
 		const onChange = () => {
 			if (hydratingRef.current) return
+			if (!loadedRef.current) return // don't track page changes until initial load completes
 			const cur = editor.getCurrentPageId() as string
 			if (!cur || cur === prevPageId) return
 			prevPageId = cur
 
-			lsSetLastPage(cur)
-
 			const dbId = tldrawToDb.current.get(cur)
+
+			// Only persist last page if it's a DB-backed page
+			if (dbId) lsSetLastPage(cur)
 			if (!dbId) {
 				send({ type: 'DESELECT_PAGE' })
 				setUrlToBoards()
