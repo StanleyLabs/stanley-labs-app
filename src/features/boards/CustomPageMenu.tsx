@@ -40,7 +40,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 	const msg = useTranslation()
 	const breakpoint = useBreakpoint()
 	const { user } = useAuth()
-	const { state } = useBoardsMachine()
+	const { state, registerPage } = useBoardsMachine()
 
 	const [isEditing, setIsEditing] = useState(false)
 	const handleOpenChange = useCallback(() => setIsEditing(false), [])
@@ -139,7 +139,16 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 					elm?.querySelector('button')?.focus()
 				})
 
-				window.dispatchEvent(new Event('v2-pages-changed'))
+				// Register in machine + tldrawToDb without full reload
+				registerPage?.({
+					dbId: newPage.id,
+					tldrawId: newPage.tldraw_page_id,
+					title: newPage.title,
+					visibility: newPage.visibility,
+					publicSlug: newPage.public_slug,
+					publicAccess: newPage.public_access,
+				})
+
 				editor.menus.clearOpenMenus()
 				trackEvent('new-page', { source: 'page-menu' })
 			})()

@@ -16,10 +16,10 @@ import { WhiteboardEditor } from './components/WhiteboardEditor'
 
 function App() {
 	const boards = useBoards()
-	const { state, send, needsServerBridge, syncUri, serverRetryKey, bumpServerRetry, removeSharedPage } = boards
+	const { state, send, needsServerBridge, syncUri, serverRetryKey, bumpServerRetry, removeSharedPage, registerPage } = boards
 
 	return (
-		<MachineCtx.Provider value={{ state, send, removeSharedPage }}>
+		<MachineCtx.Provider value={{ state, send, removeSharedPage, registerPage }}>
 			<ConnectionIndicatorProvider onRetry={() => send({ type: 'RETRY' })}>
 				{needsServerBridge && (
 					<ServerSyncBridge

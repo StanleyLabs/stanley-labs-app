@@ -119,6 +119,8 @@ export interface BoardsOrchestration {
 	onEditorMount: (editor: TldrawEditor) => () => void
 	/** Remove a shared page from the guest's view (scrubs localStorage + navigates) */
 	removeSharedPage: () => void
+	/** Register a newly created page without triggering a full reload */
+	registerPage: (page: { dbId: string; tldrawId: string; title: string; visibility?: string; publicSlug?: string | null; publicAccess?: string | null }) => void
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
@@ -847,5 +849,32 @@ export function useBoards(): BoardsOrchestration {
 		onEditorMount: handleEditorMount,
 
 		removeSharedPage,
+
+		/** Register a newly created page without triggering a full reload */
+		registerPage: useCallback((page: { dbId: string; tldrawId: string; title: string; visibility?: string; publicSlug?: string | null; publicAccess?: string | null }) => {
+			tldrawToDb.current.set(page.tldrawId, page.dbId)
+			send({
+				type: 'PAGES_LOADED',
+				pages: [
+					...state.context.pages,
+					{
+						dbId: page.dbId,
+						tldrawId: page.tldrawId,
+						title: page.title,
+						visibility: (page.visibility ?? 'private') as PageEntry['visibility'],
+						publicSlug: page.publicSlug ?? null,
+						publicAccess: (page.publicAccess ?? null) as 'view' | 'edit' | null,
+						role: 'owner',
+					},
+				],
+			})
+			send({
+				type: 'SELECT_PAGE',
+				dbId: page.dbId,
+				tldrawId: page.tldrawId,
+				role: 'owner',
+				slug: page.publicSlug ?? null,
+			})
+		}, [send, state.context.pages]),
 	}
 }
