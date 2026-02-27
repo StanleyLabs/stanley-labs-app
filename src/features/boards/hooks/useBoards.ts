@@ -552,6 +552,20 @@ export function useBoards(): BoardsOrchestration {
 		return () => { cancelled = true }
 	}, [userId, isInLoadingState, send, editorInstance])
 
+	// ── Authed: clean up default pages after editor mounts (for createFirstPage flow) ──
+
+	useEffect(() => {
+		const editor = editorInstance
+		if (!editor || !userId || !loadedRef.current) return
+		// Remove any tldraw pages that aren't tracked in DB
+		const pages = editor.getPages()
+		for (const p of pages) {
+			if (!tldrawToDb.current.has(p.id) && pages.length > 1) {
+				try { editor.deletePage(p.id) } catch { /* ignore */ }
+			}
+		}
+	}, [editorInstance, userId])
+
 	// ── Authed: track page changes ─────────────────────────────────────────────
 
 	useEffect(() => {
@@ -824,16 +838,14 @@ export function useBoards(): BoardsOrchestration {
 
 		const dbTldrawId = newPage.tldraw_page_id as TLPageId
 
-		// Create the page in the tldraw store so the editor sees it on mount.
-		// Also remove default page(s) and point the instance to the new page.
+		// Add the DB page to the store and switch to it.
+		// Don't remove old pages here — tldraw crashes if page state records
+		// (selectedShapeIds etc.) aren't initialized for the new page yet.
+		// The loading effect will clean up stale pages when the editor mounts.
 		store.mergeRemoteChanges(() => {
 			store.put([PageRecordType.create({ id: dbTldrawId, name: newPage.title, index: 'a1' as any })])
-			// Point instance to the new page
 			const instance = store.get(TLINSTANCE_ID)
 			if (instance) store.put([{ ...instance, currentPageId: dbTldrawId }])
-			// Remove default pages
-			const allPages = store.allRecords().filter((r): r is any => r.typeName === 'page' && r.id !== dbTldrawId)
-			if (allPages.length) store.remove(allPages.map((p: any) => p.id))
 		})
 		tldrawToDb.current.set(dbTldrawId as string, newPage.id)
 		loadedRef.current = true
