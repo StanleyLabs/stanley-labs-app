@@ -543,9 +543,8 @@ export function useBoards(): BoardsOrchestration {
 			// Hydrate active page snapshot
 			const activeTldraw = editor.getCurrentPageId() as string
 			const activeDb = map.get(activeTldraw)
-			const activeEntry = entries.find((e) => e.dbId === activeDb)
 			if (activeDb) {
-				await hydrateFromDb(editor, activeDb, activeTldraw, activeEntry?.title)
+				await hydrateFromDb(editor, activeDb, activeTldraw)
 			}
 		}
 
@@ -719,36 +718,18 @@ export function useBoards(): BoardsOrchestration {
 
 	// ── Hydrate helper ─────────────────────────────────────────────────────────
 
-	async function hydrateFromDb(editor: TldrawEditor, dbPageId: string, tldrawPageId: string, forceTitle?: string) {
-		const snap = await api.loadSnapshot(dbPageId)
-		if (!snap?.document) {
-			// No snapshot yet - ensure title matches DB
-			if (forceTitle) {
-				const current = editor.getPage(tldrawPageId as TLPageId)
-				if (current && current.name !== forceTitle) {
-					editor.renamePage(tldrawPageId as TLPageId, forceTitle)
-				}
-			}
-			return
-		}
+	async function hydrateFromDb(editor: TldrawEditor, _dbPageId: string, tldrawPageId: string) {
+		const snap = await api.loadSnapshot(_dbPageId)
+		if (!snap?.document) return
 
 		const doc = (snap.document as any)?.document ?? snap.document
 		if (!doc?.store || !doc?.schema) return
 
 		hydratingRef.current = true
 		try {
-			// Collect the page record + all records that belong to this page.
-			// Shapes on the page have parentId = pageId, but shapes inside
-			// groups/frames have parentId = groupShapeId. We need to walk the
-			// tree. Also include assets (no parentId) and bindings.
 			const storeEntries = doc.store as Record<string, any>
-			const pageRecord = storeEntries[tldrawPageId]
 
-			// Build set of all record ids belonging to this page (BFS)
-			const belongsToPage = new Set<string>()
-			if (pageRecord) belongsToPage.add(tldrawPageId)
-
-			// First pass: find direct children of the page
+			// BFS: collect shapes that belong to this page (walking groups/frames)
 			const childrenOf = new Map<string, string[]>()
 			for (const [id, rec] of Object.entries(storeEntries)) {
 				const pid = rec?.parentId as string | undefined
@@ -759,7 +740,7 @@ export function useBoards(): BoardsOrchestration {
 				}
 			}
 
-			// BFS from page id
+			const belongsToPage = new Set<string>()
 			const queue = [tldrawPageId]
 			for (let i = 0; i < queue.length; i++) {
 				const kids = childrenOf.get(queue[i])
@@ -771,11 +752,14 @@ export function useBoards(): BoardsOrchestration {
 				}
 			}
 
-			// Also include assets (no parentId, typeName=asset) and bindings
+			// Include assets and bindings
 			for (const [id, rec] of Object.entries(storeEntries)) {
 				const tn = rec?.typeName as string | undefined
 				if (tn === 'asset' || tn === 'binding') belongsToPage.add(id)
 			}
+
+			// Exclude the page record itself - we already created it with the correct name from DB
+			belongsToPage.delete(tldrawPageId)
 
 			const records = Array.from(belongsToPage)
 				.map((id) => storeEntries[id])
@@ -785,14 +769,6 @@ export function useBoards(): BoardsOrchestration {
 				editor.store.mergeRemoteChanges(() => {
 					editor.store.put(records as any[])
 				})
-			}
-
-			// Enforce title from DB (source of truth)
-			if (forceTitle) {
-				const current = editor.getPage(tldrawPageId as TLPageId)
-				if (current && current.name !== forceTitle) {
-					editor.renamePage(tldrawPageId as TLPageId, forceTitle)
-				}
 			}
 		} catch { /* ignore */ }
 		hydratingRef.current = false
