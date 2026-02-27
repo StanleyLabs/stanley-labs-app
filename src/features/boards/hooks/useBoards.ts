@@ -529,6 +529,11 @@ export function useBoards(): BoardsOrchestration {
 				if (first) target = first.id
 			}
 
+			// If lastSelected failed, try the most recently created page
+			if (!target && state.context.lastCreatedPageId) {
+				target = state.context.lastCreatedPageId as TLPageId
+			}
+
 			if (target) {
 				const cur = editor.getCurrentPageId()
 				if (target !== cur) editor.setCurrentPage(target)
@@ -874,6 +879,10 @@ export function useBoards(): BoardsOrchestration {
 			})
 			// Explicitly persist so reload returns to this page
 			lsSetLastPage(page.tldrawId)
-		}, [send]),
+			send({
+				type: 'UPDATE_LAST_CREATED_PAGE',
+				tldrawId: page.tldrawId,
+			})
+		}, [send, state.context.pages]), // state.context.pages is needed for PAGE_ADDED
 	}
 }
