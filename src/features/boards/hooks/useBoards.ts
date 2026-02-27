@@ -117,9 +117,9 @@ export interface BoardsOrchestration {
 	pageEntryMap: Map<string, PageEntry>
 	/** Editor mount handler */
 	onEditorMount: (editor: TldrawEditor) => () => void
-	/** Remove a shared page from the guest's view (scrubs localStorage + navigates) */
+	/** Remove a shared page from the guest's view */
 	removeSharedPage: () => void
-	/** Register a newly created page without triggering a full reload */
+	/** Register a newly created page (updates tldrawToDb + machine). Call BEFORE editor.setCurrentPage. */
 	registerPage: (page: { dbId: string; tldrawId: string; title: string; visibility?: string; publicSlug?: string | null; publicAccess?: string | null }) => void
 }
 
@@ -530,9 +530,6 @@ export function useBoards(): BoardsOrchestration {
 			}
 
 			// If lastSelected failed, try the most recently created page
-			if (!target && state.context.lastCreatedPageId) {
-				target = state.context.lastCreatedPageId as TLPageId
-			}
 
 			if (target) {
 				const cur = editor.getCurrentPageId()
@@ -616,7 +613,7 @@ export function useBoards(): BoardsOrchestration {
 		}
 
 		const unlisten = editor.store.listen(onChange, { scope: 'session' })
-		onChange()
+		onChange() // Initial check
 		return () => unlisten()
 	}, [editorInstance, userId, send])
 
@@ -625,6 +622,7 @@ export function useBoards(): BoardsOrchestration {
 	useEffect(() => {
 		const editor = editorInstance
 		if (!editor || userId) return // only for guests
+		if (!state.context.activePageDbId || !state.context.activeSlug) return
 
 		let prevPageId: string | null = null
 
@@ -645,9 +643,9 @@ export function useBoards(): BoardsOrchestration {
 		}
 
 		const unlisten = editor.store.listen(onChange, { scope: 'session' })
-		onChange()
+		onChange() // Initial check
 		return () => unlisten()
-	}, [editorInstance, userId])
+	}, [editorInstance, userId, state.context.activePageDbId, state.context.activeSlug])
 
 	// ── Authed: persist snapshots on edits ─────────────────────────────────────
 
@@ -833,6 +831,25 @@ export function useBoards(): BoardsOrchestration {
 	}, [state.context.pages])
 
 
+	// The following is the return object I need to modify:
+
+	// ── registerPage: call BEFORE editor.setCurrentPage so onChange sees it ──
+
+	const registerPage = useCallback((page: { dbId: string; tldrawId: string; title: string; visibility?: string; publicSlug?: string | null; publicAccess?: string | null }) => {
+		tldrawToDb.current.set(page.tldrawId, page.dbId)
+		send({
+			type: 'PAGE_ADDED',
+			page: {
+				dbId: page.dbId,
+				tldrawId: page.tldrawId,
+				title: page.title,
+				visibility: (page.visibility ?? 'private') as PageEntry['visibility'],
+				publicSlug: page.publicSlug ?? null,
+				publicAccess: (page.publicAccess ?? null) as 'view' | 'edit' | null,
+				role: 'owner',
+			},
+		})
+	}, [send])
 
 	return {
 		store,
@@ -852,37 +869,7 @@ export function useBoards(): BoardsOrchestration {
 		tldrawToDb,
 		pageEntryMap,
 		onEditorMount: handleEditorMount,
-
 		removeSharedPage,
-
-		/** Register a newly created page without triggering a full reload */
-		registerPage: useCallback((page: { dbId: string; tldrawId: string; title: string; visibility?: string; publicSlug?: string | null; publicAccess?: string | null }) => {
-			tldrawToDb.current.set(page.tldrawId, page.dbId)
-			send({
-				type: 'PAGE_ADDED',
-				page: {
-					dbId: page.dbId,
-					tldrawId: page.tldrawId,
-					title: page.title,
-					visibility: (page.visibility ?? 'private') as PageEntry['visibility'],
-					publicSlug: page.publicSlug ?? null,
-					publicAccess: (page.publicAccess ?? null) as 'view' | 'edit' | null,
-					role: 'owner',
-				},
-			})
-			send({
-				type: 'SELECT_PAGE',
-				dbId: page.dbId,
-				tldrawId: page.tldrawId,
-				role: 'owner',
-				slug: page.publicSlug ?? null,
-			})
-			// Explicitly persist so reload returns to this page
-			lsSetLastPage(page.tldrawId)
-			send({
-				type: 'UPDATE_LAST_CREATED_PAGE',
-				tldrawId: page.tldrawId,
-			})
-		}, [send, state.context.pages]), // state.context.pages is needed for PAGE_ADDED
+		registerPage,
 	}
 }

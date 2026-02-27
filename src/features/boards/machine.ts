@@ -82,8 +82,6 @@ export type BoardsEvent =
 
 	// Page selection
 	| { type: 'SELECT_PAGE'; dbId: string; tldrawId: string; role: PageRole; slug?: string | null }
-	| { type: 'PAGE_SELECTED_BY_USER'; dbId: string; tldrawId: string; role: PageRole; slug?: string | null }
-	| { type: 'UPDATE_LAST_CREATED_PAGE'; tldrawId: string }
 	| { type: 'DESELECT_PAGE' }
 
 	// Shared link visit (guest or authed)
@@ -106,7 +104,6 @@ const initialContext: BoardsContext = {
 	activeSlug: null,
 	supabaseReady: false,
 	error: null,
-	lastCreatedPageId: null,
 }
 
 export const boardsMachine = setup({
@@ -222,7 +219,7 @@ export const boardsMachine = setup({
 				ready: {
 					on: {
 						PAGE_ADDED: { actions: 'addPage' },
-						SELECT_PAGE: { target: '.local', actions: ['selectPage', 'updateLastCreatedPage'] },
+						SELECT_PAGE: { target: '.local', actions: 'selectPage' },
 						VISIT_SHARED: { target: '.connecting', actions: 'visitShared' },
 						RELOAD_PAGES: { target: 'loading' },
 					},
@@ -248,7 +245,7 @@ export const boardsMachine = setup({
 								SERVER_DISCONNECTED: 'local',
 								DESELECT_PAGE: { target: 'local', actions: 'clearActivePage' },
 								// Allow page switches while synced
-								SELECT_PAGE: { target: 'local', actions: ['selectPage', 'updateLastCreatedPage'] },
+								SELECT_PAGE: { target: 'local', actions: 'selectPage' },
 							},
 						},
 						offline: {
