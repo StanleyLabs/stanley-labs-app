@@ -15,6 +15,22 @@ import { ConnectionIndicatorProvider } from './ConnectionIndicator'
 import { ServerSyncBridge } from './ServerSyncBridge'
 import { WhiteboardEditor } from './components/WhiteboardEditor'
 
+function LoadingState() {
+	return (
+		<div style={{
+			position: 'absolute',
+			inset: 0,
+			display: 'flex',
+			alignItems: 'center',
+			justifyContent: 'center',
+			background: 'var(--color-background, #1d1d1d)',
+			color: 'var(--color-text, #e8e8e8)',
+		}}>
+			<div style={{ fontSize: 14, opacity: 0.6 }}>Loading...</div>
+		</div>
+	)
+}
+
 function EmptyState({ onCreate }: { onCreate: () => Promise<void> }) {
 	const [creating, setCreating] = useState(false)
 
@@ -70,7 +86,9 @@ function App() {
 	return (
 		<MachineCtx.Provider value={{ state, send, removeSharedPage }}>
 			<ConnectionIndicatorProvider onRetry={() => send({ type: 'RETRY' })}>
-				{!hasPages && !isLoading ? (
+				{isLoading ? (
+					<LoadingState />
+				) : !hasPages ? (
 					<EmptyState onCreate={createFirstPage} />
 				) : (
 					<>
