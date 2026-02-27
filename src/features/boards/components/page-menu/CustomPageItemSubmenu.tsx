@@ -25,6 +25,7 @@ import {
 	useToasts,
 } from 'tldraw'
 import { ConfirmDeleteDialog } from '../../ConfirmDeleteDialog'
+import { PageSettingsDialog } from '../PageSettingsDialog'
 import { useAuth } from '../../../../lib/AuthContext'
 import * as api from '../../api'
 import type { PageEntry } from '../../machine'
@@ -72,25 +73,18 @@ export function CustomPageItemSubmenu({
 		onMovePage(editor, item.id as TLPageId, index, index + 1, trackEvent)
 	}, [editor, item, index, trackEvent])
 
-	const onShare = useCallback(async () => {
-		if (!entry?.dbId) return
-		const slug = await api.sharePage(entry.dbId, 'view')
-		if (slug) {
-			const url = `${window.location.origin}/boards/s/${slug}`
-			void navigator.clipboard.writeText(url)
-			toasts.addToast({ title: 'Link copied! Page is now shared.', severity: 'success' })
-			window.dispatchEvent(new Event('v2-pages-changed'))
-		}
-	}, [entry, toasts])
-
-	const onUnshare = useCallback(async () => {
-		if (!entry?.dbId) return
-		const ok = await api.unsharePage(entry.dbId)
-		if (ok) {
-			toasts.addToast({ title: 'Page is now private.', severity: 'success' })
-			window.dispatchEvent(new Event('v2-pages-changed'))
-		}
-	}, [entry, toasts])
+	const onOpenSettings = useCallback(() => {
+		if (!entry) return
+		dialogs.addDialog({
+			component: (dProps: { onClose: () => void }) => (
+				<PageSettingsDialog
+					onClose={dProps.onClose}
+					entry={entry}
+					onUpdated={() => window.dispatchEvent(new Event('v2-pages-changed'))}
+				/>
+			),
+		})
+	}, [entry, dialogs])
 
 	const performDelete = useCallback(() => {
 		editor.markHistoryStoppingPoint('deleting page')
@@ -133,8 +127,6 @@ export function CustomPageItemSubmenu({
 		})
 	}, [dialogs, item.name, performDelete, toasts, isLoggedIn, isOwner])
 
-	const isShared = entry?.visibility === 'public'
-
 	return (
 		<TldrawUiDropdownMenuRoot id={`page item submenu ${index}`}>
 			<TldrawUiDropdownMenuTrigger>
@@ -162,22 +154,14 @@ export function CustomPageItemSubmenu({
 						)}
 					</TldrawUiMenuGroup>
 
-					{/* Share controls (authed owners only) */}
-					{isLoggedIn && isOwner && (
-						<TldrawUiMenuGroup id="share">
-							{isShared ? (
-								<TldrawUiMenuItem
-									id="unshare"
-									label={'Make private' as any}
-									onSelect={() => void onUnshare()}
-								/>
-							) : (
-								<TldrawUiMenuItem
-									id="share"
-									label={'Share (copy link)' as any}
-									onSelect={() => void onShare()}
-								/>
-							)}
+					{/* Page settings (authed with entry) */}
+					{isLoggedIn && entry && (
+						<TldrawUiMenuGroup id="settings">
+							<TldrawUiMenuItem
+								id="page-settings"
+								label={'Settings' as any}
+								onSelect={onOpenSettings}
+							/>
 						</TldrawUiMenuGroup>
 					)}
 
