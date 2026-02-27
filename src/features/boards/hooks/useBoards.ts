@@ -484,8 +484,6 @@ export function useBoards(): BoardsOrchestration {
 				role: r.role,
 			}))
 
-			send({ type: 'PAGES_LOADED', pages: entries })
-
 			const map = new Map<string, string>()
 
 			// Ensure all DB pages exist in tldraw
@@ -537,6 +535,10 @@ export function useBoards(): BoardsOrchestration {
 			}
 
 			loadedRef.current = true
+
+			// Notify machine AFTER tldraw is fully set up (pages created, default removed, page selected)
+			// This transitions out of 'loading' and makes the canvas visible
+			send({ type: 'PAGES_LOADED', pages: entries })
 
 			// Hydrate active page snapshot
 			const activeTldraw = editor.getCurrentPageId() as string
