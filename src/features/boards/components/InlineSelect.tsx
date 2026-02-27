@@ -6,6 +6,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+/** Find the nearest tldraw container to inherit CSS vars from. */
+function getTldrawContainer(): HTMLElement {
+	return document.querySelector('.tl-container') as HTMLElement ?? document.body
+}
+
 export interface InlineSelectOption<T extends string> {
 	value: T
 	label: string
@@ -65,9 +70,9 @@ export function InlineSelect<T extends string>({ value, onChange, options, disab
 				zIndex: 99999,
 				minWidth: triggerRef.current?.offsetWidth ?? 80,
 				borderRadius: 6,
-				border: '1px solid var(--color-panel-contrast)',
-				background: 'var(--color-panel)',
-				boxShadow: 'var(--shadow-2)',
+				border: '1px solid var(--tl-color-panel-contrast)',
+				background: 'var(--tl-color-panel)',
+				boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
 				padding: '4px 0',
 				overflow: 'hidden',
 			}}
@@ -83,22 +88,22 @@ export function InlineSelect<T extends string>({ value, onChange, options, disab
 						padding: '5px 12px',
 						fontSize: 12,
 						fontWeight: 500,
-						color: o.color ?? 'var(--color-text-1)',
-						background: o.value === value ? 'var(--color-muted-2)' : 'var(--color-panel)',
+						color: o.color ?? 'var(--tl-color-text-1)',
+						background: o.value === value ? 'var(--tl-color-muted-2)' : 'var(--tl-color-panel)',
 						border: 'none',
 						cursor: 'pointer',
 						textAlign: 'left',
 						borderRadius: 0,
 					}}
-					onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-muted-2)' }}
-					onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = o.value === value ? 'var(--color-muted-2)' : 'var(--color-panel)' }}
+					onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--tl-color-muted-2)' }}
+					onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = o.value === value ? 'var(--tl-color-muted-2)' : 'var(--tl-color-panel)' }}
 					onClick={() => { onChange(o.value); setOpen(false) }}
 				>
 					{o.label}
 				</button>
 			))}
 		</div>,
-		document.body
+		getTldrawContainer()
 	)
 
 	return (
@@ -107,8 +112,8 @@ export function InlineSelect<T extends string>({ value, onChange, options, disab
 				ref={triggerRef}
 				type="button"
 				onClick={() => !disabled && setOpen((v) => !v)}
-				onMouseEnter={(e) => { if (!disabled) (e.currentTarget as HTMLElement).style.background = 'var(--color-muted-2)' }}
-				onMouseLeave={(e) => { if (!open) (e.currentTarget as HTMLElement).style.background = 'var(--color-muted-0, rgba(0,0,0,0.04))' }}
+				onMouseEnter={(e) => { if (!disabled) (e.currentTarget as HTMLElement).style.background = 'var(--tl-color-muted-2)' }}
+				onMouseLeave={(e) => { if (!open) (e.currentTarget as HTMLElement).style.background = 'var(--tl-color-muted-0, rgba(0,0,0,0.04))' }}
 				disabled={disabled}
 				style={{
 					display: 'inline-flex',
@@ -118,9 +123,9 @@ export function InlineSelect<T extends string>({ value, onChange, options, disab
 					fontSize: 12,
 					fontWeight: 500,
 					borderRadius: 6,
-					border: '1px solid var(--color-panel-contrast)',
-					background: open ? 'var(--color-muted-2)' : 'var(--color-muted-0, rgba(0,0,0,0.04))',
-					color: selected?.color ?? 'var(--color-text-1)',
+					border: '1px solid var(--tl-color-panel-contrast)',
+					background: open ? 'var(--tl-color-muted-2)' : 'var(--tl-color-muted-0, rgba(0,0,0,0.04))',
+					color: selected?.color ?? 'var(--tl-color-text-1)',
 					cursor: disabled ? 'default' : 'pointer',
 					opacity: disabled ? 0.5 : 1,
 					outline: 'none',
