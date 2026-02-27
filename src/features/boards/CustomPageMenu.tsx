@@ -47,7 +47,16 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 	const [isOpen, onOpenChange] = useMenuIsOpen('page-menu', handleOpenChange)
 
 	const ITEM_HEIGHT = 36
-	const pages = useValue('pages', () => editor.getPages(), [editor])
+	const allTldrawPages = useValue('pages', () => editor.getPages(), [editor])
+
+	// For authed users, only show pages that exist in the DB.
+	// For guests, show all tldraw pages.
+	const pages = user
+		? allTldrawPages.filter((p) => state.context.pages.some((e) => e.tldrawId === p.id))
+		: allTldrawPages
+
+	// If filtering removed all pages, fall back to showing all (avoids empty menu during loading)
+	const displayPages = pages.length > 0 ? pages : allTldrawPages
 	const currentPage = useValue('currentPage', () => editor.getCurrentPage(), [editor])
 	const currentPageId = useValue('currentPageId', () => editor.getCurrentPageId(), [editor])
 	const isReadonlyMode = useReadonly()
@@ -86,7 +95,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 		handlePointerMove,
 		handlePointerUp,
 		handleKeyDown,
-	} = useSortablePages(pages, ITEM_HEIGHT, editor, trackEvent as (name: string, data?: unknown) => void)
+	} = useSortablePages(displayPages, ITEM_HEIGHT, editor, trackEvent as (name: string, data?: unknown) => void)
 
 	useEffect(() => {
 		if (!isOpen) return
@@ -206,10 +215,10 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 					</div>
 					<div
 						className="tlui-page-menu__list tlui-menu__group"
-						style={{ height: ITEM_HEIGHT * pages.length + 4 }}
+						style={{ height: ITEM_HEIGHT * displayPages.length + 4 }}
 						ref={rSortableContainer}
 					>
-						{pages.map((page, index) => {
+						{displayPages.map((page, index) => {
 							const position = sortablePositionItems[page.id] ?? {
 								y: index * ITEM_HEIGHT,
 								offsetY: 0,
@@ -270,8 +279,8 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 											<CustomPageItemSubmenu
 												index={index}
 												item={page}
-												listSize={pages.length}
-												pages={pages}
+												listSize={displayPages.length}
+												pages={displayPages}
 												entry={entry}
 												trackEvent={trackEvent as (name: string, data?: unknown) => void}
 											/>
@@ -302,8 +311,8 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 											<CustomPageItemSubmenu
 												index={index}
 												item={page}
-												listSize={pages.length}
-												pages={pages}
+												listSize={displayPages.length}
+												pages={displayPages}
 												entry={entry}
 												onRename={() => {
 													if (tlenv.isIos) {

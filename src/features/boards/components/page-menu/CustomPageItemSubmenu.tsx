@@ -168,13 +168,13 @@ export function CustomPageItemSubmenu({
 							{isShared ? (
 								<TldrawUiMenuItem
 									id="unshare"
-									label={{ src: 'Make private' }}
+									label={'Make private' as any}
 									onSelect={() => void onUnshare()}
 								/>
 							) : (
 								<TldrawUiMenuItem
 									id="share"
-									label={{ src: 'Share (copy link)' }}
+									label={'Share (copy link)' as any}
 									onSelect={() => void onShare()}
 								/>
 							)}
@@ -186,7 +186,7 @@ export function CustomPageItemSubmenu({
 						<TldrawUiMenuGroup id="share-hint">
 							<TldrawUiMenuItem
 								id="login-to-share"
-								label={{ src: 'Login to share' }}
+								label={'Login to share' as any}
 								onSelect={() => { window.location.href = '/login' }}
 							/>
 						</TldrawUiMenuGroup>
@@ -197,9 +197,7 @@ export function CustomPageItemSubmenu({
 							<TldrawUiMenuItem
 								id="delete"
 								onSelect={onDelete}
-								label={{
-									src: isLoggedIn && !isOwner ? 'Remove from my pages' : 'page-menu.submenu.delete',
-								}}
+								label={(isLoggedIn && !isOwner ? 'Remove from my pages' : 'Delete') as any}
 							/>
 						</TldrawUiMenuGroup>
 					)}
