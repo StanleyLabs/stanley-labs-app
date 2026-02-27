@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Editor as TldrawEditor } from '@tldraw/editor'
 import type { TLPageId } from '@tldraw/tlschema'
-import { createTLStore, TLINSTANCE_ID } from 'tldraw'
+import { createTLStore, PageRecordType, TLINSTANCE_ID } from 'tldraw'
 import { useMachine } from '@xstate/react'
 
 import {
@@ -375,12 +375,19 @@ export function useBoards(): BoardsOrchestration {
 
 		const removeSharedPage = () => {
 			const tldrawId = stateRef.current.context.activePageTldrawId
-			if (tldrawId && editorRef.current) {
-				const pages = editorRef.current.getPages()
-				if (pages.length > 1) {
-					editorRef.current.deletePage(tldrawId as TLPageId)
+			const editor = editorRef.current
+			if (tldrawId && editor) {
+				const pages = editor.getPages()
+				if (pages.length <= 1) {
+					// tldraw requires at least one page - create a fresh one first
+					const freshId = PageRecordType.createId()
+					editor.createPage({ name: 'Page 1', id: freshId })
+					editor.setCurrentPage(freshId)
 				}
+				try { editor.deletePage(tldrawId as TLPageId) } catch { /* ignore */ }
 			}
+			// Also clean up the tldrawToDb mapping
+			if (tldrawId) tldrawToDb.current.delete(tldrawId)
 			send({ type: 'DESELECT_PAGE' })
 			setUrlToBoards()
 			// Scrub from localStorage
@@ -584,6 +591,35 @@ export function useBoards(): BoardsOrchestration {
 		onChange()
 		return () => unlisten()
 	}, [editorInstance, userId, send])
+
+	// ── Guest: update URL when switching between shared and local pages ─────────
+
+	useEffect(() => {
+		const editor = editorInstance
+		if (!editor || userId) return // only for guests
+
+		let prevPageId: string | null = null
+
+		const onChange = () => {
+			const cur = editor.getCurrentPageId() as string
+			if (!cur || cur === prevPageId) return
+			prevPageId = cur
+
+			const dbId = tldrawToDb.current.get(cur)
+			if (dbId) {
+				// Switching to a shared page
+				const slug = stateRef.current.context.activeSlug
+				if (slug) setUrlToSlug(slug)
+			} else {
+				// Switching to a local page
+				setUrlToBoards()
+			}
+		}
+
+		const unlisten = editor.store.listen(onChange, { scope: 'session' })
+		onChange()
+		return () => unlisten()
+	}, [editorInstance, userId])
 
 	// ── Authed: persist snapshots on edits ─────────────────────────────────────
 
