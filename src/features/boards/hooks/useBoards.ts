@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Editor as TldrawEditor } from '@tldraw/editor'
 import type { TLPageId } from '@tldraw/tlschema'
-import { createTLStore, PageRecordType, TLINSTANCE_ID } from 'tldraw'
+import { createTLStore, TLINSTANCE_ID } from 'tldraw'
 import { useMachine } from '@xstate/react'
 
 import {
@@ -24,8 +24,6 @@ import {
 	isServerSynced,
 	isActivePageShared,
 	shouldAttemptSync,
-	isGuest,
-	isAuthed,
 	type MachineState,
 	type PageEntry,
 } from '../machine'
@@ -322,7 +320,7 @@ export function useBoards(): BoardsOrchestration {
 				dbId: page.id,
 				tldrawId: page.tldraw_page_id,
 				slug,
-				role: userId ? role : role, // same either way
+				role,
 			})
 		})()
 
@@ -555,11 +553,50 @@ export function useBoards(): BoardsOrchestration {
 
 		hydratingRef.current = true
 		try {
-			const records = Object.values(doc.store as Record<string, any>).filter(
-				(r: any) =>
-					r && typeof r === 'object' && 'id' in r &&
-					(!('parentId' in r) || r.parentId === tldrawPageId || r.id === tldrawPageId)
-			)
+			// Collect the page record + all records that belong to this page.
+			// Shapes on the page have parentId = pageId, but shapes inside
+			// groups/frames have parentId = groupShapeId. We need to walk the
+			// tree. Also include assets (no parentId) and bindings.
+			const storeEntries = doc.store as Record<string, any>
+			const pageRecord = storeEntries[tldrawPageId]
+
+			// Build set of all record ids belonging to this page (BFS)
+			const belongsToPage = new Set<string>()
+			if (pageRecord) belongsToPage.add(tldrawPageId)
+
+			// First pass: find direct children of the page
+			const childrenOf = new Map<string, string[]>()
+			for (const [id, rec] of Object.entries(storeEntries)) {
+				const pid = rec?.parentId as string | undefined
+				if (pid) {
+					const list = childrenOf.get(pid)
+					if (list) list.push(id)
+					else childrenOf.set(pid, [id])
+				}
+			}
+
+			// BFS from page id
+			const queue = [tldrawPageId]
+			for (let i = 0; i < queue.length; i++) {
+				const kids = childrenOf.get(queue[i])
+				if (kids) for (const kid of kids) {
+					if (!belongsToPage.has(kid)) {
+						belongsToPage.add(kid)
+						queue.push(kid)
+					}
+				}
+			}
+
+			// Also include assets (no parentId, typeName=asset) and bindings
+			for (const [id, rec] of Object.entries(storeEntries)) {
+				const tn = rec?.typeName as string | undefined
+				if (tn === 'asset' || tn === 'binding') belongsToPage.add(id)
+			}
+
+			const records = Array.from(belongsToPage)
+				.map((id) => storeEntries[id])
+				.filter(Boolean)
+
 			if (records.length) {
 				editor.store.mergeRemoteChanges(() => {
 					editor.store.put(records as any[])

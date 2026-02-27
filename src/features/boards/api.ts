@@ -92,9 +92,12 @@ export async function updatePage(
 	return !error
 }
 
-/** Permanently delete a page (only owner should call this). */
+/** Permanently delete a page and its related data (only owner should call this). */
 export async function deletePage(pageId: string): Promise<boolean> {
 	if (!pageId) return false
+	// Delete in dependency order (or rely on ON DELETE CASCADE if configured)
+	await supabase.from('page_snapshots').delete().eq('page_id', pageId)
+	await supabase.from('page_members').delete().eq('page_id', pageId)
 	const { error } = await supabase.from('pages').delete().eq('id', pageId)
 	if (error) console.warn('[api] deletePage failed:', error.message)
 	return !error
