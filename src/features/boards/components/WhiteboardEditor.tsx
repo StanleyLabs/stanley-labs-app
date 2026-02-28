@@ -69,6 +69,42 @@ function UserInteractionTracker({
 	return null
 }
 
+/**
+ * On touch devices, a long-press opens the context menu via the `contextmenu`
+ * event. When the finger lifts, the subsequent `pointerup` causes Radix to
+ * dismiss the menu immediately. This component swallows that pointerup so
+ * the menu stays open.
+ */
+function TouchContextMenuFix() {
+	const editor = useEditor()
+	useEffect(() => {
+		const container = editor.getContainer()
+		let swallowNextPointerUp = false
+
+		const onContextMenu = () => {
+			// Only activate on touch/coarse-pointer devices
+			if (!editor.getInstanceState().isCoarsePointer) return
+			swallowNextPointerUp = true
+		}
+
+		const onPointerUp = (e: PointerEvent) => {
+			if (!swallowNextPointerUp) return
+			swallowNextPointerUp = false
+			// Stop the pointerup from reaching Radix's dismiss listener
+			e.stopPropagation()
+		}
+
+		// Use capture phase to intercept before Radix sees the events
+		container.addEventListener('contextmenu', onContextMenu, { capture: true })
+		container.addEventListener('pointerup', onPointerUp, { capture: true })
+		return () => {
+			container.removeEventListener('contextmenu', onContextMenu, { capture: true })
+			container.removeEventListener('pointerup', onPointerUp, { capture: true })
+		}
+	}, [editor])
+	return null
+}
+
 /** Listens for shared-page-unavailable events and shows a toast. */
 function SharedPageUnavailableListener() {
 	const toasts = useToasts()
@@ -140,6 +176,7 @@ export function WhiteboardEditor({ boards }: { boards: BoardsOrchestration }) {
 				onMount={onMount}
 			>
 				<SyncThemeToDocument />
+				<TouchContextMenuFix />
 				<SharedPageUnavailableListener />
 				<ReadonlyTracker editable={editable} />
 				{activePageShared && serverSynced && (
