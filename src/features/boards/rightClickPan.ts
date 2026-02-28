@@ -189,11 +189,12 @@ export function setupRightClickPan(editor: EditorLike): () => void {
 	const onContextMenu = createContextMenuHandler(state)
 
 	const opts = { capture: true }
+	const activeOpts = { capture: true, passive: false }
 	container.addEventListener('pointerdown', onPointerDown, opts)
-	container.addEventListener('pointermove', onPointerMove, opts)
+	container.addEventListener('pointermove', onPointerMove, activeOpts)
 	container.addEventListener('pointerup', onPointerUp, opts)
 	container.addEventListener('pointercancel', onPointerUp, opts)
-	container.addEventListener('contextmenu', onContextMenu, opts)
+	container.addEventListener('contextmenu', onContextMenu, activeOpts)
 
 	return () => {
 		if (state.rafId !== 0) {
