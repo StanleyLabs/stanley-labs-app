@@ -166,9 +166,11 @@ function TouchPreventDefaultFix() {
 		if (!canvas) return
 
 		const handler = (e: TouchEvent) => {
-			// Only prevent default on the canvas itself, not on UI elements (menus, buttons)
 			const target = e.target as HTMLElement
+			// Don't interfere with UI elements (menus, buttons)
 			if (target.closest('.tlui-layout')) return
+			// Don't interfere with text editing (cursor placement, selection)
+			if (target.isContentEditable || target.closest('.tl-rich-text-wrapper, .tl-text-input, textarea, input')) return
 			e.preventDefault()
 		}
 
