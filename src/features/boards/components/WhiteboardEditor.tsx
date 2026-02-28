@@ -152,6 +152,32 @@ function SubmenuOverflowFix() {
 	return null
 }
 
+/**
+ * Workaround for tldraw calling preventDefault() on touch events via React
+ * synthetic handlers, which Chrome treats as passive. By adding a native
+ * non-passive touchstart listener that calls preventDefault(), Chrome won't
+ * complain when tldraw's React handler also tries to call it.
+ */
+function TouchPreventDefaultFix() {
+	const editor = useEditor()
+	useEffect(() => {
+		const container = editor.getContainer()
+		const canvas = container.querySelector('.tl-canvas') as HTMLElement | null
+		if (!canvas) return
+
+		const handler = (e: TouchEvent) => {
+			// Only prevent default on the canvas itself, not on UI elements (menus, buttons)
+			const target = e.target as HTMLElement
+			if (target.closest('.tlui-layout')) return
+			e.preventDefault()
+		}
+
+		canvas.addEventListener('touchstart', handler, { passive: false, capture: false })
+		return () => canvas.removeEventListener('touchstart', handler, { capture: false })
+	}, [editor])
+	return null
+}
+
 /** Listens for shared-page-unavailable events and shows a toast. */
 function SharedPageUnavailableListener() {
 	const toasts = useToasts()
@@ -224,6 +250,7 @@ export function WhiteboardEditor({ boards }: { boards: BoardsOrchestration }) {
 			>
 				<SyncThemeToDocument />
 				<TouchContextMenuFix />
+				<TouchPreventDefaultFix />
 				<SubmenuOverflowFix />
 				<SharedPageUnavailableListener />
 				<ReadonlyTracker editable={editable} />
