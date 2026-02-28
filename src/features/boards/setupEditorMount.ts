@@ -27,18 +27,14 @@ export function createEditorOnMount(params: EditorMountParams): () => void {
 
 	const container = editor.getContainer()
 
-	// Auto-detect trackpad vs mouse
-	const lastAutoBehavior = { current: 'pan' as 'pan' | 'zoom' }
+	// Auto-detect trackpad vs mouse — apply on every wheel event for instant response.
+	// Trackpads produce fractional or small deltaY; mice produce large integer steps.
 	const onWheelDetect = (e: WheelEvent): void => {
 		if (editor.user.getUserPreferences().inputMode !== null) return
 		const isTrackpad = !Number.isInteger(e.deltaY) || Math.abs(e.deltaY) < 20
-		const behavior: 'pan' | 'zoom' = isTrackpad ? 'pan' : 'zoom'
-		if (behavior !== lastAutoBehavior.current) {
-			lastAutoBehavior.current = behavior
-			editor.setCameraOptions({ wheelBehavior: behavior })
-		}
+		editor.setCameraOptions({ wheelBehavior: isTrackpad ? 'pan' : 'zoom' })
 	}
-	container.addEventListener('wheel', onWheelDetect, { passive: true })
+	container.addEventListener('wheel', onWheelDetect, { passive: true, capture: true })
 
 	// Zoom to fit
 	const zoomToFitWithLayout = (): void => {
