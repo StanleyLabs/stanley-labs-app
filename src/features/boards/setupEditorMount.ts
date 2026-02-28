@@ -9,7 +9,7 @@ import type { Editor as TldrawEditor } from '@tldraw/editor'
 import type { TLPageId } from '@tldraw/tlschema'
 import { TLINSTANCE_ID } from 'tldraw'
 import type { TLStore } from 'tldraw'
-import { getTheme } from './hooks/useBoards'
+import { getTheme } from './hooks/boardsUtils'
 import { setupRightClickPan } from './rightClickPan'
 
 export interface EditorMountParams {

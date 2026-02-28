@@ -7,13 +7,6 @@ import {
 } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
-// Board-specific localStorage cleanup on auth changes
-function setActiveUserId(id: string | null): void {
-  // No-op: boards hook handles its own namespace via useBoards
-}
-function clearCloudPageIds(): void {
-  try { localStorage.removeItem('whiteboard-cloud-page-ids') } catch { /* ignore */ }
-}
 
 interface AuthState {
   user: User | null;
@@ -51,7 +44,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      setActiveUserId(session?.user?.id ?? null);
       setLoading(false);
     });
 
@@ -61,7 +53,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      setActiveUserId(session?.user?.id ?? null);
       setLoading(false);
     });
 
@@ -93,11 +84,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    // Switch to logged-out localStorage namespace
-    try {
-      clearCloudPageIds();
-      setActiveUserId(null);
-    } catch { /* ignore errors - don't block sign out */ }
     await supabase.auth.signOut();
   };
 

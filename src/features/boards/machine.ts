@@ -137,7 +137,6 @@ export const boardsMachine = setup({
 				activePageTldrawId: e.tldrawId,
 				activeRole: e.role,
 				activeSlug: e.slug ?? null,
-				lastCreatedPageId: e.tldrawId, // Update last created page here as well
 			}
 		}),
 		clearActivePage: assign({

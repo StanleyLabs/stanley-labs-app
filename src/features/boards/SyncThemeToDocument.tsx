@@ -1,6 +1,6 @@
 import { useEditor, useValue } from 'tldraw'
 import { useEffect } from 'react'
-import { setTheme } from './hooks/useBoards'
+import { setTheme } from './hooks/boardsUtils'
 
 const DARK_BG = 'hsl(240, 5%, 6.5%)'
 const LIGHT_BG = 'hsl(210, 20%, 98%)'
