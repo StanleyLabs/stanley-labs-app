@@ -7,6 +7,19 @@ body {
 	overscroll-behavior: none;
 }
 
+/* Keep nested submenus inside the viewport.
+   tldraw uses overflow:clip on .tl-container which visually clips deeply
+   nested Radix submenus. The Radix popper wrapper is position:fixed and
+   placed inside the container, so it gets clipped despite being fixed.
+   Switching from overflow:clip to overflow:hidden on the container still
+   prevents scrollbars but does NOT clip fixed-position descendants,
+   allowing Radix menus to extend outside the container boundary.
+   (overflow:clip clips all content regardless of position; overflow:hidden
+   only clips scrollable overflow and respects position:fixed.) */
+.tl-container {
+	overflow: hidden !important;
+}
+
 /* Horizontal button row (tldraw v4 removed tlui-buttons__horizontal) */
 .tlui-buttons__horizontal {
 	display: flex;
