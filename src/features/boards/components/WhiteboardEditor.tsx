@@ -105,6 +105,53 @@ function TouchContextMenuFix() {
 	return null
 }
 
+/**
+ * Watches for Radix submenu popper wrappers that overflow the viewport
+ * and nudges them back in. tldraw's .tl-container uses overflow:clip which
+ * we can't safely change (breaks touch events), so we adjust the Radix
+ * popper wrapper's inline styles after it positions.
+ */
+function SubmenuOverflowFix() {
+	const editor = useEditor()
+	useEffect(() => {
+		const container = editor.getContainer()
+		const PADDING = 8
+
+		const nudge = () => {
+			// Radix wraps each popper in a div with data-radix-popper-content-wrapper
+			// that has position:fixed + transform for positioning
+			const wrappers = container.querySelectorAll<HTMLElement>('[data-radix-popper-content-wrapper]')
+			for (const wrapper of wrappers) {
+				const menu = wrapper.firstElementChild as HTMLElement | null
+				if (!menu?.classList.contains('tlui-menu__submenu__content') &&
+					!menu?.classList.contains('tlui-menu')) continue
+
+				const rect = wrapper.getBoundingClientRect()
+				if (rect.width === 0) continue
+
+				// Overflow right
+				if (rect.right > window.innerWidth - PADDING) {
+					const currentLeft = parseFloat(wrapper.style.left) || rect.left
+					wrapper.style.left = `${currentLeft - (rect.right - window.innerWidth + PADDING)}px`
+				}
+				// Overflow bottom
+				if (rect.bottom > window.innerHeight - PADDING) {
+					const currentTop = parseFloat(wrapper.style.top) || rect.top
+					wrapper.style.top = `${currentTop - (rect.bottom - window.innerHeight + PADDING)}px`
+				}
+			}
+		}
+
+		const observer = new MutationObserver(() => {
+			requestAnimationFrame(nudge)
+		})
+		observer.observe(container, { childList: true, subtree: true })
+
+		return () => observer.disconnect()
+	}, [editor])
+	return null
+}
+
 /** Listens for shared-page-unavailable events and shows a toast. */
 function SharedPageUnavailableListener() {
 	const toasts = useToasts()
@@ -177,6 +224,7 @@ export function WhiteboardEditor({ boards }: { boards: BoardsOrchestration }) {
 			>
 				<SyncThemeToDocument />
 				<TouchContextMenuFix />
+				<SubmenuOverflowFix />
 				<SharedPageUnavailableListener />
 				<ReadonlyTracker editable={editable} />
 				{activePageShared && serverSynced && (

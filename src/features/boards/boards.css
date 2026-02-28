@@ -8,16 +8,10 @@ body {
 }
 
 /* Keep nested submenus inside the viewport.
-   tldraw uses overflow:clip on .tl-container which visually clips deeply
-   nested Radix submenus. Switching to overflow:hidden still prevents
-   scrollbars but allows position:fixed Radix menu portals to extend
-   outside the container boundary. touch-action:none prevents the browser
-   from treating the now-scrollable container as a touch-scroll target
-   (which would make touch listeners passive and break preventDefault). */
-.tl-container {
-	overflow: hidden !important;
-	touch-action: none;
-}
+   tldraw uses overflow:clip on .tl-container which clips Radix submenu
+   portals. Rather than changing overflow (which breaks touch events),
+   we use a MutationObserver in WhiteboardEditor to reposition submenus
+   that would overflow the viewport. */
 
 /* Horizontal button row (tldraw v4 removed tlui-buttons__horizontal) */
 .tlui-buttons__horizontal {
