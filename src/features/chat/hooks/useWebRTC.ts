@@ -1,7 +1,21 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { io, Socket } from 'socket.io-client'
 
-const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }]
+function getIceServers(): RTCIceServer[] {
+  const raw = import.meta.env.VITE_ICE_SERVERS_JSON
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw) as unknown
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed as RTCIceServer[]
+    } catch {
+      console.warn('[webrtc] VITE_ICE_SERVERS_JSON is not valid JSON; using defaults')
+    }
+  }
+  return [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ]
+}
 
 interface UseWebRTCOptions {
   roomId: string
@@ -24,6 +38,7 @@ export function useWebRTC({
 }: UseWebRTCOptions) {
   const socketRef = useRef<Socket | null>(null)
   const peersRef = useRef<Record<string, RTCPeerConnection>>({})
+  const pendingIceRef = useRef<Record<string, RTCIceCandidateInit[]>>({})
 
   const getSocket = useCallback(() => socketRef.current, [])
 
@@ -38,9 +53,36 @@ export function useWebRTC({
   useEffect(() => {
     if (!localStream) return
 
+    const iceServers = getIceServers()
     const serverUrl = import.meta.env.VITE_SIGNALING_SERVER_URL || undefined
     const socket = io(serverUrl)
     socketRef.current = socket
+
+    const flushPendingIce = async (peerId: string, peer: RTCPeerConnection) => {
+      const pending = pendingIceRef.current[peerId]
+      if (!pending?.length) return
+      pendingIceRef.current[peerId] = []
+      for (const init of pending) {
+        try {
+          await peer.addIceCandidate(new RTCIceCandidate(init))
+        } catch (err) {
+          console.warn('[webrtc] addIceCandidate (queued)', err)
+        }
+      }
+    }
+
+    const enqueueOrAddIce = (peerId: string, init: RTCIceCandidateInit) => {
+      const peer = peersRef.current[peerId]
+      if (!peer) return
+      if (!peer.remoteDescription) {
+        if (!pendingIceRef.current[peerId]) pendingIceRef.current[peerId] = []
+        pendingIceRef.current[peerId].push(init)
+        return
+      }
+      peer.addIceCandidate(new RTCIceCandidate(init)).catch(err => {
+        console.warn('[webrtc] addIceCandidate', err)
+      })
+    }
 
     socket.on('connect', () => {
       onConnected()
@@ -55,7 +97,8 @@ export function useWebRTC({
       const peerId = config.peer_id
       if (peersRef.current[peerId]) return
 
-      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
+      pendingIceRef.current[peerId] = []
+      const pc = new RTCPeerConnection({ iceServers })
       peersRef.current[peerId] = pc
 
       pc.onicecandidate = (e) => {
@@ -64,6 +107,7 @@ export function useWebRTC({
             peer_id: peerId,
             ice_candidate: {
               sdpMLineIndex: e.candidate.sdpMLineIndex,
+              sdpMid: e.candidate.sdpMid ?? undefined,
               candidate: e.candidate.candidate,
             },
           })
@@ -97,16 +141,18 @@ export function useWebRTC({
       peer_id: string
       session_description: RTCSessionDescriptionInit
     }) => {
-      const peer = peersRef.current[config.peer_id]
+      const peerId = config.peer_id
+      const peer = peersRef.current[peerId]
       if (!peer) return
 
       try {
         await peer.setRemoteDescription(new RTCSessionDescription(config.session_description))
+        await flushPendingIce(peerId, peer)
         if (config.session_description.type === 'offer') {
           const desc = await peer.createAnswer()
           await peer.setLocalDescription(desc)
           socket.emit('relaySessionDescription', {
-            peer_id: config.peer_id,
+            peer_id: peerId,
             session_description: desc,
           })
         }
@@ -116,8 +162,7 @@ export function useWebRTC({
     })
 
     socket.on('iceCandidate', (config: { peer_id: string; ice_candidate: RTCIceCandidateInit }) => {
-      const peer = peersRef.current[config.peer_id]
-      if (peer) peer.addIceCandidate(new RTCIceCandidate(config.ice_candidate))
+      enqueueOrAddIce(config.peer_id, config.ice_candidate)
     })
 
     socket.on('removePeer', (config: { peer_id: string }) => {
@@ -126,6 +171,7 @@ export function useWebRTC({
         peersRef.current[peerId].close()
         delete peersRef.current[peerId]
       }
+      delete pendingIceRef.current[peerId]
       onPeerRemoved(peerId)
     })
 
@@ -136,6 +182,7 @@ export function useWebRTC({
     return () => {
       Object.values(peersRef.current).forEach(pc => pc.close())
       peersRef.current = {}
+      pendingIceRef.current = {}
       socket.disconnect()
       socketRef.current = null
     }
