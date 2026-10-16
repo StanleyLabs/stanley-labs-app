@@ -3,19 +3,12 @@
  * Handles drag-and-drop reordering of pages with pointer events.
  */
 
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
-import type { IndexKey } from '@tldraw/utils'
-import {
-	getIndexAbove,
-	getIndexBelow,
-	getIndexBetween,
-} from '@tldraw/utils'
-import type { TLPageId } from '@tldraw/tlschema'
-import {
-	releasePointerCapture,
-	setPointerCapture,
-} from '@tldraw/editor'
-import type { Editor } from '@tldraw/editor'
+import { useCallback, useLayoutEffect, useRef, useState } from "react"
+import type { IndexKey } from "@tldraw/utils"
+import { getIndexAbove, getIndexBelow, getIndexBetween } from "@tldraw/utils"
+import type { TLPageId } from "@tldraw/tlschema"
+import { releasePointerCapture, setPointerCapture } from "@tldraw/editor"
+import type { Editor } from "@tldraw/editor"
 
 export type SortablePosition = { y: number; offsetY: number; isSelected: boolean }
 
@@ -24,13 +17,10 @@ type TrackEvent = (name: string, data?: unknown) => void
 export function buildSortablePositions(
 	pages: Array<{ id: string }>,
 	itemHeight: number,
-	isSelected = false
+	isSelected = false,
 ): Record<string, SortablePosition> {
 	return Object.fromEntries(
-		pages.map((page, i) => [
-			page.id,
-			{ y: i * itemHeight, offsetY: 0, isSelected },
-		])
+		pages.map((page, i) => [page.id, { y: i * itemHeight, offsetY: 0, isSelected }]),
 	)
 }
 
@@ -39,7 +29,7 @@ function onMovePage(
 	id: TLPageId,
 	from: number,
 	to: number,
-	trackEvent: TrackEvent
+	trackEvent: TrackEvent,
 ): void {
 	const pages = editor.getPages()
 	const below = from > to ? pages[to - 1] : pages[to]
@@ -55,9 +45,9 @@ function onMovePage(
 		index = getIndexAbove(null)
 	}
 	if (index !== pages[from].index) {
-		editor.markHistoryStoppingPoint('moving page')
+		editor.markHistoryStoppingPoint("moving page")
 		editor.updatePage({ id, index })
-		trackEvent('move-page', { source: 'page-menu' })
+		trackEvent("move-page", { source: "page-menu" })
 	}
 }
 
@@ -65,12 +55,12 @@ export function useSortablePages(
 	pages: Array<{ id: string }>,
 	itemHeight: number,
 	editor: Editor,
-	trackEvent: TrackEvent
+	trackEvent: TrackEvent,
 ) {
 	const rSortableContainer = useRef<HTMLDivElement>(null)
 	const rMutables = useRef({
 		isPointing: false,
-		status: 'idle' as 'idle' | 'pointing' | 'dragging',
+		status: "idle" as "idle" | "pointing" | "dragging",
 		pointing: null as { id: string; index: number } | null,
 		startY: 0,
 		startIndex: 0,
@@ -78,7 +68,7 @@ export function useSortablePages(
 	})
 
 	const [sortablePositionItems, setSortablePositionItems] = useState(() =>
-		buildSortablePositions(pages, itemHeight)
+		buildSortablePositions(pages, itemHeight),
 	)
 
 	useLayoutEffect(() => {
@@ -98,7 +88,7 @@ export function useSortablePages(
 
 			setPointerCapture(e.currentTarget, e)
 
-			mut.status = 'pointing'
+			mut.status = "pointing"
 			mut.pointing = { id, index: +index }
 			const current = sortablePositionItems[id]
 			const dragY = current.y
@@ -106,21 +96,21 @@ export function useSortablePages(
 			mut.startY = clientY
 			mut.startIndex = Math.max(0, Math.min(Math.round(dragY / itemHeight), pages.length - 1))
 		},
-		[itemHeight, pages.length, sortablePositionItems]
+		[itemHeight, pages.length, sortablePositionItems],
 	)
 
 	const handlePointerMove = useCallback(
 		(e: React.PointerEvent<HTMLButtonElement>) => {
 			const mut = rMutables.current
-			if (mut.status === 'pointing') {
+			if (mut.status === "pointing") {
 				const { clientY } = e
 				const offset = clientY - mut.startY
 				if (Math.abs(offset) > 5) {
-					mut.status = 'dragging'
+					mut.status = "dragging"
 				}
 			}
 
-			if (mut.status === 'dragging') {
+			if (mut.status === "dragging") {
 				const { clientY } = e
 				const offsetY = clientY - mut.startY
 				const current = sortablePositionItems[mut.pointing!.id]
@@ -172,35 +162,35 @@ export function useSortablePages(
 				setSortablePositionItems(next)
 			}
 		},
-		[itemHeight, pages, sortablePositionItems]
+		[itemHeight, pages, sortablePositionItems],
 	)
 
 	const handlePointerUp = useCallback(
 		(e: React.PointerEvent<HTMLButtonElement>) => {
 			const mut = rMutables.current
 
-			if (mut.status === 'dragging') {
+			if (mut.status === "dragging") {
 				const { id, index } = mut.pointing!
 				onMovePage(editor, id as TLPageId, index, mut.dragIndex, trackEvent)
 			}
 
 			releasePointerCapture(e.currentTarget, e)
-			mut.status = 'idle'
+			mut.status = "idle"
 		},
-		[editor, trackEvent]
+		[editor, trackEvent],
 	)
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent<HTMLButtonElement>) => {
 			const mut = rMutables.current
-			if (e.key === 'Escape') {
-				if (mut.status === 'dragging') {
+			if (e.key === "Escape") {
+				if (mut.status === "dragging") {
 					setSortablePositionItems(buildSortablePositions(pages, itemHeight))
 				}
-				mut.status = 'idle'
+				mut.status = "idle"
 			}
 		},
-		[itemHeight, pages]
+		[itemHeight, pages],
 	)
 
 	return {

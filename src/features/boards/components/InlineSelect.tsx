@@ -3,12 +3,12 @@
  * Uses fixed positioning so the menu escapes dialog overflow.
  */
 
-import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 
 /** Find the nearest tldraw container to inherit CSS vars from. */
 function getTldrawContainer(): HTMLElement {
-	return document.querySelector('.tl-container') as HTMLElement ?? document.body
+	return (document.querySelector(".tl-container") as HTMLElement) ?? document.body
 }
 
 export interface InlineSelectOption<T extends string> {
@@ -45,66 +45,81 @@ export function InlineSelect<T extends string>({ value, onChange, options, disab
 			if (
 				triggerRef.current?.contains(e.target as Node) ||
 				menuRef.current?.contains(e.target as Node)
-			) return
+			)
+				return
 			setOpen(false)
 		}
 		const handleKey = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') { e.stopPropagation(); setOpen(false) }
+			if (e.key === "Escape") {
+				e.stopPropagation()
+				setOpen(false)
+			}
 		}
-		document.addEventListener('mousedown', handleClick)
-		document.addEventListener('keydown', handleKey, true)
+		document.addEventListener("mousedown", handleClick)
+		document.addEventListener("keydown", handleKey, true)
 		return () => {
-			document.removeEventListener('mousedown', handleClick)
-			document.removeEventListener('keydown', handleKey, true)
+			document.removeEventListener("mousedown", handleClick)
+			document.removeEventListener("keydown", handleKey, true)
 		}
 	}, [open])
 
-	const menu = open && pos && createPortal(
-		<div
-			ref={menuRef}
-			className="tlui-menu"
-			style={{
-				position: 'fixed',
-				top: pos.top,
-				left: pos.left,
-				zIndex: 99999,
-				minWidth: triggerRef.current?.offsetWidth ?? 80,
-				borderRadius: 6,
-				border: '1px solid var(--tl-color-panel-contrast)',
-				background: 'var(--tl-color-panel)',
-				boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-				padding: '4px 0',
-				overflow: 'hidden',
-			}}
-		>
-			{options.map((o) => (
-				<button
-					key={o.value}
-					type="button"
-					style={{
-						display: 'flex',
-						width: '100%',
-						alignItems: 'center',
-						padding: '5px 12px',
-						fontSize: 12,
-						fontWeight: 500,
-						color: o.color ?? 'var(--tl-color-text-1)',
-						background: o.value === value ? 'var(--tl-color-muted-2)' : 'var(--tl-color-panel)',
-						border: 'none',
-						cursor: 'pointer',
-						textAlign: 'left',
-						borderRadius: 0,
-					}}
-					onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--tl-color-muted-2)' }}
-					onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = o.value === value ? 'var(--tl-color-muted-2)' : 'var(--tl-color-panel)' }}
-					onClick={() => { onChange(o.value); setOpen(false) }}
-				>
-					{o.label}
-				</button>
-			))}
-		</div>,
-		getTldrawContainer()
-	)
+	const menu =
+		open &&
+		pos &&
+		createPortal(
+			<div
+				ref={menuRef}
+				className="tlui-menu"
+				style={{
+					position: "fixed",
+					top: pos.top,
+					left: pos.left,
+					zIndex: 99999,
+					minWidth: triggerRef.current?.offsetWidth ?? 80,
+					borderRadius: 6,
+					border: "1px solid var(--tl-color-panel-contrast)",
+					background: "var(--tl-color-panel)",
+					boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+					padding: "4px 0",
+					overflow: "hidden",
+				}}
+			>
+				{options.map((o) => (
+					<button
+						key={o.value}
+						type="button"
+						style={{
+							display: "flex",
+							width: "100%",
+							alignItems: "center",
+							padding: "5px 12px",
+							fontSize: 12,
+							fontWeight: 500,
+							color: o.color ?? "var(--tl-color-text-1)",
+							background: o.value === value ? "var(--tl-color-muted-2)" : "var(--tl-color-panel)",
+							border: "none",
+							cursor: "pointer",
+							textAlign: "left",
+							borderRadius: 0,
+						}}
+						onMouseEnter={(e) => {
+							;(e.currentTarget as HTMLElement).style.background = "var(--tl-color-muted-2)"
+						}}
+						onMouseLeave={(e) => {
+							;(e.currentTarget as HTMLElement).style.background =
+								o.value === value ? "var(--tl-color-muted-2)" : "var(--tl-color-panel)"
+						}}
+						onClick={() => {
+							onChange(o.value)
+							setOpen(false)
+						}}
+					>
+						{o.label}
+					</button>
+				))}
+			</div>,
+			getTldrawContainer(),
+		)
 
 	return (
 		<>
@@ -112,30 +127,49 @@ export function InlineSelect<T extends string>({ value, onChange, options, disab
 				ref={triggerRef}
 				type="button"
 				onClick={() => !disabled && setOpen((v) => !v)}
-				onMouseEnter={(e) => { if (!disabled) (e.currentTarget as HTMLElement).style.background = 'var(--tl-color-muted-2)' }}
-				onMouseLeave={(e) => { if (!open) (e.currentTarget as HTMLElement).style.background = 'var(--tl-color-muted-0, rgba(0,0,0,0.04))' }}
+				onMouseEnter={(e) => {
+					if (!disabled)
+						(e.currentTarget as HTMLElement).style.background = "var(--tl-color-muted-2)"
+				}}
+				onMouseLeave={(e) => {
+					if (!open)
+						(e.currentTarget as HTMLElement).style.background =
+							"var(--tl-color-muted-0, rgba(0,0,0,0.04))"
+				}}
 				disabled={disabled}
 				style={{
-					display: 'inline-flex',
-					alignItems: 'center',
+					display: "inline-flex",
+					alignItems: "center",
 					gap: 4,
-					padding: '4px 8px',
+					padding: "4px 8px",
 					fontSize: 12,
 					fontWeight: 500,
 					borderRadius: 6,
-					border: '1px solid var(--tl-color-panel-contrast)',
-					background: open ? 'var(--tl-color-muted-2)' : 'var(--tl-color-muted-0, rgba(0,0,0,0.04))',
-					color: selected?.color ?? 'var(--tl-color-text-1)',
-					cursor: disabled ? 'default' : 'pointer',
+					border: "1px solid var(--tl-color-panel-contrast)",
+					background: open
+						? "var(--tl-color-muted-2)"
+						: "var(--tl-color-muted-0, rgba(0,0,0,0.04))",
+					color: selected?.color ?? "var(--tl-color-text-1)",
+					cursor: disabled ? "default" : "pointer",
 					opacity: disabled ? 0.5 : 1,
-					outline: 'none',
+					outline: "none",
 				}}
 			>
 				<span>{selected?.label ?? value}</span>
 				<svg
-					width="10" height="10" viewBox="0 0 24 24" fill="none"
-					stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-					style={{ opacity: 0.4, transition: 'transform 0.15s', transform: open ? 'rotate(180deg)' : 'none' }}
+					width="10"
+					height="10"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2.5"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					style={{
+						opacity: 0.4,
+						transition: "transform 0.15s",
+						transform: open ? "rotate(180deg)" : "none",
+					}}
 				>
 					<path d="m6 9 6 6 6-6" />
 				</svg>

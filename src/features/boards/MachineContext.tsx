@@ -2,8 +2,8 @@
  * React context for the boards state machine.
  */
 
-import { createContext, useContext } from 'react'
-import type { MachineState, BoardsEvent } from './machine'
+import { createContext, useContext } from "react"
+import type { MachineState, BoardsEvent } from "./machine"
 
 export interface NewPageInfo {
 	dbId: string

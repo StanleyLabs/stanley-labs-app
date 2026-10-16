@@ -11,8 +11,8 @@ import {
 	TldrawUiDialogCloseButton,
 	TldrawUiDialogHeader,
 	TldrawUiDialogTitle,
-} from 'tldraw'
-import type { TLUiDialogProps } from 'tldraw'
+} from "tldraw"
+import type { TLUiDialogProps } from "tldraw"
 
 export interface ConfirmDeleteDialogProps extends TLUiDialogProps {
 	pageName: string
@@ -32,10 +32,19 @@ export function ConfirmDeleteDialog(props: ConfirmDeleteDialogProps) {
 			</TldrawUiDialogHeader>
 			<TldrawUiDialogBody className="delete-page-dialog__body">
 				<p className="delete-page-dialog__subtitle">
-					{isLoggedIn
-						? <>Are you sure you want to delete &quot;{pageName}&quot;?<br />This will permanently remove it from your account.</>
-						: <>Are you sure you want to delete &quot;{pageName}&quot;?<br />This will remove it from this browser.</>
-					}
+					{isLoggedIn ? (
+						<>
+							Are you sure you want to delete &quot;{pageName}&quot;?
+							<br />
+							This will permanently remove it from your account.
+						</>
+					) : (
+						<>
+							Are you sure you want to delete &quot;{pageName}&quot;?
+							<br />
+							This will remove it from this browser.
+						</>
+					)}
 				</p>
 				<div className="delete-page-dialog__actions">
 					<TldrawUiButton type="normal" onClick={close}>

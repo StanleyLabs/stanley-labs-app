@@ -4,13 +4,13 @@
  * and right-click pan.
  */
 
-import type { MutableRefObject } from 'react'
-import type { Editor as TldrawEditor } from '@tldraw/editor'
-import type { TLPageId } from '@tldraw/tlschema'
-import { TLINSTANCE_ID } from 'tldraw'
-import type { TLStore } from 'tldraw'
-import { getTheme } from './hooks/boardsUtils'
-import { setupRightClickPan } from './rightClickPan'
+import type { MutableRefObject } from "react"
+import type { Editor as TldrawEditor } from "@tldraw/editor"
+import type { TLPageId } from "@tldraw/tlschema"
+import { TLINSTANCE_ID } from "tldraw"
+import type { TLStore } from "tldraw"
+import { getTheme } from "./hooks/boardsUtils"
+import { setupRightClickPan } from "./rightClickPan"
 
 export interface EditorMountParams {
 	editor: TldrawEditor
@@ -32,9 +32,9 @@ export function createEditorOnMount(params: EditorMountParams): () => void {
 	const onWheelDetect = (e: WheelEvent): void => {
 		if (editor.user.getUserPreferences().inputMode !== null) return
 		const isTrackpad = !Number.isInteger(e.deltaY) || Math.abs(e.deltaY) < 20
-		editor.setCameraOptions({ wheelBehavior: isTrackpad ? 'pan' : 'zoom' })
+		editor.setCameraOptions({ wheelBehavior: isTrackpad ? "pan" : "zoom" })
 	}
-	container.addEventListener('wheel', onWheelDetect, { passive: true, capture: true })
+	container.addEventListener("wheel", onWheelDetect, { passive: true, capture: true })
 
 	// Zoom to fit
 	const zoomToFitWithLayout = (): void => {
@@ -48,7 +48,7 @@ export function createEditorOnMount(params: EditorMountParams): () => void {
 	let prevPageId = editor.getCurrentPageId()
 	const unlistenPage = store.listen(() => {
 		const inst = store.get(TLINSTANCE_ID) as { currentPageId?: string } | undefined
-		const pageId = (inst?.currentPageId ?? '') as TLPageId
+		const pageId = (inst?.currentPageId ?? "") as TLPageId
 		if (pageId && pageId !== prevPageId) {
 			prevPageId = pageId
 			zoomToFitWithLayout()
@@ -61,6 +61,6 @@ export function createEditorOnMount(params: EditorMountParams): () => void {
 		editorRef.current = null
 		unlistenPage()
 		rightClickPanCleanup()
-		container.removeEventListener('wheel', onWheelDetect)
+		container.removeEventListener("wheel", onWheelDetect)
 	}
 }

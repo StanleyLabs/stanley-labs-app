@@ -25,11 +25,11 @@
  * the orchestration hook reads to drive persistence and sync.
  */
 
-import { setup, assign, type SnapshotFrom } from 'xstate'
+import { setup, assign, type SnapshotFrom } from "xstate"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-export type PageRole = 'owner' | 'editor' | 'viewer'
+export type PageRole = "owner" | "editor" | "viewer"
 
 export interface PageEntry {
 	/** DB page id */
@@ -37,9 +37,9 @@ export interface PageEntry {
 	/** tldraw page id (page:xxx) */
 	tldrawId: string
 	title: string
-	visibility: 'private' | 'members' | 'public'
+	visibility: "private" | "members" | "public"
 	publicSlug: string | null
-	publicAccess: 'view' | 'edit' | null
+	publicAccess: "view" | "edit" | null
 	sortIndex: string | null
 	role: PageRole
 }
@@ -68,31 +68,31 @@ export interface BoardsContext {
 
 export type BoardsEvent =
 	// Auth
-	| { type: 'LOGIN'; userId: string }
-	| { type: 'LOGOUT' }
+	| { type: "LOGIN"; userId: string }
+	| { type: "LOGOUT" }
 
 	// Backend init
-	| { type: 'BACKEND_READY' }
-	| { type: 'BACKEND_UNAVAILABLE' }
+	| { type: "BACKEND_READY" }
+	| { type: "BACKEND_UNAVAILABLE" }
 
 	// Page list (authed)
-	| { type: 'PAGES_LOADED'; pages: PageEntry[] }
-	| { type: 'PAGE_ADDED'; page: PageEntry }
-	| { type: 'PAGES_FAILED'; error: string }
-	| { type: 'RELOAD_PAGES' }
+	| { type: "PAGES_LOADED"; pages: PageEntry[] }
+	| { type: "PAGE_ADDED"; page: PageEntry }
+	| { type: "PAGES_FAILED"; error: string }
+	| { type: "RELOAD_PAGES" }
 
 	// Page selection
-	| { type: 'SELECT_PAGE'; dbId: string; tldrawId: string; role: PageRole; slug?: string | null }
-	| { type: 'DESELECT_PAGE' }
+	| { type: "SELECT_PAGE"; dbId: string; tldrawId: string; role: PageRole; slug?: string | null }
+	| { type: "DESELECT_PAGE" }
 
 	// Shared link visit (guest or authed)
-	| { type: 'VISIT_SHARED'; dbId: string; tldrawId: string; slug: string; role: PageRole }
-	| { type: 'UPDATE_ROLE'; role: PageRole }
+	| { type: "VISIT_SHARED"; dbId: string; tldrawId: string; slug: string; role: PageRole }
+	| { type: "UPDATE_ROLE"; role: PageRole }
 
 	// Sync lifecycle
-	| { type: 'SERVER_CONNECTED' }
-	| { type: 'SERVER_DISCONNECTED' }
-	| { type: 'RETRY' }
+	| { type: "SERVER_CONNECTED" }
+	| { type: "SERVER_DISCONNECTED" }
+	| { type: "RETRY" }
 
 // ── Machine ────────────────────────────────────────────────────────────────────
 
@@ -114,24 +114,31 @@ export const boardsMachine = setup({
 	},
 	actions: {
 		setUser: assign(({ event }) => {
-			const e = event as Extract<BoardsEvent, { type: 'LOGIN' }>
+			const e = event as Extract<BoardsEvent, { type: "LOGIN" }>
 			return { userId: e.userId }
 		}),
-		clearUser: assign({ userId: null, pages: [], activePageDbId: null, activePageTldrawId: null, activeRole: null, activeSlug: null }),
+		clearUser: assign({
+			userId: null,
+			pages: [],
+			activePageDbId: null,
+			activePageTldrawId: null,
+			activeRole: null,
+			activeSlug: null,
+		}),
 		setPages: assign(({ event }) => {
-			const e = event as Extract<BoardsEvent, { type: 'PAGES_LOADED' }>
+			const e = event as Extract<BoardsEvent, { type: "PAGES_LOADED" }>
 			return { pages: e.pages, error: null }
 		}),
 		addPage: assign(({ context, event }) => {
-			const e = event as Extract<BoardsEvent, { type: 'PAGE_ADDED' }>
+			const e = event as Extract<BoardsEvent, { type: "PAGE_ADDED" }>
 			return { pages: [...context.pages, e.page] }
 		}),
 		setError: assign(({ event }) => {
-			const e = event as Extract<BoardsEvent, { type: 'PAGES_FAILED' }>
+			const e = event as Extract<BoardsEvent, { type: "PAGES_FAILED" }>
 			return { error: e.error }
 		}),
 		selectPage: assign(({ event }) => {
-			const e = event as Extract<BoardsEvent, { type: 'SELECT_PAGE' }>
+			const e = event as Extract<BoardsEvent, { type: "SELECT_PAGE" }>
 			return {
 				activePageDbId: e.dbId,
 				activePageTldrawId: e.tldrawId,
@@ -146,7 +153,7 @@ export const boardsMachine = setup({
 			activeSlug: null,
 		}),
 		visitShared: assign(({ event }) => {
-			const e = event as Extract<BoardsEvent, { type: 'VISIT_SHARED' }>
+			const e = event as Extract<BoardsEvent, { type: "VISIT_SHARED" }>
 			return {
 				activePageDbId: e.dbId,
 				activePageTldrawId: e.tldrawId,
@@ -155,7 +162,7 @@ export const boardsMachine = setup({
 			}
 		}),
 		updateRole: assign(({ event }) => {
-			const e = event as Extract<BoardsEvent, { type: 'UPDATE_ROLE' }>
+			const e = event as Extract<BoardsEvent, { type: "UPDATE_ROLE" }>
 			return { activeRole: e.role }
 		}),
 		markBackendReady: assign({ backendReady: true }),
@@ -164,41 +171,41 @@ export const boardsMachine = setup({
 		isPageShared: ({ context }) => {
 			if (!context.activePageDbId) return false
 			const page = context.pages.find((p) => p.dbId === context.activePageDbId)
-			return page?.visibility === 'public' || Boolean(context.activeSlug)
+			return page?.visibility === "public" || Boolean(context.activeSlug)
 		},
 	},
 }).createMachine({
-	id: 'boards',
-	initial: 'guest',
+	id: "boards",
+	initial: "guest",
 	context: initialContext,
 
 	on: {
-		BACKEND_READY: { actions: 'markBackendReady' },
+		BACKEND_READY: { actions: "markBackendReady" },
 		BACKEND_UNAVAILABLE: {},
 	},
 
 	states: {
 		guest: {
 			on: {
-				LOGIN: { target: 'authed', actions: 'setUser' },
-				VISIT_SHARED: { target: '.viewing', actions: 'visitShared' },
+				LOGIN: { target: "authed", actions: "setUser" },
+				VISIT_SHARED: { target: ".viewing", actions: "visitShared" },
 			},
-			initial: 'idle',
+			initial: "idle",
 			states: {
 				idle: {},
 				viewing: {
 					on: {
-						DESELECT_PAGE: { target: 'idle', actions: 'clearActivePage' },
+						DESELECT_PAGE: { target: "idle", actions: "clearActivePage" },
 						// Allow sync server for shared page viewing
-						SERVER_CONNECTED: { target: 'viewingSynced' },
-						UPDATE_ROLE: { actions: 'updateRole' },
+						SERVER_CONNECTED: { target: "viewingSynced" },
+						UPDATE_ROLE: { actions: "updateRole" },
 					},
 				},
 				viewingSynced: {
 					on: {
-						DESELECT_PAGE: { target: 'idle', actions: 'clearActivePage' },
-						SERVER_DISCONNECTED: { target: 'viewing' },
-						UPDATE_ROLE: { actions: 'updateRole' },
+						DESELECT_PAGE: { target: "idle", actions: "clearActivePage" },
+						SERVER_DISCONNECTED: { target: "viewing" },
+						UPDATE_ROLE: { actions: "updateRole" },
 					},
 				},
 			},
@@ -206,52 +213,52 @@ export const boardsMachine = setup({
 
 		authed: {
 			on: {
-				LOGOUT: { target: 'guest', actions: 'clearUser' },
+				LOGOUT: { target: "guest", actions: "clearUser" },
 			},
-			initial: 'loading',
+			initial: "loading",
 			states: {
 				loading: {
 					on: {
-						PAGES_LOADED: { target: 'ready', actions: 'setPages' },
-						PAGES_FAILED: { target: 'ready', actions: 'setError' },
+						PAGES_LOADED: { target: "ready", actions: "setPages" },
+						PAGES_FAILED: { target: "ready", actions: "setError" },
 					},
 				},
 				ready: {
 					on: {
-						PAGE_ADDED: { actions: 'addPage' },
-						SELECT_PAGE: { target: '.local', actions: 'selectPage' },
-						VISIT_SHARED: { target: '.connecting', actions: 'visitShared' },
-						RELOAD_PAGES: { target: 'loading' },
+						PAGE_ADDED: { actions: "addPage" },
+						SELECT_PAGE: { target: ".local", actions: "selectPage" },
+						VISIT_SHARED: { target: ".connecting", actions: "visitShared" },
+						RELOAD_PAGES: { target: "loading" },
 					},
-					initial: 'local',
+					initial: "local",
 					states: {
 						local: {
 							on: {
 								SERVER_CONNECTED: {
-									target: 'serverSync',
-									guard: 'isPageShared',
+									target: "serverSync",
+									guard: "isPageShared",
 								},
-								DESELECT_PAGE: { actions: 'clearActivePage' },
+								DESELECT_PAGE: { actions: "clearActivePage" },
 							},
 						},
 						connecting: {
 							on: {
-								SERVER_CONNECTED: 'serverSync',
-								SERVER_DISCONNECTED: 'offline',
+								SERVER_CONNECTED: "serverSync",
+								SERVER_DISCONNECTED: "offline",
 							},
 						},
 						serverSync: {
 							on: {
-								SERVER_DISCONNECTED: 'local',
-								DESELECT_PAGE: { target: 'local', actions: 'clearActivePage' },
+								SERVER_DISCONNECTED: "local",
+								DESELECT_PAGE: { target: "local", actions: "clearActivePage" },
 								// Allow page switches while synced
-								SELECT_PAGE: { target: 'local', actions: 'selectPage' },
+								SELECT_PAGE: { target: "local", actions: "selectPage" },
 							},
 						},
 						offline: {
 							on: {
-								RETRY: 'connecting',
-								DESELECT_PAGE: { target: 'local', actions: 'clearActivePage' },
+								RETRY: "connecting",
+								DESELECT_PAGE: { target: "local", actions: "clearActivePage" },
 							},
 						},
 					},
@@ -266,33 +273,33 @@ export const boardsMachine = setup({
 export type MachineState = SnapshotFrom<typeof boardsMachine>
 
 export function isGuest(state: MachineState): boolean {
-	return state.matches('guest')
+	return state.matches("guest")
 }
 
 export function isAuthed(state: MachineState): boolean {
-	return state.matches('authed')
+	return state.matches("authed")
 }
 
 export function isLoading(state: MachineState): boolean {
-	return state.matches({ authed: 'loading' })
+	return state.matches({ authed: "loading" })
 }
 
 export function isReady(state: MachineState): boolean {
-	return state.matches({ authed: 'ready' })
+	return state.matches({ authed: "ready" })
 }
 
 export function isEditable(state: MachineState): boolean {
 	const { activeRole } = state.context
 	// Guest idle = editing local pages
-	if (state.matches({ guest: 'idle' })) return true
+	if (state.matches({ guest: "idle" })) return true
 	// Guest viewing a shared page: editable only if public_access=edit
-	if (state.matches({ guest: 'viewing' }) || state.matches({ guest: 'viewingSynced' })) {
-		return activeRole === 'editor' || activeRole === 'owner'
+	if (state.matches({ guest: "viewing" }) || state.matches({ guest: "viewingSynced" })) {
+		return activeRole === "editor" || activeRole === "owner"
 	}
 	// Authed: editable if role is owner/editor, or if no page selected yet (loading/default state)
 	if (isAuthed(state)) {
 		if (!activeRole) return true // default editable while loading
-		return activeRole === 'owner' || activeRole === 'editor'
+		return activeRole === "owner" || activeRole === "editor"
 	}
 	return false
 }
@@ -303,19 +310,18 @@ export function isViewingSharedLink(state: MachineState): boolean {
 
 export function isServerSynced(state: MachineState): boolean {
 	return (
-		state.matches({ authed: { ready: 'serverSync' } }) ||
-		state.matches({ guest: 'viewingSynced' })
+		state.matches({ authed: { ready: "serverSync" } }) || state.matches({ guest: "viewingSynced" })
 	)
 }
 
 /** Whether the sync bridge component should be mounted. */
 export function shouldAttemptSync(state: MachineState): boolean {
 	return (
-		state.matches({ authed: { ready: 'connecting' } }) ||
-		state.matches({ authed: { ready: 'local' } }) ||
-		state.matches({ authed: { ready: 'serverSync' } }) ||
-		state.matches({ guest: 'viewing' }) ||
-		state.matches({ guest: 'viewingSynced' })
+		state.matches({ authed: { ready: "connecting" } }) ||
+		state.matches({ authed: { ready: "local" } }) ||
+		state.matches({ authed: { ready: "serverSync" } }) ||
+		state.matches({ guest: "viewing" }) ||
+		state.matches({ guest: "viewingSynced" })
 	)
 }
 
@@ -324,19 +330,25 @@ export function isActivePageShared(state: MachineState): boolean {
 	if (activeSlug) return true
 	if (!activePageDbId) return false
 	const page = pages.find((p) => p.dbId === activePageDbId)
-	return page?.visibility === 'public'
+	return page?.visibility === "public"
 }
 
 export function isOwner(state: MachineState): boolean {
-	return state.context.activeRole === 'owner'
+	return state.context.activeRole === "owner"
 }
 
 /** Get the sync status for the connection indicator. */
-export function getSyncStatus(state: MachineState): 'local' | 'loading' | 'synced' | 'server-sync' | 'offline' {
-	if (state.matches({ authed: { ready: 'serverSync' } }) || state.matches({ guest: 'viewingSynced' })) return 'server-sync'
-	if (state.matches({ authed: { ready: 'connecting' } })) return 'loading'
-	if (state.matches({ authed: { ready: 'offline' } })) return 'offline'
-	if (state.matches({ authed: { ready: 'local' } }) && state.context.activePageDbId) return 'synced'
-	if (state.matches({ authed: 'loading' })) return 'loading'
-	return 'local'
+export function getSyncStatus(
+	state: MachineState,
+): "local" | "loading" | "synced" | "server-sync" | "offline" {
+	if (
+		state.matches({ authed: { ready: "serverSync" } }) ||
+		state.matches({ guest: "viewingSynced" })
+	)
+		return "server-sync"
+	if (state.matches({ authed: { ready: "connecting" } })) return "loading"
+	if (state.matches({ authed: { ready: "offline" } })) return "offline"
+	if (state.matches({ authed: { ready: "local" } }) && state.context.activePageDbId) return "synced"
+	if (state.matches({ authed: "loading" })) return "loading"
+	return "local"
 }

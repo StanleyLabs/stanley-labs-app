@@ -12,34 +12,34 @@ import {
 	TLPointerEventInfo,
 	TLStateNodeConstructor,
 	Vec,
-} from '@tldraw/editor'
+} from "@tldraw/editor"
 
 // ── Idle: default cursor (not grab) ─────────────────────────────────────────
 
 class HandIdle extends StateNode {
-	static override id = 'idle'
+	static override id = "idle"
 
 	override onEnter(): void {
-		this.editor.setCursor({ type: 'default', rotation: 0 })
+		this.editor.setCursor({ type: "default", rotation: 0 })
 	}
 
 	override onPointerDown(info: TLPointerEventInfo): void {
-		this.parent.transition('pointing', info)
+		this.parent.transition("pointing", info)
 	}
 
 	override onCancel(): void {
-		this.editor.setCurrentTool('select')
+		this.editor.setCurrentTool("select")
 	}
 }
 
 // ── Pointing: grab cursor when pointer down (before/while dragging) ─────────
 
 class HandPointing extends StateNode {
-	static override id = 'pointing'
+	static override id = "pointing"
 
 	override onEnter(): void {
 		this.editor.stopCameraAnimation()
-		this.editor.setCursor({ type: 'grabbing', rotation: 0 })
+		this.editor.setCursor({ type: "grabbing", rotation: 0 })
 	}
 
 	override onLongPress(): void {
@@ -53,7 +53,7 @@ class HandPointing extends StateNode {
 	}
 
 	private startDragging(): void {
-		this.parent.transition('dragging')
+		this.parent.transition("dragging")
 	}
 
 	override onPointerUp(): void {
@@ -73,14 +73,14 @@ class HandPointing extends StateNode {
 	}
 
 	private complete(): void {
-		this.parent.transition('idle')
+		this.parent.transition("idle")
 	}
 }
 
 // ── Dragging: same as default HandTool ──────────────────────────────────────
 
 class HandDragging extends StateNode {
-	static override id = 'dragging'
+	static override id = "dragging"
 
 	initialCamera = new Vec()
 
@@ -98,7 +98,7 @@ class HandDragging extends StateNode {
 	}
 
 	override onCancel(): void {
-		this.parent.transition('idle')
+		this.parent.transition("idle")
 	}
 
 	override onComplete(): void {
@@ -121,15 +121,15 @@ class HandDragging extends StateNode {
 		if (velocityAtPointerUp > 0.1) {
 			editor.slideCamera({ speed: velocityAtPointerUp, direction: pointerVelocity })
 		}
-		this.parent.transition('idle')
+		this.parent.transition("idle")
 	}
 }
 
 // ── HandTool: replaces default via same id ──────────────────────────────────
 
 export class HandTool extends StateNode {
-	static override id = 'hand'
-	static override initial = 'idle'
+	static override id = "hand"
+	static override initial = "idle"
 	static override isLockable = false
 
 	static override children(): TLStateNodeConstructor[] {
@@ -137,7 +137,7 @@ export class HandTool extends StateNode {
 	}
 
 	override onDoubleClick(info: TLClickEventInfo): void {
-		if (info.phase === 'settle') {
+		if (info.phase === "settle") {
 			const currentScreenPoint = this.editor.inputs.getCurrentScreenPoint()
 			this.editor.zoomIn(currentScreenPoint, {
 				animation: { duration: 220, easing: EASINGS.easeOutQuint },
@@ -146,7 +146,7 @@ export class HandTool extends StateNode {
 	}
 
 	override onTripleClick(info: TLClickEventInfo): void {
-		if (info.phase === 'settle') {
+		if (info.phase === "settle") {
 			const currentScreenPoint = this.editor.inputs.getCurrentScreenPoint()
 			this.editor.zoomOut(currentScreenPoint, {
 				animation: { duration: 320, easing: EASINGS.easeOutQuint },
@@ -155,7 +155,7 @@ export class HandTool extends StateNode {
 	}
 
 	override onQuadrupleClick(info: TLClickEventInfo): void {
-		if (info.phase === 'settle') {
+		if (info.phase === "settle") {
 			const zoomLevel = this.editor.getZoomLevel()
 			const currentScreenPoint = this.editor.inputs.getCurrentScreenPoint()
 			if (zoomLevel === 1) {

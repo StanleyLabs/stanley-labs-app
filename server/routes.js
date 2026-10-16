@@ -1,24 +1,24 @@
-import express from 'express'
-import { resolve } from 'path'
+import express from "express"
+import { resolve } from "path"
 
 const routes = express()
 
-routes.use(express.static('dist'))
-routes.use(express.static('public'))
+routes.use(express.static("dist"))
+routes.use(express.static("public"))
 routes.use(express.json())
 routes.use(express.urlencoded({ extended: true }))
 
-routes.get('/test', (req, res) => {
-    res.send('😊')
+routes.get("/test", (req, res) => {
+	res.send("😊")
 })
 
-routes.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() })
+routes.get("/health", (req, res) => {
+	res.json({ status: "ok", timestamp: new Date().toISOString() })
 })
 
 // SPA fallback
-routes.get('/{*splat}', (req, res) => {
-    res.sendFile(resolve('dist', 'index.html'))
+routes.get("/{*splat}", (req, res) => {
+	res.sendFile(resolve("dist", "index.html"))
 })
 
 export default routes

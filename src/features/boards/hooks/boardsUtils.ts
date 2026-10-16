@@ -5,9 +5,9 @@
  * and snapshot hydration. No React — just functions.
  */
 
-import type { Editor as TldrawEditor } from '@tldraw/editor'
-import type { TLRecord } from '@tldraw/tlschema'
-import * as api from '../api'
+import type { Editor as TldrawEditor } from "@tldraw/editor"
+import type { TLRecord } from "@tldraw/tlschema"
+import * as api from "../api"
 
 // ── Stored document helpers ────────────────────────────────────────────────────
 
@@ -16,66 +16,96 @@ export type StoreRecords = Record<string, TLRecord>
 /** Unwrap a stored snapshot, which may be `{ document: { store, schema } }` or `{ store, schema }`. */
 export function unwrapDocument(raw: unknown): { store: StoreRecords; schema?: unknown } | null {
 	const outer = raw as { document?: unknown } | null | undefined
-	const doc = (outer?.document ?? outer) as { store?: StoreRecords; schema?: unknown } | null | undefined
+	const doc = (outer?.document ?? outer) as
+		{ store?: StoreRecords; schema?: unknown } | null | undefined
 	return doc?.store ? { store: doc.store, schema: doc.schema } : null
 }
 
 /** parentId of a record, for record types that have one (shapes). */
 export function parentIdOf(rec: TLRecord | undefined): string | undefined {
-	return rec && 'parentId' in rec ? rec.parentId : undefined
+	return rec && "parentId" in rec ? rec.parentId : undefined
 }
 
 // ── localStorage helpers ───────────────────────────────────────────────────────
 
-export const LS_KEY = 'whiteboard-document'
-export const LS_LAST_PAGE = 'whiteboard-last-selected-page-id'
-const LS_THEME = 'whiteboard-theme'
+export const LS_KEY = "whiteboard-document"
+export const LS_LAST_PAGE = "whiteboard-last-selected-page-id"
+const LS_THEME = "whiteboard-theme"
 
 export function lsLoad(): string | null {
-	try { return localStorage.getItem(LS_KEY) } catch { return null }
+	try {
+		return localStorage.getItem(LS_KEY)
+	} catch {
+		return null
+	}
 }
 
 export function lsSave(json: string): void {
-	try { localStorage.setItem(LS_KEY, json) } catch { /* quota */ }
+	try {
+		localStorage.setItem(LS_KEY, json)
+	} catch {
+		/* quota */
+	}
 }
 
 export function lsGetLastPage(): string | null {
-	try { return localStorage.getItem(LS_LAST_PAGE) } catch { return null }
+	try {
+		return localStorage.getItem(LS_LAST_PAGE)
+	} catch {
+		return null
+	}
 }
 
 export function lsSetLastPage(id: string): void {
-	try { localStorage.setItem(LS_LAST_PAGE, id) } catch { /* ignore */ }
+	try {
+		localStorage.setItem(LS_LAST_PAGE, id)
+	} catch {
+		/* ignore */
+	}
 }
 
-export function getTheme(): 'dark' | 'light' {
+export function getTheme(): "dark" | "light" {
 	try {
 		const v = localStorage.getItem(LS_THEME)
-		if (v === 'light' || v === 'dark') return v
-	} catch { /* ignore */ }
-	return 'dark'
+		if (v === "light" || v === "dark") return v
+	} catch {
+		/* ignore */
+	}
+	return "dark"
 }
 
-export function setTheme(theme: 'dark' | 'light'): void {
-	try { localStorage.setItem(LS_THEME, theme) } catch { /* ignore */ }
+export function setTheme(theme: "dark" | "light"): void {
+	try {
+		localStorage.setItem(LS_THEME, theme)
+	} catch {
+		/* ignore */
+	}
 }
 
 // ── URL helpers ────────────────────────────────────────────────────────────────
 
 export function getSlugFromUrl(): string | null {
-	const parts = window.location.pathname.replace(/^\/boards\/?/, '').split('/').filter(Boolean)
-	if (parts[0] === 's' && parts[1]) {
-		try { return decodeURIComponent(parts[1]) } catch { return parts[1] }
+	const parts = window.location.pathname
+		.replace(/^\/boards\/?/, "")
+		.split("/")
+		.filter(Boolean)
+	if (parts[0] === "s" && parts[1]) {
+		try {
+			return decodeURIComponent(parts[1])
+		} catch {
+			return parts[1]
+		}
 	}
 	return null
 }
 
 export function setUrlToSlug(slug: string): void {
-	window.history.replaceState({}, '', `/boards/s/${slug}`)
+	window.history.replaceState({}, "", `/boards/s/${slug}`)
 }
 
 export function setUrlToBoards(): void {
-	if (window.location.pathname !== '/boards') {
-		window.history.replaceState({}, '', '/boards')
+	if (window.location.pathname !== "/boards") {
+		window.history.replaceState({}, "", "/boards")
 	}
 }
 
@@ -84,9 +114,26 @@ export function setUrlToBoards(): void {
 export function throttle<T extends () => void>(fn: T, ms: number) {
 	let timer: ReturnType<typeof setTimeout> | null = null
 	return {
-		run: () => { if (!timer) timer = setTimeout(() => { timer = null; fn() }, ms) },
-		flush: () => { if (timer) { clearTimeout(timer); timer = null; fn() } },
-		cancel: () => { if (timer) { clearTimeout(timer); timer = null } },
+		run: () => {
+			if (!timer)
+				timer = setTimeout(() => {
+					timer = null
+					fn()
+				}, ms)
+		},
+		flush: () => {
+			if (timer) {
+				clearTimeout(timer)
+				timer = null
+				fn()
+			}
+		},
+		cancel: () => {
+			if (timer) {
+				clearTimeout(timer)
+				timer = null
+			}
+		},
 	}
 }
 
@@ -127,18 +174,19 @@ export async function hydrateFromDb(
 		const queue = [tldrawPageId]
 		for (let i = 0; i < queue.length; i++) {
 			const kids = childrenOf.get(queue[i])
-			if (kids) for (const kid of kids) {
-				if (!belongsToPage.has(kid)) {
-					belongsToPage.add(kid)
-					queue.push(kid)
+			if (kids)
+				for (const kid of kids) {
+					if (!belongsToPage.has(kid)) {
+						belongsToPage.add(kid)
+						queue.push(kid)
+					}
 				}
-			}
 		}
 
 		// Include assets and bindings
 		for (const [id, rec] of Object.entries(storeEntries)) {
 			const tn = rec?.typeName
-			if (tn === 'asset' || tn === 'binding') belongsToPage.add(id)
+			if (tn === "asset" || tn === "binding") belongsToPage.add(id)
 		}
 
 		// Exclude the page record itself - already created with correct name from DB
@@ -153,6 +201,8 @@ export async function hydrateFromDb(
 				editor.store.put(records)
 			})
 		}
-	} catch { /* ignore */ }
+	} catch {
+		/* ignore */
+	}
 	hydratingRef.current = false
 }

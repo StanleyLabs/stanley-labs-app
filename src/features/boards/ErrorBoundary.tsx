@@ -2,8 +2,8 @@
  * Catches React render errors and displays a friendly message instead of crashing.
  */
 
-import { Component, type ErrorInfo, type ReactNode } from 'react'
-import { getCachedTheme } from './themeUtils'
+import { Component, type ErrorInfo, type ReactNode } from "react"
+import { getCachedTheme } from "./themeUtils"
 
 interface Props {
 	children: ReactNode
@@ -22,7 +22,7 @@ export class ErrorBoundary extends Component<Props, State> {
 	}
 
 	componentDidCatch(error: Error, info: ErrorInfo): void {
-		console.error('[ErrorBoundary]', error, info.componentStack)
+		console.error("[ErrorBoundary]", error, info.componentStack)
 	}
 
 	handleRetry = (): void => {
@@ -32,38 +32,36 @@ export class ErrorBoundary extends Component<Props, State> {
 	render(): ReactNode {
 		if (this.state.error) {
 			if (this.props.fallback) return this.props.fallback
-			const theme = getCachedTheme() ?? 'dark'
+			const theme = getCachedTheme() ?? "dark"
 			return (
 				<div
 					className={`tldraw__editor tl-theme__${theme}`}
 					style={{
-						position: 'fixed',
+						position: "fixed",
 						inset: 0,
-						display: 'flex',
-						flexDirection: 'column',
-						alignItems: 'center',
-						justifyContent: 'center',
+						display: "flex",
+						flexDirection: "column",
+						alignItems: "center",
+						justifyContent: "center",
 						padding: 24,
 						gap: 16,
-						background: 'var(--tl-color-background, var(--app-bg))',
-						color: 'var(--tl-color-text)',
+						background: "var(--tl-color-background, var(--app-bg))",
+						color: "var(--tl-color-text)",
 					}}
 				>
 					<h2>Something went wrong</h2>
-					<p style={{ maxWidth: 400, textAlign: 'center' }}>
-						{this.state.error.message}
-					</p>
+					<p style={{ maxWidth: 400, textAlign: "center" }}>{this.state.error.message}</p>
 					<button
 						type="button"
 						onClick={this.handleRetry}
 						style={{
-							padding: '8px 16px',
+							padding: "8px 16px",
 							fontSize: 14,
-							cursor: 'pointer',
+							cursor: "pointer",
 							borderRadius: 6,
-							border: '1px solid var(--tl-color-divider)',
-							background: 'var(--tl-color-low)',
-							color: 'var(--tl-color-text)',
+							border: "1px solid var(--tl-color-divider)",
+							background: "var(--tl-color-low)",
+							color: "var(--tl-color-text)",
 						}}
 					>
 						Try again

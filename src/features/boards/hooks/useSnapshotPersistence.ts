@@ -5,13 +5,13 @@
  * for both authed users and guests editing shared pages.
  */
 
-import { useEffect } from 'react'
-import type { Editor as TldrawEditor } from '@tldraw/editor'
-import type { TLPageId } from '@tldraw/tlschema'
-import type { MachineState } from '../machine'
-import * as api from '../api'
-import { getContentAsJsonDocForPage } from '../sharePage'
-import { throttle } from './boardsUtils'
+import { useEffect } from "react"
+import type { Editor as TldrawEditor } from "@tldraw/editor"
+import type { TLPageId } from "@tldraw/tlschema"
+import type { MachineState } from "../machine"
+import * as api from "../api"
+import { getContentAsJsonDocForPage } from "../sharePage"
+import { throttle } from "./boardsUtils"
 
 const SAVE_THROTTLE_MS = 2000
 
@@ -34,7 +34,6 @@ export function useSnapshotPersistence({
 	stateRef,
 	isGuestViewingShared,
 }: UseSnapshotPersistenceParams): void {
-
 	// ── Authed: persist snapshots on edits ──────────────────────────────────────
 
 	useEffect(() => {
@@ -53,7 +52,7 @@ export function useSnapshotPersistence({
 		}
 
 		const t = throttle(persist, SAVE_THROTTLE_MS)
-		const unlisten = editor.store.listen(t.run, { scope: 'document' })
+		const unlisten = editor.store.listen(t.run, { scope: "document" })
 
 		return () => {
 			unlisten()
@@ -81,7 +80,7 @@ export function useSnapshotPersistence({
 		}
 
 		const t = throttle(persist, SAVE_THROTTLE_MS)
-		const unlisten = editor.store.listen(t.run, { scope: 'document' })
+		const unlisten = editor.store.listen(t.run, { scope: "document" })
 
 		return () => {
 			unlisten()

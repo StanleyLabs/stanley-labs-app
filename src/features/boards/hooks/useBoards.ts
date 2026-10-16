@@ -10,10 +10,10 @@
  * The UI layer consumes the returned state and callbacks.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Editor as TldrawEditor } from '@tldraw/editor'
-import { createTLStore } from 'tldraw'
-import { useMachine } from '@xstate/react'
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import type { Editor as TldrawEditor } from "@tldraw/editor"
+import { createTLStore } from "tldraw"
+import { useMachine } from "@xstate/react"
 
 import {
 	boardsMachine,
@@ -23,20 +23,20 @@ import {
 	shouldAttemptSync,
 	type MachineState,
 	type PageEntry,
-} from '../machine'
-import { useAuth } from '../../../lib/auth'
-import { pocketbaseUrl } from '../../../lib/pocketbase'
-import { buildSyncUri, isSyncServerConfigured } from '../sharePage'
-import { getSlugFromUrl } from './boardsUtils'
+} from "../machine"
+import { useAuth } from "../../../lib/auth"
+import { pocketbaseUrl } from "../../../lib/pocketbase"
+import { buildSyncUri, isSyncServerConfigured } from "../sharePage"
+import { getSlugFromUrl } from "./boardsUtils"
 
 // Re-export theme helpers so existing imports keep working
-export { getTheme, setTheme } from './boardsUtils'
+export { getTheme, setTheme } from "./boardsUtils"
 
 // Sub-hooks
-import { useGuestPersistence } from './useGuestPersistence'
-import { useSharedLink } from './useSharedLink'
-import { useAuthedPages } from './useAuthedPages'
-import { useSnapshotPersistence } from './useSnapshotPersistence'
+import { useGuestPersistence } from "./useGuestPersistence"
+import { useSharedLink } from "./useSharedLink"
+import { useAuthedPages } from "./useAuthedPages"
+import { useSnapshotPersistence } from "./useSnapshotPersistence"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -59,7 +59,14 @@ export interface BoardsOrchestration {
 	pageEntryMap: Map<string, PageEntry>
 	onEditorMount: (editor: TldrawEditor) => () => void
 	removeSharedPage: () => void
-	registerPage: (page: { dbId: string; tldrawId: string; title: string; visibility?: string; publicSlug?: string | null; publicAccess?: string | null }) => void
+	registerPage: (page: {
+		dbId: string
+		tldrawId: string
+		title: string
+		visibility?: string
+		publicSlug?: string | null
+		publicAccess?: string | null
+	}) => void
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
@@ -102,21 +109,22 @@ export function useBoards(): BoardsOrchestration {
 
 	useEffect(() => {
 		if (userId) {
-			send({ type: 'LOGIN', userId })
+			send({ type: "LOGIN", userId })
 		} else {
-			send({ type: 'LOGOUT' })
+			send({ type: "LOGOUT" })
 		}
 	}, [userId, send])
 
 	// ── Backend init ───────────────────────────────────────────────────────────
 
 	useEffect(() => {
-		send(pocketbaseUrl ? { type: 'BACKEND_READY' } : { type: 'BACKEND_UNAVAILABLE' })
+		send(pocketbaseUrl ? { type: "BACKEND_READY" } : { type: "BACKEND_UNAVAILABLE" })
 	}, [send])
 
 	// ── Derived values for sub-hooks ───────────────────────────────────────────
 
-	const isGuestViewingShared = !userId && (Boolean(state.context.activeSlug) || Boolean(getSlugFromUrl()))
+	const isGuestViewingShared =
+		!userId && (Boolean(state.context.activeSlug) || Boolean(getSlugFromUrl()))
 
 	// ── Sub-hooks ──────────────────────────────────────────────────────────────
 
@@ -172,9 +180,7 @@ export function useBoards(): BoardsOrchestration {
 		Boolean(state.context.activePageDbId) &&
 		activePageShared
 
-	const syncUri = state.context.activePageDbId
-		? buildSyncUri(state.context.activePageDbId)
-		: ''
+	const syncUri = state.context.activePageDbId ? buildSyncUri(state.context.activePageDbId) : ""
 
 	const [serverRetryKey, setServerRetryKey] = useState(0)
 	const bumpServerRetry = useCallback(() => setServerRetryKey((k) => k + 1), [])
@@ -187,22 +193,33 @@ export function useBoards(): BoardsOrchestration {
 
 	// ── registerPage ───────────────────────────────────────────────────────────
 
-	const registerPage = useCallback((page: { dbId: string; tldrawId: string; title: string; visibility?: string; publicSlug?: string | null; publicAccess?: string | null; sortIndex?: string | null }) => {
-		tldrawToDb.current.set(page.tldrawId, page.dbId)
-		send({
-			type: 'PAGE_ADDED',
-			page: {
-				dbId: page.dbId,
-				tldrawId: page.tldrawId,
-				title: page.title,
-				visibility: (page.visibility ?? 'private') as PageEntry['visibility'],
-				publicSlug: page.publicSlug ?? null,
-				publicAccess: (page.publicAccess ?? null) as 'view' | 'edit' | null,
-				sortIndex: page.sortIndex ?? null,
-				role: 'owner',
-			},
-		})
-	}, [send])
+	const registerPage = useCallback(
+		(page: {
+			dbId: string
+			tldrawId: string
+			title: string
+			visibility?: string
+			publicSlug?: string | null
+			publicAccess?: string | null
+			sortIndex?: string | null
+		}) => {
+			tldrawToDb.current.set(page.tldrawId, page.dbId)
+			send({
+				type: "PAGE_ADDED",
+				page: {
+					dbId: page.dbId,
+					tldrawId: page.tldrawId,
+					title: page.title,
+					visibility: (page.visibility ?? "private") as PageEntry["visibility"],
+					publicSlug: page.publicSlug ?? null,
+					publicAccess: (page.publicAccess ?? null) as "view" | "edit" | null,
+					sortIndex: page.sortIndex ?? null,
+					role: "owner",
+				},
+			})
+		},
+		[send],
+	)
 
 	return {
 		store,

@@ -3,16 +3,16 @@
  * Receives boards orchestration state and renders the editor with sync components.
  */
 
-import { useEffect, useMemo } from 'react'
-import { Tldraw, DefaultMenuPanel, useEditor, useToasts, type Editor } from 'tldraw'
-import { HandTool } from '../handToolCursor'
-import { createPasteActionOverride } from '../pasteJson'
-import { ConnectionIndicator } from '../ConnectionIndicator'
-import { SyncThemeToDocument } from '../SyncThemeToDocument'
-import { CustomContextMenu, CustomMainMenu } from '../ExportMenu'
-import { CustomPageMenu } from '../CustomPageMenu'
-import { createEditorOnMount } from '../setupEditorMount'
-import type { BoardsOrchestration } from '../hooks/useBoards'
+import { useEffect, useMemo } from "react"
+import { Tldraw, DefaultMenuPanel, useEditor, useToasts, type Editor } from "tldraw"
+import { HandTool } from "../handToolCursor"
+import { createPasteActionOverride } from "../pasteJson"
+import { ConnectionIndicator } from "../ConnectionIndicator"
+import { SyncThemeToDocument } from "../SyncThemeToDocument"
+import { CustomContextMenu, CustomMainMenu } from "../ExportMenu"
+import { CustomPageMenu } from "../CustomPageMenu"
+import { createEditorOnMount } from "../setupEditorMount"
+import type { BoardsOrchestration } from "../hooks/useBoards"
 
 const licenseKey = import.meta.env.VITE_TLDRAW_LICENSE_KEY ?? undefined
 const SYNC_APPLY_IDLE_MS = 400
@@ -44,7 +44,10 @@ function UserInteractionTracker({
 				onIdleEnd()
 			}, SYNC_APPLY_IDLE_MS)
 		}
-		const onDown = () => { isUserInteractingRef.current = true; scheduleIdleApply() }
+		const onDown = () => {
+			isUserInteractingRef.current = true
+			scheduleIdleApply()
+		}
 		const onUp = () => scheduleIdleApply()
 		const onKey = () => {
 			if (container.contains(document.activeElement)) {
@@ -52,18 +55,18 @@ function UserInteractionTracker({
 				scheduleIdleApply()
 			}
 		}
-		container.addEventListener('pointerdown', onDown)
-		container.addEventListener('pointerup', onUp)
-		window.addEventListener('pointerup', onUp)
-		window.addEventListener('keydown', onKey)
-		window.addEventListener('keyup', onKey)
+		container.addEventListener("pointerdown", onDown)
+		container.addEventListener("pointerup", onUp)
+		window.addEventListener("pointerup", onUp)
+		window.addEventListener("keydown", onKey)
+		window.addEventListener("keyup", onKey)
 		return () => {
 			if (idleTimer) clearTimeout(idleTimer)
-			container.removeEventListener('pointerdown', onDown)
-			container.removeEventListener('pointerup', onUp)
-			window.removeEventListener('pointerup', onUp)
-			window.removeEventListener('keydown', onKey)
-			window.removeEventListener('keyup', onKey)
+			container.removeEventListener("pointerdown", onDown)
+			container.removeEventListener("pointerup", onUp)
+			window.removeEventListener("pointerup", onUp)
+			window.removeEventListener("keydown", onKey)
+			window.removeEventListener("keyup", onKey)
 		}
 	}, [editor, isUserInteractingRef, onIdleEnd])
 	return null
@@ -95,11 +98,11 @@ function TouchContextMenuFix() {
 		}
 
 		// Use capture phase to intercept before Radix sees the events
-		container.addEventListener('contextmenu', onContextMenu, { capture: true })
-		container.addEventListener('pointerup', onPointerUp, { capture: true })
+		container.addEventListener("contextmenu", onContextMenu, { capture: true })
+		container.addEventListener("pointerup", onPointerUp, { capture: true })
 		return () => {
-			container.removeEventListener('contextmenu', onContextMenu, { capture: true })
-			container.removeEventListener('pointerup', onPointerUp, { capture: true })
+			container.removeEventListener("contextmenu", onContextMenu, { capture: true })
+			container.removeEventListener("pointerup", onPointerUp, { capture: true })
 		}
 	}, [editor])
 	return null
@@ -120,11 +123,16 @@ function SubmenuOverflowFix() {
 		const nudge = () => {
 			// Radix wraps each popper in a div with data-radix-popper-content-wrapper
 			// that has position:fixed + transform for positioning
-			const wrappers = container.querySelectorAll<HTMLElement>('[data-radix-popper-content-wrapper]')
+			const wrappers = container.querySelectorAll<HTMLElement>(
+				"[data-radix-popper-content-wrapper]",
+			)
 			for (const wrapper of wrappers) {
 				const menu = wrapper.firstElementChild as HTMLElement | null
-				if (!menu?.classList.contains('tlui-menu__submenu__content') &&
-					!menu?.classList.contains('tlui-menu')) continue
+				if (
+					!menu?.classList.contains("tlui-menu__submenu__content") &&
+					!menu?.classList.contains("tlui-menu")
+				)
+					continue
 
 				const rect = wrapper.getBoundingClientRect()
 				if (rect.width === 0) continue
@@ -152,28 +160,42 @@ function SubmenuOverflowFix() {
 	return null
 }
 
-
 /** Listens for shared-page-unavailable events and shows a toast. */
 function SharedPageUnavailableListener() {
 	const toasts = useToasts()
 	useEffect(() => {
 		const handler = () => {
 			toasts.addToast({
-				title: 'This shared page is no longer available.',
-				severity: 'warning',
+				title: "This shared page is no longer available.",
+				severity: "warning",
 			})
 		}
-		window.addEventListener('boards:shared-page-unavailable', handler)
-		return () => window.removeEventListener('boards:shared-page-unavailable', handler)
+		window.addEventListener("boards:shared-page-unavailable", handler)
+		return () => window.removeEventListener("boards:shared-page-unavailable", handler)
 	}, [toasts])
 	return null
 }
 
 function MenuPanelWithIndicator() {
 	return (
-		<div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 3, marginTop: 4 }}>
+		<div
+			style={{
+				display: "flex",
+				flexDirection: "row",
+				alignItems: "flex-start",
+				gap: 3,
+				marginTop: 4,
+			}}
+		>
 			<DefaultMenuPanel />
-			<div style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0, pointerEvents: 'all' }}>
+			<div
+				style={{
+					display: "inline-flex",
+					alignItems: "center",
+					flexShrink: 0,
+					pointerEvents: "all",
+				}}
+			>
 				<ConnectionIndicator />
 			</div>
 		</div>
@@ -205,11 +227,11 @@ export function WhiteboardEditor({ boards }: { boards: BoardsOrchestration }) {
 				cleanupSetup()
 			}
 		},
-		[store, editorRef, onEditorMount]
+		[store, editorRef, onEditorMount],
 	)
 
 	return (
-		<div style={{ position: 'absolute', inset: 0 }}>
+		<div style={{ position: "absolute", inset: 0 }}>
 			<Tldraw
 				store={store}
 				licenseKey={licenseKey}

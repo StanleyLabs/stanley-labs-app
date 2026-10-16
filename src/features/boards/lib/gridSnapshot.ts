@@ -3,11 +3,11 @@
  * Used by persistence and shared-page connect flows.
  */
 
-import type { MutableRefObject } from 'react'
-import type { TLStore } from 'tldraw'
-import { loadSnapshot, TLINSTANCE_ID } from 'tldraw'
-import type { TLPageId } from '@tldraw/tlschema'
-import { getFirstPageIdFromStore } from '../sharePage'
+import type { MutableRefObject } from "react"
+import type { TLStore } from "tldraw"
+import { loadSnapshot, TLINSTANCE_ID } from "tldraw"
+import type { TLPageId } from "@tldraw/tlschema"
+import { getFirstPageIdFromStore } from "../sharePage"
 
 export type GridRef = {
 	m: Map<string, boolean>
@@ -19,7 +19,7 @@ export type SnapshotParsed = Parameters<typeof loadSnapshot>[1]
 export function syncGridRef(
 	inst: { currentPageId: string; isGridMode: boolean },
 	gridRef: MutableRefObject<GridRef>,
-	store: TLStore
+	store: TLStore,
 ): void {
 	const p = gridRef.current.prev
 	if (p && inst.currentPageId !== p.pageId) {
@@ -38,7 +38,7 @@ export function applyParsedSnapshot(
 	store: TLStore,
 	parsed: SnapshotParsed,
 	gridRef: MutableRefObject<GridRef>,
-	opts?: { preserveSession?: boolean }
+	opts?: { preserveSession?: boolean },
 ): void {
 	const full = parsed as {
 		document?: { store?: Record<string, unknown> }
@@ -46,22 +46,21 @@ export function applyParsedSnapshot(
 	}
 	const states = full.session?.pageStates ?? []
 	for (const ps of states) {
-		if (typeof ps.isGridMode === 'boolean') gridRef.current.m.set(ps.pageId, ps.isGridMode)
+		if (typeof ps.isGridMode === "boolean") gridRef.current.m.set(ps.pageId, ps.isGridMode)
 	}
 	for (const ps of states) delete (ps as { pageId: string; isGridMode?: boolean }).isGridMode
-	const toLoad = (opts?.preserveSession && full.document
-		? { document: full.document }
-		: parsed) as SnapshotParsed
+	const toLoad = (
+		opts?.preserveSession && full.document ? { document: full.document } : parsed
+	) as SnapshotParsed
 	loadSnapshot(store, toLoad, { forceOverwriteSessionState: !opts?.preserveSession })
 	const inst = store.get(TLINSTANCE_ID) as
-		| { currentPageId: string; isGridMode: boolean }
-		| undefined
+		{ currentPageId: string; isGridMode: boolean } | undefined
 	if (inst) {
 		if (opts?.preserveSession && full.document?.store) {
 			const docStore = full.document.store
 			const pageExists =
 				inst.currentPageId &&
-				(docStore[inst.currentPageId] as { typeName?: string })?.typeName === 'page'
+				(docStore[inst.currentPageId] as { typeName?: string })?.typeName === "page"
 			if (!pageExists) {
 				const firstPageId = getFirstPageIdFromStore({ store: docStore })
 				if (firstPageId) {

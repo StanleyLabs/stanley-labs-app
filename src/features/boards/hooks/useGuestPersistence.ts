@@ -5,10 +5,10 @@
  * and URL management for guest (logged-out) users.
  */
 
-import { useEffect, useLayoutEffect } from 'react'
-import type { Editor as TldrawEditor } from '@tldraw/editor'
-import { TLINSTANCE_ID, type TLStore } from 'tldraw'
-import type { MachineState } from '../machine'
+import { useEffect, useLayoutEffect } from "react"
+import type { Editor as TldrawEditor } from "@tldraw/editor"
+import { TLINSTANCE_ID, type TLStore } from "tldraw"
+import type { MachineState } from "../machine"
 import {
 	LS_KEY,
 	lsLoad,
@@ -20,7 +20,7 @@ import {
 	throttle,
 	unwrapDocument,
 	type StoreRecords,
-} from './boardsUtils'
+} from "./boardsUtils"
 
 interface UseGuestPersistenceParams {
 	store: TLStore
@@ -39,7 +39,6 @@ export function useGuestPersistence({
 	editorInstance,
 	isGuestViewingShared,
 }: UseGuestPersistenceParams): void {
-
 	// ── Hydrate from localStorage on mount ─────────────────────────────────────
 
 	useLayoutEffect(() => {
@@ -62,9 +61,13 @@ export function useGuestPersistence({
 						...i,
 						currentPageId: parsed.session.currentPageId,
 					}))
-				} catch { /* ignore */ }
+				} catch {
+					/* ignore */
+				}
 			}
-		} catch { /* ignore parse errors */ }
+		} catch {
+			/* ignore parse errors */
+		}
 	}, [store, userId])
 
 	// ── Persist to localStorage (skip when viewing a shared page) ──────────────
@@ -77,14 +80,14 @@ export function useGuestPersistence({
 			// Don't persist while viewing a shared page
 			if (stateRef.current.context.activeSlug || getSlugFromUrl()) return
 			try {
-				const snap = store.getStoreSnapshot('all')
+				const snap = store.getStoreSnapshot("all")
 				// Filter out cameras and shared page records
 				const sharedTldrawIds = new Set<string>()
 				for (const [tid] of tldrawToDb.current) sharedTldrawIds.add(tid)
 
 				const filtered: StoreRecords = {}
 				for (const [id, rec] of Object.entries(snap.store)) {
-					if (rec.typeName === 'camera') continue
+					if (rec.typeName === "camera") continue
 					const parentId = parentIdOf(rec)
 					if (sharedTldrawIds.has(id) || (parentId && sharedTldrawIds.has(parentId))) continue
 					filtered[id] = rec
@@ -95,22 +98,24 @@ export function useGuestPersistence({
 					session: { currentPageId: inst?.currentPageId },
 				})
 				lsSave(json)
-			} catch { /* ignore */ }
+			} catch {
+				/* ignore */
+			}
 		}
 
 		const t = throttle(persist, 300)
 		const unlisten = store.listen(t.run)
 
 		const flush = () => t.flush()
-		window.addEventListener('beforeunload', flush)
-		window.addEventListener('pagehide', flush)
+		window.addEventListener("beforeunload", flush)
+		window.addEventListener("pagehide", flush)
 
 		return () => {
 			t.flush()
 			t.cancel()
 			unlisten()
-			window.removeEventListener('beforeunload', flush)
-			window.removeEventListener('pagehide', flush)
+			window.removeEventListener("beforeunload", flush)
+			window.removeEventListener("pagehide", flush)
 		}
 	}, [store, userId, isGuestViewingShared, stateRef, tldrawToDb])
 
@@ -130,7 +135,9 @@ export function useGuestPersistence({
 						store.put(Object.values(doc.store))
 					})
 				}
-			} catch { /* ignore */ }
+			} catch {
+				/* ignore */
+			}
 		}
 
 		const onStorage = (e: StorageEvent) => {
@@ -144,11 +151,11 @@ export function useGuestPersistence({
 			applyFromStorage()
 		}
 
-		window.addEventListener('storage', onStorage)
-		window.addEventListener('focus', onFocus)
+		window.addEventListener("storage", onStorage)
+		window.addEventListener("focus", onFocus)
 		return () => {
-			window.removeEventListener('storage', onStorage)
-			window.removeEventListener('focus', onFocus)
+			window.removeEventListener("storage", onStorage)
+			window.removeEventListener("focus", onFocus)
 		}
 	}, [store, userId])
 
@@ -175,7 +182,7 @@ export function useGuestPersistence({
 			}
 		}
 
-		const unlisten = editor.store.listen(onChange, { scope: 'session' })
+		const unlisten = editor.store.listen(onChange, { scope: "session" })
 		onChange()
 		return () => unlisten()
 	}, [editorInstance, userId, stateRef, tldrawToDb])

@@ -9,10 +9,7 @@ const DRAG_THRESHOLD_SQ = 16 // 4px movement to start pan (avoids treating right
 interface EditorLike {
 	getContainer(): HTMLElement
 	getCamera(): { x: number; y: number; z: number }
-	setCamera(
-		point: { x: number; y: number; z?: number },
-		opts?: { immediate?: boolean }
-	): void
+	setCamera(point: { x: number; y: number; z?: number }, opts?: { immediate?: boolean }): void
 	setCursor(opts: { type: string; rotation: number }): void
 	getInstanceState(): { cursor: { type: string } }
 }
@@ -38,12 +35,12 @@ function startPanning(
 	state: RightClickPanState,
 	editor: EditorLike,
 	container: HTMLElement,
-	e: PointerEvent
+	e: PointerEvent,
 ): void {
 	state.panning = true
 	state.prevCursor = editor.getInstanceState().cursor.type
-	editor.setCursor({ type: 'grabbing', rotation: 0 })
-	container.style.cursor = 'grabbing'
+	editor.setCursor({ type: "grabbing", rotation: 0 })
+	container.style.cursor = "grabbing"
 	container.setPointerCapture(e.pointerId)
 }
 
@@ -58,7 +55,7 @@ function applyAccumulatedDelta(state: RightClickPanState, editor: EditorLike): v
 	const safeZ = Number.isFinite(cz) && cz >= MIN_ZOOM ? cz : 1
 	editor.setCamera(
 		{ x: cx + dxApply / safeZ, y: cy + dyApply / safeZ, z: safeZ },
-		{ immediate: true }
+		{ immediate: true },
 	)
 }
 
@@ -75,7 +72,7 @@ function endPanning(
 	state: RightClickPanState,
 	editor: EditorLike,
 	container: HTMLElement,
-	e: PointerEvent
+	e: PointerEvent,
 ): void {
 	state.justFinishedPan = true
 	e.preventDefault()
@@ -87,7 +84,7 @@ function endPanning(
 	if (state.accDx !== 0 || state.accDy !== 0) {
 		applyAccumulatedDelta(state, editor)
 	}
-	container.style.cursor = ''
+	container.style.cursor = ""
 	if (state.prevCursor !== null) {
 		editor.setCursor({ type: state.prevCursor, rotation: 0 })
 		state.prevCursor = null
@@ -102,7 +99,7 @@ function endPanning(
 function createPointerDownHandler(
 	state: RightClickPanState,
 	_editor: EditorLike,
-	container: HTMLElement
+	container: HTMLElement,
 ): (e: PointerEvent) => void {
 	return (e: PointerEvent) => {
 		if (e.button !== RIGHT_BUTTON) return
@@ -118,7 +115,7 @@ function createPointerDownHandler(
 function createPointerMoveHandler(
 	state: RightClickPanState,
 	editor: EditorLike,
-	container: HTMLElement
+	container: HTMLElement,
 ): (e: PointerEvent) => void {
 	return (e: PointerEvent) => {
 		const rightPressed = (e.buttons & 2) !== 0
@@ -146,11 +143,11 @@ function createPointerMoveHandler(
 function createPointerUpHandler(
 	state: RightClickPanState,
 	editor: EditorLike,
-	container: HTMLElement
+	container: HTMLElement,
 ): (e: PointerEvent) => void {
 	return (e: PointerEvent) => {
 		// pointercancel does not reliably set .button; only filter by button for pointerup
-		const isRightUp = e.type === 'pointerup' ? e.button === RIGHT_BUTTON : true
+		const isRightUp = e.type === "pointerup" ? e.button === RIGHT_BUTTON : true
 		if (!isRightUp) return
 		if (state.panning) {
 			endPanning(state, editor, container, e)
@@ -190,21 +187,21 @@ export function setupRightClickPan(editor: EditorLike): () => void {
 
 	const opts = { capture: true }
 	const activeOpts = { capture: true, passive: false }
-	container.addEventListener('pointerdown', onPointerDown, opts)
-	container.addEventListener('pointermove', onPointerMove, activeOpts)
-	container.addEventListener('pointerup', onPointerUp, opts)
-	container.addEventListener('pointercancel', onPointerUp, opts)
-	container.addEventListener('contextmenu', onContextMenu, activeOpts)
+	container.addEventListener("pointerdown", onPointerDown, opts)
+	container.addEventListener("pointermove", onPointerMove, activeOpts)
+	container.addEventListener("pointerup", onPointerUp, opts)
+	container.addEventListener("pointercancel", onPointerUp, opts)
+	container.addEventListener("contextmenu", onContextMenu, activeOpts)
 
 	return () => {
 		if (state.rafId !== 0) {
 			cancelAnimationFrame(state.rafId)
 			state.rafId = 0
 		}
-		container.removeEventListener('pointerdown', onPointerDown, opts)
-		container.removeEventListener('pointermove', onPointerMove, opts)
-		container.removeEventListener('pointerup', onPointerUp, opts)
-		container.removeEventListener('pointercancel', onPointerUp, opts)
-		container.removeEventListener('contextmenu', onContextMenu, opts)
+		container.removeEventListener("pointerdown", onPointerDown, opts)
+		container.removeEventListener("pointermove", onPointerMove, opts)
+		container.removeEventListener("pointerup", onPointerUp, opts)
+		container.removeEventListener("pointercancel", onPointerUp, opts)
+		container.removeEventListener("contextmenu", onContextMenu, opts)
 	}
 }

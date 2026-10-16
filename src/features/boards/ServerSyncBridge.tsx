@@ -4,16 +4,12 @@
  * or serverSync and a shareId is present.
  */
 
-import { useEffect, useRef } from 'react'
-import { useSync } from '@tldraw/sync'
-import { inlineBase64AssetStore } from 'tldraw'
-import type { TLStore } from 'tldraw'
-import type { BoardsEvent } from './machine'
-import {
-	syncToPersist,
-	persistToSync,
-	type StoreSnapshot,
-} from './lib/serverSyncHelpers'
+import { useEffect, useRef } from "react"
+import { useSync } from "@tldraw/sync"
+import { inlineBase64AssetStore } from "tldraw"
+import type { TLStore } from "tldraw"
+import type { BoardsEvent } from "./machine"
+import { syncToPersist, persistToSync, type StoreSnapshot } from "./lib/serverSyncHelpers"
 
 const SERVER_RETRY_INTERVAL_MS = 10_000
 
@@ -42,32 +38,31 @@ export function ServerSyncBridge({
 	pageIdRef.current = pageId
 
 	const storeWithStatus = useSync({ uri: syncUri, assets: inlineBase64AssetStore })
-	const syncStore =
-		storeWithStatus.status === 'synced-remote' ? storeWithStatus.store : null
+	const syncStore = storeWithStatus.status === "synced-remote" ? storeWithStatus.store : null
 
 	const connectionStatus =
-		storeWithStatus.status === 'synced-remote'
+		storeWithStatus.status === "synced-remote"
 			? storeWithStatus.connectionStatus
 			: storeWithStatus.status
 
 	useEffect(() => {
-		if (connectionStatus === 'online') {
-			send({ type: 'SERVER_CONNECTED' })
-		} else if (connectionStatus === 'offline' || connectionStatus === 'error') {
-			send({ type: 'SERVER_DISCONNECTED' })
+		if (connectionStatus === "online") {
+			send({ type: "SERVER_CONNECTED" })
+		} else if (connectionStatus === "offline" || connectionStatus === "error") {
+			send({ type: "SERVER_DISCONNECTED" })
 		}
 	}, [connectionStatus, send, pageId])
 
 	useEffect(() => {
-		if (storeWithStatus.status !== 'error') return
+		if (storeWithStatus.status !== "error") return
 		const id = setInterval(() => onRetry(), SERVER_RETRY_INTERVAL_MS)
 		const onVis = (): void => {
-			if (document.visibilityState === 'visible') onRetry()
+			if (document.visibilityState === "visible") onRetry()
 		}
-		document.addEventListener('visibilitychange', onVis)
+		document.addEventListener("visibilitychange", onVis)
 		return () => {
 			clearInterval(id)
-			document.removeEventListener('visibilitychange', onVis)
+			document.removeEventListener("visibilitychange", onVis)
 		}
 	}, [storeWithStatus.status, onRetry])
 
@@ -79,9 +74,9 @@ export function ServerSyncBridge({
 		const pushedHashes = new Set<string>()
 
 		const persistSnapshot = (): StoreSnapshot =>
-			persistStore.getStoreSnapshot('document') as StoreSnapshot
+			persistStore.getStoreSnapshot("document") as StoreSnapshot
 		const syncSnapshot = (): StoreSnapshot =>
-			syncStore.getStoreSnapshot('document') as StoreSnapshot
+			syncStore.getStoreSnapshot("document") as StoreSnapshot
 
 		const doSyncToPersist = (): void =>
 			syncToPersist({

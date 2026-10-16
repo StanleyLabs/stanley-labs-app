@@ -6,13 +6,19 @@
  * page-change events.
  */
 
-import { useEffect } from 'react'
-import type { Editor as TldrawEditor } from '@tldraw/editor'
-import type { TLPageId } from '@tldraw/tlschema'
-import type { IndexKey } from '@tldraw/utils'
-import type { MachineState, BoardsEvent, PageEntry } from '../machine'
-import * as api from '../api'
-import { lsGetLastPage, lsSetLastPage, setUrlToSlug, setUrlToBoards, hydrateFromDb } from './boardsUtils'
+import { useEffect } from "react"
+import type { Editor as TldrawEditor } from "@tldraw/editor"
+import type { TLPageId } from "@tldraw/tlschema"
+import type { IndexKey } from "@tldraw/utils"
+import type { MachineState, BoardsEvent, PageEntry } from "../machine"
+import * as api from "../api"
+import {
+	lsGetLastPage,
+	lsSetLastPage,
+	setUrlToSlug,
+	setUrlToBoards,
+	hydrateFromDb,
+} from "./boardsUtils"
 
 interface UseAuthedPagesParams {
 	userId: string | null
@@ -35,8 +41,7 @@ export function useAuthedPages({
 	hydratingRef,
 	loadedRef,
 }: UseAuthedPagesParams): void {
-
-	const isInLoadingState = state.matches({ authed: 'loading' })
+	const isInLoadingState = state.matches({ authed: "loading" })
 
 	// ── Load pages from PocketBase ─────────────────────────────────────────────
 
@@ -72,9 +77,9 @@ export function useAuthedPages({
 				dbId: r.page.id,
 				tldrawId: r.page.tldraw_page_id,
 				title: r.page.title,
-				visibility: r.page.visibility as 'private' | 'public',
+				visibility: r.page.visibility as "private" | "public",
 				publicSlug: r.page.public_slug,
-				publicAccess: r.page.public_access as 'view' | 'edit' | null,
+				publicAccess: r.page.public_access as "view" | "edit" | null,
 				sortIndex: r.page.sort_index ?? null,
 				role: r.role,
 			}))
@@ -95,7 +100,10 @@ export function useAuthedPages({
 				} else if (entry.sortIndex) {
 					const page = editor.getPage(entry.tldrawId as TLPageId)
 					if (page && page.index !== entry.sortIndex) {
-						editor.updatePage({ id: entry.tldrawId as TLPageId, index: entry.sortIndex as IndexKey })
+						editor.updatePage({
+							id: entry.tldrawId as TLPageId,
+							index: entry.sortIndex as IndexKey,
+						})
 					}
 				}
 			}
@@ -106,7 +114,11 @@ export function useAuthedPages({
 			const localPages = editor.getPages()
 			for (const lp of localPages) {
 				if (!map.has(lp.id) && localPages.length > 1) {
-					try { editor.deletePage(lp.id) } catch { /* ignore */ }
+					try {
+						editor.deletePage(lp.id)
+					} catch {
+						/* ignore */
+					}
 				}
 			}
 
@@ -131,7 +143,7 @@ export function useAuthedPages({
 				const entry = entries.find((e) => e.dbId === dbId)
 				if (dbId && entry) {
 					send({
-						type: 'SELECT_PAGE',
+						type: "SELECT_PAGE",
 						dbId,
 						tldrawId: target as string,
 						role: entry.role,
@@ -148,12 +160,12 @@ export function useAuthedPages({
 				if (!page) continue
 				const patch: Record<string, string> = {}
 				if (page.name !== entry.title) patch.title = page.name
-				if (page.index !== (entry.sortIndex ?? '')) patch.sort_index = page.index
+				if (page.index !== (entry.sortIndex ?? "")) patch.sort_index = page.index
 				if (Object.keys(patch).length) void api.updatePage(entry.dbId, patch)
 			}
 
 			// Notify machine AFTER tldraw is fully set up
-			send({ type: 'PAGES_LOADED', pages: entries })
+			send({ type: "PAGES_LOADED", pages: entries })
 
 			// Hydrate active page snapshot
 			const activeTldraw = editor.getCurrentPageId() as string
@@ -164,7 +176,9 @@ export function useAuthedPages({
 		}
 
 		void loadPages()
-		return () => { cancelled = true }
+		return () => {
+			cancelled = true
+		}
 	}, [userId, isInLoadingState, send, editorInstance, tldrawToDb, hydratingRef, loadedRef])
 
 	// ── Track page changes ─────────────────────────────────────────────────────
@@ -186,7 +200,7 @@ export function useAuthedPages({
 
 			if (dbId) lsSetLastPage(cur)
 			if (!dbId) {
-				send({ type: 'DESELECT_PAGE' })
+				send({ type: "DESELECT_PAGE" })
 				setUrlToBoards()
 				return
 			}
@@ -194,14 +208,14 @@ export function useAuthedPages({
 			const entry = stateRef.current.context.pages.find((p) => p.dbId === dbId)
 			const slug = entry?.publicSlug ?? stateRef.current.context.activeSlug
 			send({
-				type: 'SELECT_PAGE',
+				type: "SELECT_PAGE",
 				dbId,
 				tldrawId: cur,
-				role: entry?.role ?? 'viewer',
+				role: entry?.role ?? "viewer",
 				slug: entry?.publicSlug,
 			})
 
-			if (slug && (entry?.visibility === 'public' || !userId)) {
+			if (slug && (entry?.visibility === "public" || !userId)) {
 				setUrlToSlug(slug)
 			} else {
 				setUrlToBoards()
@@ -210,7 +224,7 @@ export function useAuthedPages({
 			void hydrateFromDb(editor, dbId, cur, hydratingRef)
 		}
 
-		const unlisten = editor.store.listen(onChange, { scope: 'session' })
+		const unlisten = editor.store.listen(onChange, { scope: "session" })
 		onChange()
 		return () => unlisten()
 	}, [editorInstance, userId, send, stateRef, tldrawToDb, hydratingRef, loadedRef])
@@ -221,19 +235,22 @@ export function useAuthedPages({
 		const editor = editorInstance
 		if (!editor || !userId) return
 
-		const unlisten = editor.store.listen((entry) => {
-			if (hydratingRef.current || !loadedRef.current) return
-			for (const [, to] of Object.values(entry.changes.updated)) {
-				if (to.typeName === 'page') {
-					const dbId = tldrawToDb.current.get(to.id)
-					if (!dbId) continue
-					const patch: Record<string, string> = {}
-					if (to.name) patch.title = to.name
-					if (to.index) patch.sort_index = to.index
-					if (Object.keys(patch).length) void api.updatePage(dbId, patch)
+		const unlisten = editor.store.listen(
+			(entry) => {
+				if (hydratingRef.current || !loadedRef.current) return
+				for (const [, to] of Object.values(entry.changes.updated)) {
+					if (to.typeName === "page") {
+						const dbId = tldrawToDb.current.get(to.id)
+						if (!dbId) continue
+						const patch: Record<string, string> = {}
+						if (to.name) patch.title = to.name
+						if (to.index) patch.sort_index = to.index
+						if (Object.keys(patch).length) void api.updatePage(dbId, patch)
+					}
 				}
-			}
-		}, { scope: 'document' })
+			},
+			{ scope: "document" },
+		)
 
 		return () => unlisten()
 	}, [editorInstance, userId, hydratingRef, loadedRef, tldrawToDb])
@@ -242,8 +259,8 @@ export function useAuthedPages({
 
 	useEffect(() => {
 		if (!userId) return
-		const reload = () => send({ type: 'RELOAD_PAGES' })
-		window.addEventListener('v2-pages-changed', reload)
-		return () => window.removeEventListener('v2-pages-changed', reload)
+		const reload = () => send({ type: "RELOAD_PAGES" })
+		window.addEventListener("v2-pages-changed", reload)
+		return () => window.removeEventListener("v2-pages-changed", reload)
 	}, [userId, send])
 }

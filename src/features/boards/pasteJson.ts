@@ -3,11 +3,11 @@
  * add its shapes/assets to the current page (merge, don't replace).
  */
 
-import type { Editor, TLContent } from '@tldraw/editor'
-import type { TLAsset, TLBinding, TLShape } from '@tldraw/tlschema'
+import type { Editor, TLContent } from "@tldraw/editor"
+import type { TLAsset, TLBinding, TLShape } from "@tldraw/tlschema"
 
-import type { SerializedSchema } from '@tldraw/store'
-import type { TLUiOverrides } from 'tldraw'
+import type { SerializedSchema } from "@tldraw/store"
+import type { TLUiOverrides } from "tldraw"
 
 interface DocSnapshot {
 	store: Record<string, { typeName: string; id: string; parentId?: string }>
@@ -16,30 +16,26 @@ interface DocSnapshot {
 
 /** Accepts full export { document, session }, selection { document }, or raw StoreSnapshot { store, schema }. */
 function getDocSnapshot(parsed: unknown): DocSnapshot | null {
-	if (!parsed || typeof parsed !== 'object') return null
+	if (!parsed || typeof parsed !== "object") return null
 	const p = parsed as Record<string, unknown>
 	// Full export / selection: { document: { store, schema } }
 	const doc = p.document
-	if (doc && typeof doc === 'object') {
+	if (doc && typeof doc === "object") {
 		const d = doc as Record<string, unknown>
-		if (d.store && typeof d.store === 'object' && d.schema) return d as unknown as DocSnapshot
+		if (d.store && typeof d.store === "object" && d.schema) return d as unknown as DocSnapshot
 	}
 	// Raw StoreSnapshot: { store, schema } at top level
-	if (p.store && typeof p.store === 'object' && p.schema) return p as unknown as DocSnapshot
+	if (p.store && typeof p.store === "object" && p.schema) return p as unknown as DocSnapshot
 	return null
 }
 
 function documentToContent(doc: DocSnapshot): TLContent | null {
 	const records = Object.values(doc.store)
-	const shapes = records.filter((r): r is TLShape => r.typeName === 'shape')
-	const bindings = records.filter((r): r is TLBinding => r.typeName === 'binding')
-	const assets = records.filter((r): r is TLAsset => r.typeName === 'asset')
-	const pageIds = new Set(
-		records.filter((r) => r.typeName === 'page').map((p) => p.id)
-	)
-	const rootShapeIds = shapes
-		.filter((s) => s.parentId && pageIds.has(s.parentId))
-		.map((s) => s.id)
+	const shapes = records.filter((r): r is TLShape => r.typeName === "shape")
+	const bindings = records.filter((r): r is TLBinding => r.typeName === "binding")
+	const assets = records.filter((r): r is TLAsset => r.typeName === "asset")
+	const pageIds = new Set(records.filter((r) => r.typeName === "page").map((p) => p.id))
+	const rootShapeIds = shapes.filter((s) => s.parentId && pageIds.has(s.parentId)).map((s) => s.id)
 
 	// Reject empty content or orphaned shapes (shapes with no roots in page hierarchy)
 	if (rootShapeIds.length === 0) return null
@@ -62,7 +58,7 @@ export function importJsonFromText(editor: Editor, text: string): boolean {
 		const content = documentToContent(doc)
 		if (!content) return false
 		editor.run(() => {
-			editor.markHistoryStoppingPoint('paste')
+			editor.markHistoryStoppingPoint("paste")
 			editor.putContentOntoCurrentPage(content, { select: true })
 			editor.zoomToSelection()
 		})
@@ -87,7 +83,7 @@ export async function tryPasteJsonFromClipboard(editor: Editor): Promise<boolean
 export function createPasteActionOverride(): TLUiOverrides {
 	return {
 		actions: (editor, actions, helpers) => {
-			const pasteAction = actions['paste']
+			const pasteAction = actions["paste"]
 			if (!pasteAction?.onSelect) return actions
 			const newPasteAction = {
 				...pasteAction,
@@ -96,11 +92,11 @@ export function createPasteActionOverride(): TLUiOverrides {
 						try {
 							const handled = await tryPasteJsonFromClipboard(editor)
 							if (handled) return
-							if (!navigator.clipboard || typeof navigator.clipboard.read !== 'function') {
+							if (!navigator.clipboard || typeof navigator.clipboard.read !== "function") {
 								helpers.addToast({
-									title: helpers.msg('action.paste-error-title'),
-									description: helpers.msg('action.paste-error-description'),
-									severity: 'error',
+									title: helpers.msg("action.paste-error-title"),
+									description: helpers.msg("action.paste-error-description"),
+									severity: "error",
 								})
 								return
 							}
@@ -108,13 +104,13 @@ export function createPasteActionOverride(): TLUiOverrides {
 							await helpers.paste(
 								clipboardItems,
 								source,
-								source === 'context-menu' ? editor.inputs.currentPagePoint : undefined
+								source === "context-menu" ? editor.inputs.currentPagePoint : undefined,
 							)
 						} catch {
 							helpers.addToast({
-								title: helpers.msg('action.paste-error-title'),
-								description: helpers.msg('action.paste-error-description'),
-								severity: 'error',
+								title: helpers.msg("action.paste-error-title"),
+								description: helpers.msg("action.paste-error-description"),
+								severity: "error",
 							})
 						}
 					})()
@@ -124,4 +120,3 @@ export function createPasteActionOverride(): TLUiOverrides {
 		},
 	}
 }
-

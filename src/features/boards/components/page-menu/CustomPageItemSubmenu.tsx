@@ -7,8 +7,8 @@
  *   Authed + non-owner: removes from "my pages" (leaves the page for others)
  */
 
-import { useCallback } from 'react'
-import type { TLPageId } from '@tldraw/tlschema'
+import { useCallback } from "react"
+import type { TLPageId } from "@tldraw/tlschema"
 import {
 	PageRecordType,
 	TldrawUiButton,
@@ -23,14 +23,14 @@ import {
 	useDialogs,
 	useTranslation,
 	useToasts,
-} from 'tldraw'
-import { ConfirmDeleteDialog } from '../../ConfirmDeleteDialog'
-import { PageSettingsDialog } from '../PageSettingsDialog'
-import { useAuth } from '../../../../lib/auth'
-import { useBoardsMachine } from '../../MachineContext'
-import * as api from '../../api'
-import type { PageEntry } from '../../machine'
-import { onMovePage } from './onMovePage'
+} from "tldraw"
+import { ConfirmDeleteDialog } from "../../ConfirmDeleteDialog"
+import { PageSettingsDialog } from "../PageSettingsDialog"
+import { useAuth } from "../../../../lib/auth"
+import { useBoardsMachine } from "../../MachineContext"
+import * as api from "../../api"
+import type { PageEntry } from "../../machine"
+import { onMovePage } from "./onMovePage"
 
 export interface CustomPageItemSubmenuProps {
 	index: number
@@ -58,14 +58,14 @@ export function CustomPageItemSubmenu({
 	const { user } = useAuth()
 	const { state, removeSharedPage } = useBoardsMachine()
 	const isLoggedIn = Boolean(user)
-	const isOwner = entry?.role === 'owner'
+	const isOwner = entry?.role === "owner"
 	const isGuestSharedPage = !isLoggedIn && Boolean(state.context.activeSlug)
 
 	const onDuplicate = useCallback(() => {
-		editor.markHistoryStoppingPoint('creating page')
+		editor.markHistoryStoppingPoint("creating page")
 		const newId = PageRecordType.createId()
 		editor.duplicatePage(item.id as TLPageId, newId)
-		trackEvent('duplicate-page', { source: 'page-menu' })
+		trackEvent("duplicate-page", { source: "page-menu" })
 	}, [editor, item, trackEvent])
 
 	const onMoveUp = useCallback(() => {
@@ -83,7 +83,7 @@ export function CustomPageItemSubmenu({
 				<PageSettingsDialog
 					onClose={dProps.onClose}
 					entry={entry}
-					onUpdated={() => window.dispatchEvent(new Event('v2-pages-changed'))}
+					onUpdated={() => window.dispatchEvent(new Event("v2-pages-changed"))}
 				/>
 			),
 		})
@@ -96,7 +96,7 @@ export function CustomPageItemSubmenu({
 			return
 		}
 
-		editor.markHistoryStoppingPoint('deleting page')
+		editor.markHistoryStoppingPoint("deleting page")
 
 		if (isLoggedIn && entry?.dbId) {
 			if (isOwner) {
@@ -107,8 +107,8 @@ export function CustomPageItemSubmenu({
 		}
 
 		editor.deletePage(item.id as TLPageId)
-		window.dispatchEvent(new Event('v2-pages-changed'))
-		trackEvent('delete-page', { source: 'page-menu' })
+		window.dispatchEvent(new Event("v2-pages-changed"))
+		trackEvent("delete-page", { source: "page-menu" })
 	}, [editor, item.id, isLoggedIn, isOwner, isGuestSharedPage, removeSharedPage, entry, trackEvent])
 
 	const onDelete = useCallback(() => {
@@ -127,8 +127,8 @@ export function CustomPageItemSubmenu({
 					onConfirm={() => {
 						performDelete()
 						toasts.addToast({
-							title: isOwner ? 'Page deleted permanently.' : 'Removed from your pages.',
-							severity: 'success',
+							title: isOwner ? "Page deleted permanently." : "Removed from your pages.",
+							severity: "success",
 						})
 					}}
 				/>
@@ -139,7 +139,7 @@ export function CustomPageItemSubmenu({
 	return (
 		<TldrawUiDropdownMenuRoot id={`page item submenu ${index}`}>
 			<TldrawUiDropdownMenuTrigger>
-				<TldrawUiButton type="icon" title={msg('page-menu.submenu.title')}>
+				<TldrawUiButton type="icon" title={msg("page-menu.submenu.title")}>
 					<TldrawUiButtonIcon icon="dots-vertical" small />
 				</TldrawUiButton>
 			</TldrawUiDropdownMenuTrigger>
@@ -156,21 +156,25 @@ export function CustomPageItemSubmenu({
 							disabled={pages.length >= editor.options.maxPages}
 						/>
 						{index > 0 && (
-							<TldrawUiMenuItem id="move-up" onSelect={onMoveUp} label="page-menu.submenu.move-up" />
+							<TldrawUiMenuItem
+								id="move-up"
+								onSelect={onMoveUp}
+								label="page-menu.submenu.move-up"
+							/>
 						)}
 						{index < listSize - 1 && (
-							<TldrawUiMenuItem id="move-down" label="page-menu.submenu.move-down" onSelect={onMoveDown} />
+							<TldrawUiMenuItem
+								id="move-down"
+								label="page-menu.submenu.move-down"
+								onSelect={onMoveDown}
+							/>
 						)}
 					</TldrawUiMenuGroup>
 
 					{/* Page settings (authed with entry) */}
 					{isLoggedIn && entry && (
 						<TldrawUiMenuGroup id="settings">
-							<TldrawUiMenuItem
-								id="page-settings"
-								label="Settings"
-								onSelect={onOpenSettings}
-							/>
+							<TldrawUiMenuItem id="page-settings" label="Settings" onSelect={onOpenSettings} />
 						</TldrawUiMenuGroup>
 					)}
 
@@ -180,7 +184,9 @@ export function CustomPageItemSubmenu({
 							<TldrawUiMenuItem
 								id="login-to-share"
 								label="Login to share"
-								onSelect={() => { window.location.href = '/login' }}
+								onSelect={() => {
+									window.location.href = "/login"
+								}}
 							/>
 						</TldrawUiMenuGroup>
 					)}
@@ -190,7 +196,7 @@ export function CustomPageItemSubmenu({
 							<TldrawUiMenuItem
 								id="delete"
 								onSelect={onDelete}
-								label={isLoggedIn && !isOwner ? 'Remove from my pages' : 'Delete'}
+								label={isLoggedIn && !isOwner ? "Remove from my pages" : "Delete"}
 							/>
 						</TldrawUiMenuGroup>
 					)}

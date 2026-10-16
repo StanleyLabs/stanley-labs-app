@@ -3,7 +3,7 @@
  * v2: resolves slug via pages table.
  */
 
-import { useCallback, useState } from 'react'
+import { useCallback, useState } from "react"
 import {
 	TldrawUiButton,
 	TldrawUiButtonIcon,
@@ -12,17 +12,24 @@ import {
 	TldrawUiPopoverContent,
 	TldrawUiPopoverTrigger,
 	useToasts,
-} from 'tldraw'
+} from "tldraw"
 /** Extract a share slug from pasted text (full URL or plain slug). */
 function parseShareIdFromPastedText(text: string): string | null {
 	const trimmed = text.trim()
 	if (!trimmed) return null
 	try {
 		const url = new URL(trimmed)
-		const parts = url.pathname.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean)
-		const sIndex = parts.indexOf('s')
+		const parts = url.pathname
+			.replace(/^\/+|\/+$/g, "")
+			.split("/")
+			.filter(Boolean)
+		const sIndex = parts.indexOf("s")
 		if (sIndex >= 0 && parts[sIndex + 1]) {
-			try { return decodeURIComponent(parts[sIndex + 1]!) } catch { return parts[sIndex + 1]! }
+			try {
+				return decodeURIComponent(parts[sIndex + 1]!)
+			} catch {
+				return parts[sIndex + 1]!
+			}
 		}
 		return null
 	} catch {
@@ -33,16 +40,16 @@ function parseShareIdFromPastedText(text: string): string | null {
 export function OpenSharedLinkPopover() {
 	const toasts = useToasts()
 	const [popoverOpen, setPopoverOpen] = useState(false)
-	const [input, setInput] = useState('')
+	const [input, setInput] = useState("")
 	const [loading, setLoading] = useState(false)
 
 	const handleSubmit = useCallback(async () => {
 		const slug = parseShareIdFromPastedText(input)
 		if (!slug) {
 			toasts.addToast({
-				title: 'Invalid link',
-				description: 'Paste a full URL or share slug.',
-				severity: 'error',
+				title: "Invalid link",
+				description: "Paste a full URL or share slug.",
+				severity: "error",
 			})
 			return
 		}
@@ -58,12 +65,12 @@ export function OpenSharedLinkPopover() {
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
-			if (e.key === 'Enter') {
+			if (e.key === "Enter") {
 				e.preventDefault()
 				void handleSubmit()
 			}
 		},
-		[handleSubmit]
+		[handleSubmit],
 	)
 
 	const handlePasteFromClipboard = useCallback(
@@ -71,17 +78,17 @@ export function OpenSharedLinkPopover() {
 			e.preventDefault()
 			e.stopPropagation()
 			if (!navigator.clipboard?.readText) {
-				toasts.addToast({ title: 'Clipboard not available', severity: 'warning' })
+				toasts.addToast({ title: "Clipboard not available", severity: "warning" })
 				return
 			}
 			try {
 				const text = await navigator.clipboard.readText()
 				setInput(text.trim())
 			} catch {
-				toasts.addToast({ title: 'Could not read clipboard', severity: 'warning' })
+				toasts.addToast({ title: "Could not read clipboard", severity: "warning" })
 			}
 		},
-		[toasts]
+		[toasts],
 	)
 
 	return (

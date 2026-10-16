@@ -2,17 +2,17 @@
  * Move a page in the page list. Updates index for ordering.
  */
 
-import type { Editor } from '@tldraw/editor'
-import type { TLPageId } from '@tldraw/tlschema'
-import { getIndexAbove, getIndexBelow, getIndexBetween } from '@tldraw/editor'
-import type { IndexKey } from '@tldraw/utils'
+import type { Editor } from "@tldraw/editor"
+import type { TLPageId } from "@tldraw/tlschema"
+import { getIndexAbove, getIndexBelow, getIndexBetween } from "@tldraw/editor"
+import type { IndexKey } from "@tldraw/utils"
 
 export function onMovePage(
 	editor: Editor,
 	id: TLPageId,
 	from: number,
 	to: number,
-	trackEvent: (name: string, data?: unknown) => void
+	trackEvent: (name: string, data?: unknown) => void,
 ): void {
 	const pages = editor.getPages()
 	const below = from > to ? pages[to - 1] : pages[to]
@@ -26,8 +26,8 @@ export function onMovePage(
 		index = getIndexBetween(below.index, above.index)
 	}
 	if (index !== pages[from].index) {
-		editor.markHistoryStoppingPoint('moving page')
+		editor.markHistoryStoppingPoint("moving page")
 		editor.updatePage({ id, index })
-		trackEvent('move-page', { source: 'page-menu' })
+		trackEvent("move-page", { source: "page-menu" })
 	}
 }

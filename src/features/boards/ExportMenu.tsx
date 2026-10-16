@@ -2,9 +2,9 @@
  * Export/Import JSON menu items and helpers for main menu and context menu.
  */
 
-import { useCallback } from 'react'
-import { importJsonFromText } from './pasteJson'
-import { getContentAsJsonDoc } from './sharePage'
+import { useCallback } from "react"
+import { importJsonFromText } from "./pasteJson"
+import { getContentAsJsonDoc } from "./sharePage"
 import {
 	ArrangeMenuSubmenu,
 	ClipboardMenuGroup,
@@ -34,25 +34,19 @@ import {
 	type TLUiContextMenuProps,
 	type TLUiEventSource,
 	type TLUiMainMenuProps,
-} from 'tldraw'
+} from "tldraw"
 
-const EXPORT_FILENAME = 'whiteboard-export.json'
+const EXPORT_FILENAME = "whiteboard-export.json"
 
 function downloadJson(json: string): void {
-	const a = document.createElement('a')
-	a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
+	const a = document.createElement("a")
+	a.href = URL.createObjectURL(new Blob([json], { type: "application/json" }))
 	a.download = EXPORT_FILENAME
 	a.click()
 	URL.revokeObjectURL(a.href)
 }
 
-function JsonMenuItem({
-	id,
-	mode,
-}: {
-	id: string
-	mode: 'export' | 'copy' | 'export-selection'
-}) {
+function JsonMenuItem({ id, mode }: { id: string; mode: "export" | "copy" | "export-selection" }) {
 	const editor = useEditor()
 	const toasts = useToasts()
 	const onSelect = useCallback(
@@ -63,9 +57,13 @@ function JsonMenuItem({
 				const doc = await getContentAsJsonDoc(editor, shapeIds)
 				if (!doc) return
 				const json = JSON.stringify(doc)
-				if (mode === 'copy') {
+				if (mode === "copy") {
 					if (!navigator.clipboard?.writeText) {
-						toasts.addToast({ title: 'Copy failed', description: 'Clipboard unavailable.', severity: 'error' })
+						toasts.addToast({
+							title: "Copy failed",
+							description: "Clipboard unavailable.",
+							severity: "error",
+						})
 						return
 					}
 					await navigator.clipboard.writeText(json)
@@ -74,12 +72,12 @@ function JsonMenuItem({
 				}
 			} catch {
 				toasts.addToast({
-					title: mode === 'copy' ? 'Copy failed' : 'Export failed',
-					severity: 'error',
+					title: mode === "copy" ? "Copy failed" : "Export failed",
+					severity: "error",
 				})
 			}
 		},
-		[editor, toasts, mode]
+		[editor, toasts, mode],
 	)
 	return <TldrawUiMenuItem id={id} label="JSON" icon="external-link" onSelect={onSelect} />
 }
@@ -88,9 +86,9 @@ function JsonMenuItem({
 function CustomCopyAsMenuGroup() {
 	const editor = useEditor()
 	const atLeastOneShapeOnPage = useValue(
-		'atLeastOneShapeOnPage',
+		"atLeastOneShapeOnPage",
 		() => editor.getCurrentPageShapeIds().size > 0,
-		[editor]
+		[editor],
 	)
 
 	return (
@@ -102,7 +100,7 @@ function CustomCopyAsMenuGroup() {
 		>
 			<TldrawUiMenuGroup id="copy-as-group">
 				<TldrawUiMenuActionItem actionId="copy-as-svg" />
-				{typeof window.navigator?.clipboard?.write === 'function' && (
+				{typeof window.navigator?.clipboard?.write === "function" && (
 					<TldrawUiMenuActionItem actionId="copy-as-png" />
 				)}
 				<JsonMenuItem id="copy-json" mode="copy" />
@@ -120,9 +118,9 @@ function ImportJsonMenuItem() {
 	const toasts = useToasts()
 	const onSelect = useCallback(
 		(_source: TLUiEventSource) => {
-			const input = document.createElement('input')
-			input.type = 'file'
-			input.accept = '.json,application/json'
+			const input = document.createElement("input")
+			input.type = "file"
+			input.accept = ".json,application/json"
 			input.onchange = async () => {
 				const file = input.files?.[0]
 				if (!file) return
@@ -130,30 +128,25 @@ function ImportJsonMenuItem() {
 					const text = await file.text()
 					if (!importJsonFromText(editor, text)) {
 						toasts.addToast({
-							title: 'Import failed',
-							description: 'File is not a valid whiteboard JSON file.',
-							severity: 'error',
+							title: "Import failed",
+							description: "File is not a valid whiteboard JSON file.",
+							severity: "error",
 						})
 					}
 				} catch {
 					toasts.addToast({
-						title: 'Import failed',
-						description: 'Could not read file.',
-						severity: 'error',
+						title: "Import failed",
+						description: "Could not read file.",
+						severity: "error",
 					})
 				}
 			}
 			HTMLInputElement.prototype.click.call(input)
 		},
-		[editor, toasts]
+		[editor, toasts],
 	)
 	return (
-		<TldrawUiMenuItem
-			id="import-json"
-			label="Import JSON"
-			icon="download"
-			onSelect={onSelect}
-		/>
+		<TldrawUiMenuItem id="import-json" label="Import JSON" icon="download" onSelect={onSelect} />
 	)
 }
 
@@ -215,9 +208,9 @@ export function CustomMainMenu(props: TLUiMainMenuProps) {
 function CustomConversionsMenuGroup() {
 	const editor = useEditor()
 	const atLeastOneShapeOnPage = useValue(
-		'atLeastOneShapeOnPage',
+		"atLeastOneShapeOnPage",
 		() => editor.getCurrentPageShapeIds().size > 0,
-		[editor]
+		[editor],
 	)
 
 	if (!atLeastOneShapeOnPage) return null
@@ -244,11 +237,11 @@ export function CustomContextMenu(props: TLUiContextMenuProps) {
 	const editor = useEditor()
 	const showCollaborationUi = useShowCollaborationUi()
 	const selectToolActive = useValue(
-		'isSelectToolActive',
-		() => editor.getCurrentToolId() === 'select',
-		[editor]
+		"isSelectToolActive",
+		() => editor.getCurrentToolId() === "select",
+		[editor],
 	)
-	const isSinglePageMode = useValue('isSinglePageMode', () => editor.options.maxPages <= 1, [
+	const isSinglePageMode = useValue("isSinglePageMode", () => editor.options.maxPages <= 1, [
 		editor,
 	])
 

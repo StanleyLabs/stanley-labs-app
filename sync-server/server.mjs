@@ -6,35 +6,31 @@
  * Uses native ws library (no @fastify/websocket) for reliable upgrade handling.
  */
 
-import assert from 'node:assert'
+import assert from "node:assert"
 globalThis.assert = assert
 
-import { createServer } from 'http'
-import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
-import dotenv from 'dotenv'
+import { createServer } from "http"
+import { fileURLToPath } from "url"
+import { dirname, join } from "path"
+import dotenv from "dotenv"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-dotenv.config({ path: join(__dirname, '..', '.env') })
+dotenv.config({ path: join(__dirname, "..", ".env") })
 
-import { WebSocketServer } from 'ws'
-import cors from '@fastify/cors'
-import fastify from 'fastify'
-import PocketBase from 'pocketbase'
-import { InMemorySyncStorage, TLSocketRoom, loadSnapshotIntoStorage } from '@tldraw/sync-core'
-import {
-	createTLSchema,
-	defaultBindingSchemas,
-	defaultShapeSchemas,
-} from '@tldraw/tlschema'
+import { WebSocketServer } from "ws"
+import cors from "@fastify/cors"
+import fastify from "fastify"
+import PocketBase from "pocketbase"
+import { InMemorySyncStorage, TLSocketRoom, loadSnapshotIntoStorage } from "@tldraw/sync-core"
+import { createTLSchema, defaultBindingSchemas, defaultShapeSchemas } from "@tldraw/tlschema"
 
 const PORT = Number(process.env.PORT) || 5858
 // page_snapshots record id == pages.id (one snapshot per page).
-const SNAPSHOTS_COLLECTION = 'page_snapshots'
+const SNAPSHOTS_COLLECTION = "page_snapshots"
 
-const pocketbaseUrl = process.env.POCKETBASE_URL ?? process.env.VITE_POCKETBASE_URL ?? ''
-const superuserEmail = process.env.POCKETBASE_SUPERUSER_EMAIL ?? ''
-const superuserPassword = process.env.POCKETBASE_SUPERUSER_PASSWORD ?? ''
+const pocketbaseUrl = process.env.POCKETBASE_URL ?? process.env.VITE_POCKETBASE_URL ?? ""
+const superuserEmail = process.env.POCKETBASE_SUPERUSER_EMAIL ?? ""
+const superuserPassword = process.env.POCKETBASE_SUPERUSER_PASSWORD ?? ""
 const persistenceConfigured = Boolean(pocketbaseUrl && superuserEmail && superuserPassword)
 
 let pbClientPromise = null
@@ -49,11 +45,11 @@ function getPocketBase() {
 		const pb = new PocketBase(pocketbaseUrl)
 		pb.autoCancellation(false)
 		pbClientPromise = pb
-			.collection('_superusers')
+			.collection("_superusers")
 			.authWithPassword(superuserEmail, superuserPassword, { autoRefreshThreshold: 30 * 60 })
 			.then(() => pb)
 			.catch((err) => {
-				console.warn('[sync] PocketBase superuser auth failed:', err?.message)
+				console.warn("[sync] PocketBase superuser auth failed:", err?.message)
 				pbClientPromise = null
 				return null
 			})
@@ -62,7 +58,9 @@ function getPocketBase() {
 }
 
 function sanitizeRoomId(roomId) {
-	return String(roomId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64)
+	return String(roomId)
+		.replace(/[^a-zA-Z0-9_-]/g, "_")
+		.slice(0, 64)
 }
 
 /**
@@ -79,9 +77,9 @@ function toWebSocketMinimal(ws) {
 		},
 		addEventListener(type, listener) {
 			const handler =
-				type === 'message'
+				type === "message"
 					? (data) => listener({ data })
-					: type === 'close'
+					: type === "close"
 						? (code, reason) => listener({ code, reason })
 						: listener
 			handlerMap.set(listener, handler)
@@ -109,18 +107,19 @@ function roomSnapshotToDbFormat(snapshot) {
 }
 
 async function loadSnapshot(roomId) {
-	if (!roomId || String(roomId).trim() === '') return undefined
+	if (!roomId || String(roomId).trim() === "") return undefined
 	const pb = await getPocketBase()
 	if (!pb) return undefined
 
 	// roomId is always pages.id, which is also the snapshot record id.
 	try {
-		const record = await pb.collection(SNAPSHOTS_COLLECTION).getOne(roomId, { fields: 'document' })
+		const record = await pb.collection(SNAPSHOTS_COLLECTION).getOne(roomId, { fields: "document" })
 		const s = record?.document
 		const doc = s?.document ?? s
 		if (doc?.store && doc?.schema) return { store: doc.store, schema: doc.schema }
 	} catch (err) {
-		if (err?.status !== 404) console.warn('[sync] Failed to load snapshot room=%s error=%s', roomId, err?.message)
+		if (err?.status !== 404)
+			console.warn("[sync] Failed to load snapshot room=%s error=%s", roomId, err?.message)
 	}
 
 	return undefined
@@ -132,7 +131,7 @@ async function saveSnapshot(roomId, snapshot) {
 	const now = Date.now()
 	const last = lastSaveLog.get(roomId) ?? 0
 	if (now - last > 5000) {
-		console.log('[sync] Saving to PocketBase room:', roomId)
+		console.log("[sync] Saving to PocketBase room:", roomId)
 		lastSaveLog.set(roomId, now)
 	}
 	const payload = roomSnapshotToDbFormat(snapshot)
@@ -142,13 +141,13 @@ async function saveSnapshot(roomId, snapshot) {
 		await snapshots.update(roomId, { document: payload })
 	} catch (err) {
 		if (err?.status !== 404) {
-			console.warn('[sync] Failed to persist snapshot room=%s error=%s', roomId, err?.message)
+			console.warn("[sync] Failed to persist snapshot room=%s error=%s", roomId, err?.message)
 			return
 		}
 		try {
 			await snapshots.create({ id: roomId, page_id: roomId, document: payload })
 		} catch (createErr) {
-			console.warn('[sync] Failed to persist snapshot room=%s error=%s', roomId, createErr?.message)
+			console.warn("[sync] Failed to persist snapshot room=%s error=%s", roomId, createErr?.message)
 		}
 	}
 }
@@ -174,11 +173,11 @@ function getOrCreateRoom(roomId) {
 	roomId = sanitizeRoomId(roomId)
 	const existing = rooms.get(roomId)
 	if (existing && !existing.isClosed()) {
-		console.log('[sync] Reusing room:', roomId)
+		console.log("[sync] Reusing room:", roomId)
 		return existing
 	}
 
-	console.log('[sync] Creating room:', roomId)
+	console.log("[sync] Creating room:", roomId)
 	let clientDataReceived = false
 
 	const storage = new InMemorySyncStorage({
@@ -194,11 +193,16 @@ function getOrCreateRoom(roomId) {
 		storage,
 		schema,
 		onSessionRemoved(_room, args) {
-			console.log('[sync] Session removed roomId=%s sessionId=%s remaining=%d', roomId, args.sessionId, args.numSessionsRemaining)
+			console.log(
+				"[sync] Session removed roomId=%s sessionId=%s remaining=%d",
+				roomId,
+				args.sessionId,
+				args.numSessionsRemaining,
+			)
 			if (args.numSessionsRemaining === 0) {
 				room.close()
 				rooms.delete(roomId)
-				console.log('[sync] Room closed:', roomId)
+				console.log("[sync] Room closed:", roomId)
 			}
 		},
 	})
@@ -208,21 +212,21 @@ function getOrCreateRoom(roomId) {
 	// Load from PocketBase in background — only apply if no client has pushed yet
 	loadSnapshot(roomId).then((fromDb) => {
 		if (!fromDb) {
-			console.log('[sync] No snapshot in DB for room:', roomId)
+			console.log("[sync] No snapshot in DB for room:", roomId)
 			return
 		}
 		if (clientDataReceived) {
-			console.log('[sync] Skipping DB load — client already pushed data for room:', roomId)
+			console.log("[sync] Skipping DB load — client already pushed data for room:", roomId)
 			return
 		}
-		console.log('[sync] Loading snapshot from DB for room:', roomId)
+		console.log("[sync] Loading snapshot from DB for room:", roomId)
 		try {
 			storage.transaction((txn) => {
 				loadSnapshotIntoStorage(txn, schema, { store: fromDb.store, schema: fromDb.schema })
 			})
-			console.log('[sync] Snapshot loaded for room:', roomId)
+			console.log("[sync] Snapshot loaded for room:", roomId)
 		} catch (err) {
-			console.warn('[sync] Failed to load snapshot for room', roomId, err?.message)
+			console.warn("[sync] Failed to load snapshot for room", roomId, err?.message)
 		}
 	})
 
@@ -237,38 +241,38 @@ function parseConnectPath(pathname) {
 }
 
 function handleUpgrade(req, socket, head) {
-	console.log('[sync] Upgrade request:', req.url)
-	let pathname = ''
+	console.log("[sync] Upgrade request:", req.url)
+	let pathname = ""
 	let sessionId = `sess-${Date.now()}-${Math.random().toString(36).slice(2)}`
 	try {
-		const url = new URL(req.url ?? '', `http://${req.headers.host ?? 'localhost'}`)
+		const url = new URL(req.url ?? "", `http://${req.headers.host ?? "localhost"}`)
 		pathname = url.pathname
-		sessionId = url.searchParams.get('sessionId') ?? sessionId
+		sessionId = url.searchParams.get("sessionId") ?? sessionId
 	} catch {
-		console.warn('[sync] Bad upgrade URL:', req.url)
-		socket.write('HTTP/1.1 400 Bad Request\r\n\r\n')
+		console.warn("[sync] Bad upgrade URL:", req.url)
+		socket.write("HTTP/1.1 400 Bad Request\r\n\r\n")
 		socket.destroy()
 		return
 	}
 	const roomId = parseConnectPath(pathname)
 
 	if (!roomId) {
-		console.warn('[sync] 404: path not matched:', pathname)
-		socket.write('HTTP/1.1 404 Not Found\r\n\r\n')
+		console.warn("[sync] 404: path not matched:", pathname)
+		socket.write("HTTP/1.1 404 Not Found\r\n\r\n")
 		socket.destroy()
 		return
 	}
 
-	console.log('[sync] Upgrading roomId=%s sessionId=%s', roomId, sessionId)
+	console.log("[sync] Upgrading roomId=%s sessionId=%s", roomId, sessionId)
 	wss.handleUpgrade(req, socket, head, (ws) => {
 		try {
 			const room = getOrCreateRoom(roomId)
 			const minimalSocket = toWebSocketMinimal(ws)
 			room.handleSocketConnect({ sessionId, socket: minimalSocket })
-			console.log('[sync] Client connected roomId=%s sessionId=%s', roomId, sessionId)
+			console.log("[sync] Client connected roomId=%s sessionId=%s", roomId, sessionId)
 		} catch (err) {
-			console.error('[sync] WebSocket handler error:', err)
-			ws.close(1011, err?.message ?? 'Internal server error')
+			console.error("[sync] WebSocket handler error:", err)
+			ws.close(1011, err?.message ?? "Internal server error")
 		}
 	})
 }
@@ -276,24 +280,24 @@ function handleUpgrade(req, socket, head) {
 const app = fastify({
 	serverFactory: (handler) => {
 		const server = createServer(handler)
-		server.on('upgrade', handleUpgrade)
+		server.on("upgrade", handleUpgrade)
 		return server
 	},
 })
 app.register(cors, {
-    origin: [
-        "https://app.stanleylabs.com",
-        "https://stanleylabs.com",
-        "http://localhost:5173",
-        "http://localhost:3000"
-    ]
+	origin: [
+		"https://app.stanleylabs.com",
+		"https://stanleylabs.com",
+		"http://localhost:5173",
+		"http://localhost:3000",
+	],
 })
 
-app.get('/health', (_, reply) => {
+app.get("/health", (_, reply) => {
 	reply.send({ ok: true })
 })
 
-app.listen({ port: PORT, host: '0.0.0.0' }, (err) => {
+app.listen({ port: PORT, host: "0.0.0.0" }, (err) => {
 	if (err) {
 		console.error(err)
 		process.exit(1)
@@ -301,7 +305,7 @@ app.listen({ port: PORT, host: '0.0.0.0' }, (err) => {
 	console.log(`Sync server listening on port ${PORT}`)
 	if (!persistenceConfigured) {
 		console.warn(
-			'PocketBase not configured (POCKETBASE_URL / POCKETBASE_SUPERUSER_EMAIL / POCKETBASE_SUPERUSER_PASSWORD). Persistence disabled.'
+			"PocketBase not configured (POCKETBASE_URL / POCKETBASE_SUPERUSER_EMAIL / POCKETBASE_SUPERUSER_PASSWORD). Persistence disabled.",
 		)
 	}
 })

@@ -4,10 +4,10 @@
  * Shows for any page with a public slug (works for both guests and authed users).
  */
 
-import { useCallback } from 'react'
-import { TldrawUiButton, TldrawUiButtonIcon, useToasts } from 'tldraw'
-import type { PageEntry } from '../../machine'
-import { useBoardsMachine } from '../../MachineContext'
+import { useCallback } from "react"
+import { TldrawUiButton, TldrawUiButtonIcon, useToasts } from "tldraw"
+import type { PageEntry } from "../../machine"
+import { useBoardsMachine } from "../../MachineContext"
 
 interface Props {
 	pageId: string
@@ -23,14 +23,17 @@ export function SharePageButton({ pageId, entry }: Props) {
 	const isActivePage = state.context.activePageTldrawId === pageId
 	const slug = entry?.publicSlug ?? (isActivePage ? state.context.activeSlug : null)
 
-	const handleCopyLink = useCallback((e: React.MouseEvent) => {
-		e.stopPropagation()
-		if (!slug) return
-		const url = `${window.location.origin}/boards/s/${slug}`
-		void navigator.clipboard.writeText(url).then(() => {
-			toasts.addToast({ title: 'Link copied!', severity: 'success' })
-		})
-	}, [slug, toasts])
+	const handleCopyLink = useCallback(
+		(e: React.MouseEvent) => {
+			e.stopPropagation()
+			if (!slug) return
+			const url = `${window.location.origin}/boards/s/${slug}`
+			void navigator.clipboard.writeText(url).then(() => {
+				toasts.addToast({ title: "Link copied!", severity: "success" })
+			})
+		},
+		[slug, toasts],
+	)
 
 	if (!slug) return null
 

@@ -3,9 +3,9 @@
  * Extracted logic for syncing between persist store and WebSocket sync store.
  */
 
-import type { MutableRefObject } from 'react'
-import type { TLStore } from 'tldraw'
-import { loadSnapshot } from 'tldraw'
+import type { MutableRefObject } from "react"
+import type { TLStore } from "tldraw"
+import { loadSnapshot } from "tldraw"
 import {
 	docContentEqual,
 	docStoreHash,
@@ -13,8 +13,8 @@ import {
 	getPageDocumentFromStore,
 	getPageRecordIds,
 	remapDocumentPageId,
-} from '../sharePage'
-import type { SnapshotParsed } from './gridSnapshot'
+} from "../sharePage"
+import type { SnapshotParsed } from "./gridSnapshot"
 
 export const MAX_PUSHED_HASHES = 32
 
@@ -32,7 +32,7 @@ export interface RecordDiff {
 export function computeRecordDiff(
 	persistSnap: StoreSnapshot,
 	pageId: string,
-	incomingStore: Record<string, unknown>
+	incomingStore: Record<string, unknown>,
 ): RecordDiff {
 	const currentPageIds = new Set(getPageRecordIds(persistSnap, pageId))
 	const currentStore = persistSnap.store ?? {}
@@ -55,19 +55,15 @@ export function computeRecordDiff(
 }
 
 /** Apply diff to store via mergeRemoteChanges. */
-export function applyDiffToStore(
-	store: TLStore,
-	toPut: unknown[],
-	toRemoveIds: string[]
-): void {
+export function applyDiffToStore(store: TLStore, toPut: unknown[], toRemoveIds: string[]): void {
 	if (toPut.length === 0 && toRemoveIds.length === 0) return
 
 	store.mergeRemoteChanges(() => {
 		if (toRemoveIds.length > 0) {
-			store.remove(toRemoveIds as Parameters<TLStore['remove']>[0])
+			store.remove(toRemoveIds as Parameters<TLStore["remove"]>[0])
 		}
 		if (toPut.length > 0) {
-			store.put(toPut as Parameters<TLStore['put']>[0])
+			store.put(toPut as Parameters<TLStore["put"]>[0])
 		}
 	})
 }
@@ -114,9 +110,7 @@ export function syncToPersist(params: SyncToPersistParams): void {
 		if (syncRecordCount <= 1 && persistRecordCount > 1) return
 
 		const toLoad =
-			syncPageId !== pageId
-				? remapDocumentPageId(syncDoc, syncPageId, pageId)
-				: syncDoc
+			syncPageId !== pageId ? remapDocumentPageId(syncDoc, syncPageId, pageId) : syncDoc
 		const receivedHash = docStoreHash(toLoad)
 		if (pushedHashes.has(receivedHash)) {
 			pushedHashes.delete(receivedHash)
@@ -127,17 +121,13 @@ export function syncToPersist(params: SyncToPersistParams): void {
 		applyingFromSyncRef.current = true
 		try {
 			const incoming = toLoad.document?.store ?? {}
-			const { toPut, toRemoveIds } = computeRecordDiff(
-				persistSnap,
-				pageId,
-				incoming
-			)
+			const { toPut, toRemoveIds } = computeRecordDiff(persistSnap, pageId, incoming)
 			applyDiffToStore(persistStore, toPut, toRemoveIds)
 		} finally {
 			applyingFromSyncRef.current = false
 		}
 	} catch (err) {
-		console.warn('[sync] syncToPersist error:', (err as Error)?.message)
+		console.warn("[sync] syncToPersist error:", (err as Error)?.message)
 	}
 }
 
@@ -179,7 +169,7 @@ export function persistToSync(params: PersistToSyncParams): void {
 			})
 		}
 	} catch (err) {
-		console.warn('[sync] persistToSync error:', (err as Error)?.message)
+		console.warn("[sync] persistToSync error:", (err as Error)?.message)
 	} finally {
 		pushingToSyncRef.current = false
 	}

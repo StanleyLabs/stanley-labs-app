@@ -3,8 +3,8 @@
  * No state, no side effects — just data extraction, comparison, and remapping.
  */
 
-import type { Editor } from '@tldraw/editor'
-import type { TLPageId, TLShapeId } from '@tldraw/tlschema'
+import type { Editor } from "@tldraw/editor"
+import type { TLPageId, TLShapeId } from "@tldraw/tlschema"
 
 export interface ShareSnapshot {
 	document: { store: Record<string, unknown>; schema: unknown }
@@ -20,7 +20,7 @@ export interface ShareSnapshot {
  */
 function stableStringify(val: unknown): string {
 	return JSON.stringify(val, (_key, v: unknown) => {
-		if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+		if (v !== null && typeof v === "object" && !Array.isArray(v)) {
 			const obj = v as Record<string, unknown>
 			const sorted: Record<string, unknown> = {}
 			const keys = Object.keys(obj).sort()
@@ -63,11 +63,11 @@ export function docContentEqual(a: ShareSnapshot, b: ShareSnapshot): boolean {
  *  Uses a parent→children index for O(n) collection instead of repeated scans. */
 export function getPageDocumentFromStore(
 	storeSnapshot: { store: Record<string, unknown>; schema?: unknown },
-	pageId: string
+	pageId: string,
 ): ShareSnapshot | null {
 	const all = storeSnapshot.store ?? {}
 	const pageRec = all[pageId] as { typeName?: string } | undefined
-	if (!pageRec || pageRec.typeName !== 'page') return null
+	if (!pageRec || pageRec.typeName !== "page") return null
 
 	// Build parent → children index in a single pass
 	const childrenOf = new Map<string, string[]>()
@@ -100,18 +100,18 @@ export function getPageDocumentFromStore(
 /** Get record ids for a page and its descendants. */
 export function getPageRecordIds(
 	storeSnapshot: { store: Record<string, unknown> },
-	pageId: string
+	pageId: string,
 ): string[] {
 	const doc = getPageDocumentFromStore(storeSnapshot, pageId)
 	return doc ? Object.keys(doc.document.store) : []
 }
 
 /** Get the first page id in a store snapshot. */
-export function getFirstPageIdFromStore(
-	storeSnapshot: { store: Record<string, unknown> }
-): string | null {
+export function getFirstPageIdFromStore(storeSnapshot: {
+	store: Record<string, unknown>
+}): string | null {
 	for (const [id, rec] of Object.entries(storeSnapshot.store ?? {})) {
-		if ((rec as { typeName?: string })?.typeName === 'page') return id
+		if ((rec as { typeName?: string })?.typeName === "page") return id
 	}
 	return null
 }
@@ -120,8 +120,8 @@ export function getFirstPageIdFromStore(
 
 export function remapIdInValue(val: unknown, fromId: string, toId: string): unknown {
 	if (val === fromId) return toId
-	if (typeof val === 'string') return val
-	if (val === null || typeof val !== 'object') return val
+	if (typeof val === "string") return val
+	if (val === null || typeof val !== "object") return val
 	if (Array.isArray(val)) return val.map((v) => remapIdInValue(v, fromId, toId))
 	const obj = val as Record<string, unknown>
 	const out: Record<string, unknown> = {}
@@ -135,7 +135,7 @@ export function remapIdInValue(val: unknown, fromId: string, toId: string): unkn
 export function remapDocumentPageId(
 	doc: ShareSnapshot,
 	fromId: string,
-	toId: string
+	toId: string,
 ): ShareSnapshot {
 	const store = doc.document?.store ?? {}
 	const out: Record<string, unknown> = {}
@@ -153,7 +153,7 @@ type PageRecord = { typeName: string; id: string; name: string; index: string; m
 
 export async function getContentAsJsonDoc(
 	editor: Editor,
-	shapeIds: Iterable<TLShapeId>
+	shapeIds: Iterable<TLShapeId>,
 ): Promise<ShareSnapshot | null> {
 	const ids = Array.from(shapeIds)
 	const content = editor.getContentFromCurrentPage(ids)
@@ -166,13 +166,13 @@ export async function getContentAsJsonDoc(
 	for (const s of resolved.shapes) store[s.id] = s
 	for (const b of resolved.bindings ?? []) store[b.id] = b
 	for (const a of resolved.assets ?? []) store[a.id] = a
-	store[pageId] = page ?? { typeName: 'page', id: pageId, name: 'Page', index: 'a0', meta: {} }
+	store[pageId] = page ?? { typeName: "page", id: pageId, name: "Page", index: "a0", meta: {} }
 	return { document: { store, schema: resolved.schema } }
 }
 
 export async function getContentAsJsonDocForPage(
 	editor: Editor,
-	pageId: TLPageId
+	pageId: TLPageId,
 ): Promise<ShareSnapshot | null> {
 	const prevPageId = editor.getCurrentPageId()
 	if (prevPageId === pageId) {
@@ -193,12 +193,12 @@ export function isSyncServerConfigured(): boolean {
 }
 
 export function buildSyncUri(shareId: string): string {
-	const base = import.meta.env.VITE_SYNC_SERVER_URL ?? ''
-	if (!base) return ''
-	if (base.startsWith('ws://') || base.startsWith('wss://')) {
-		return `${base.replace(/\/$/, '')}/connect/${encodeURIComponent(shareId)}`
+	const base = import.meta.env.VITE_SYNC_SERVER_URL ?? ""
+	if (!base) return ""
+	if (base.startsWith("ws://") || base.startsWith("wss://")) {
+		return `${base.replace(/\/$/, "")}/connect/${encodeURIComponent(shareId)}`
 	}
-	const url = base.startsWith('http') ? base : `https://${base}`
-	const ws = url.replace(/^http/, 'ws')
+	const url = base.startsWith("http") ? base : `https://${base}`
+	const ws = url.replace(/^http/, "ws")
 	return `${ws}/connect/${encodeURIComponent(shareId)}`
 }
