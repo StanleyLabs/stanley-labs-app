@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react"
+import { AppTitle } from "../../components/ui/AppTitle"
 
 interface JoinFormProps {
 	onJoin: (roomId: string) => void
@@ -21,6 +22,10 @@ export default function JoinForm({ onJoin }: JoinFormProps) {
 				<div className="absolute top-1/4 left-1/4 w-96 h-96 bg-electric/10 rounded-full blur-3xl" />
 				<div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-electric/5 rounded-full blur-3xl" />
 			</div>
+
+			<header className="absolute inset-x-0 top-0 z-10 px-3 pt-4 sm:px-6 sm:pt-6">
+				<AppTitle app="chat" title="Video Chat" subtitle="Peer-to-peer group calls" />
+			</header>
 
 			{/* Card */}
 			<div className="relative z-10 p-10 w-full max-w-md mx-4 bg-white/5 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl">

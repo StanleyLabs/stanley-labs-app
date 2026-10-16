@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core"
 import { arrayMove, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { Link } from "react-router-dom"
+import { AppTitle } from "../../../components/ui/AppTitle"
 import { IconChevronDown, IconUsers } from "../../../components/ui/icons"
 import { cn } from "../../../components/ui/styles"
 import type { Client } from "../../time/types"
@@ -175,18 +176,11 @@ export function Sidebar({
 				)}
 			>
 				<div className="flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] px-4">
-					<Link
-						to="/"
-						className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-lg"
-						title="Stanley Labs"
-					>
-						<img
-							src="/favicon-tasks.svg"
-							alt="Project Dashboard"
-							className="h-full w-full object-contain"
-						/>
-					</Link>
-					<span className="font-display text-sm font-semibold text-paper">Project Dashboard</span>
+					<AppTitle
+						app="tasks"
+						title="Tasks"
+						subtitle={`${projects.length} ${projects.length === 1 ? "project" : "projects"}`}
+					/>
 					<button
 						onClick={onToggle}
 						className="ml-auto rounded-lg p-1.5 text-fog/40 transition-colors hover:bg-white/10 hover:text-paper"

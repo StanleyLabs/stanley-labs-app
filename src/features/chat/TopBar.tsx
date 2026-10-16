@@ -1,3 +1,5 @@
+import { AppTitle } from "../../components/ui/AppTitle"
+
 export default function TopBar({
 	roomId,
 	isConnected,
@@ -19,11 +21,24 @@ export default function TopBar({
 }) {
 	return (
 		<div className="shrink-0 border-b border-white/10 bg-graphite/50 backdrop-blur-sm landscape-hide">
-			<div className="mx-auto max-w-7xl px-6 py-3 flex items-center justify-between gap-3">
+			<div className="mx-auto max-w-7xl h-16 px-3 sm:px-6 flex items-center justify-between gap-3">
 				<div className="flex items-center gap-3 min-w-0">
-					<h2 className="text-sm sm:text-lg font-display font-semibold text-paper truncate">
-						Room: <span className="text-electric font-mono">{roomId}</span>
-					</h2>
+					<AppTitle
+						app="chat"
+						title="Video Chat"
+						subtitle={
+							<>
+								Room <span className="font-mono text-electric">{roomId}</span>
+							</>
+						}
+					/>
+					{peerCount > 0 && (
+						<div className="text-xs font-mono text-fog whitespace-nowrap shrink-0">
+							{peerCount} {peerCount === 1 ? "peer" : "peers"}
+						</div>
+					)}
+				</div>
+				<div className="flex items-center gap-3">
 					<div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full shrink-0">
 						<span
 							className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500 animate-pulse" : "bg-gray-500"}`}
@@ -36,13 +51,6 @@ export default function TopBar({
 						className="sm:hidden w-2 h-2 rounded-full shrink-0"
 						style={{ background: isConnected ? "#22c55e" : "#6b7280" }}
 					/>
-					{peerCount > 0 && (
-						<div className="text-xs font-mono text-fog whitespace-nowrap shrink-0">
-							{peerCount} {peerCount === 1 ? "peer" : "peers"}
-						</div>
-					)}
-				</div>
-				<div className="flex items-center gap-3">
 					{savedName ? (
 						<button
 							onClick={onNameEdit}

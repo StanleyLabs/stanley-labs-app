@@ -21,14 +21,14 @@ export function Shell({ children }: { children: ReactNode }) {
 	const { running } = useRunningTimer()
 	const showPill = !!running && !isHome && !isLogin && !isTime
 	// Boards and Chat have controls along the bottom, so the nav sits at the top there.
-	// Chat's offset clears its 63px room top bar.
+	// Chat's offset clears its 65px room top bar.
 	const topAnchored = isBoards || isChat
 	const navPos = isBoards
 		? "top-[21px] flex-col sm:right-[175px]"
 		: isChat
-			? "top-[79px] flex-col"
+			? "top-[81px] flex-col"
 			: "bottom-4 flex-col-reverse"
-	const pillPos = isBoards ? "top-[21px] sm:right-[223px]" : isChat ? "top-[79px]" : "bottom-4"
+	const pillPos = isBoards ? "top-[21px] sm:right-[223px]" : isChat ? "top-[81px]" : "bottom-4"
 	const [open, setOpen] = useState(false)
 	const containerRef = useRef<HTMLDivElement>(null)
 
@@ -256,8 +256,8 @@ function ChatIcon({ className }: { className?: string }) {
 			strokeLinecap="round"
 			strokeLinejoin="round"
 		>
-			<path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z" />
-			<rect x="1" y="6" width="14" height="12" rx="2" />
+			<path d="M16 10l4.553-2.276A1 1 0 0122 8.618v6.764a1 1 0 01-1.447.894L16 14v-4z" />
+			<rect x="2" y="6" width="14" height="12" rx="2" />
 		</svg>
 	)
 }

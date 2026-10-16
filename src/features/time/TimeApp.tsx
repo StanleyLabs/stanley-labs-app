@@ -11,6 +11,7 @@ import { useTimeData, type TimeData } from "./hooks/useTimeData"
 import { dayKey, entryDurationMs, formatHours, startOfWeek } from "./lib/time"
 import { IconChart, IconClock, IconFolder, IconInvoice, IconUsers } from "../../components/ui/icons"
 import { cn, tabBar, tabItem } from "../../components/ui/styles"
+import { AppTitle } from "../../components/ui/AppTitle"
 
 const TABS = [
 	{ to: "/time", label: "Timer", icon: IconClock, end: true },
@@ -45,21 +46,7 @@ export default function TimeApp() {
 				<div className="subtle-scroll relative h-full overflow-y-auto">
 					<div className="mx-auto w-full max-w-5xl px-3 pb-24 pt-4 sm:px-6 sm:pt-6">
 						<header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-							<div className="flex items-center gap-3">
-								<Link
-									to="/"
-									className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg"
-									title="Stanley Labs"
-								>
-									<IconClock className="h-5 w-5" />
-								</Link>
-								<div>
-									<h1 className="font-display text-xl font-bold leading-tight text-paper">
-										Time Tracker
-									</h1>
-									<WeekSummary data={data} />
-								</div>
-							</div>
+							<AppTitle app="time" title="Time Tracker" subtitle={<WeekSummary data={data} />} />
 							<nav className={cn(tabBar, "subtle-scroll -mx-1 max-w-full overflow-x-auto")}>
 								{TABS.map(({ to, label, icon: Icon, end }) => (
 									<NavLink
@@ -150,10 +137,10 @@ function WeekSummary({ data }: { data: TimeData }) {
 	}, [completed, timer.running, now])
 
 	return (
-		<p className="text-xs text-fog/50">
+		<>
 			Today <span className="font-mono text-fog">{formatHours(today)}</span>
 			<span className="mx-1.5 text-fog/20">·</span>
 			This week <span className="font-mono text-fog">{formatHours(week)}</span>
-		</p>
+		</>
 	)
 }

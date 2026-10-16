@@ -152,17 +152,7 @@ export default function App() {
 								</button>
 
 								{activeProject && (
-									<div className="flex min-w-0 items-center gap-2.5">
-										<span
-											className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl"
-											style={{
-												backgroundColor: activeProject.color + "22",
-												color: activeProject.color,
-												boxShadow: `inset 0 0 0 1px ${activeProject.color}40`,
-											}}
-										>
-											<IconFolder className="h-4 w-4" />
-										</span>
+									<div className="flex min-w-0 items-center">
 										<div className="min-w-0">
 											<h1 className="truncate font-display text-base font-semibold leading-tight text-paper">
 												{activeProject.name}

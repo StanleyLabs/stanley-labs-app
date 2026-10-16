@@ -184,6 +184,26 @@ export function IconTask(p: IconProps) {
 	)
 }
 
+export function IconGrid(p: IconProps) {
+	return (
+		<Svg {...p}>
+			<rect x="3" y="3" width="7" height="7" rx="1" />
+			<rect x="14" y="3" width="7" height="7" rx="1" />
+			<rect x="3" y="14" width="7" height="7" rx="1" />
+			<rect x="14" y="14" width="7" height="7" rx="1" />
+		</Svg>
+	)
+}
+
+export function IconVideo(p: IconProps) {
+	return (
+		<Svg {...p}>
+			<path d="M16 10l4.553-2.276A1 1 0 0122 8.618v6.764a1 1 0 01-1.447.894L16 14v-4z" />
+			<rect x="2" y="6" width="14" height="12" rx="2" />
+		</Svg>
+	)
+}
+
 export function IconMore(p: IconProps) {
 	return (
 		<Svg {...p}>

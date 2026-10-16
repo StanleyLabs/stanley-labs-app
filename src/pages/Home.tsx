@@ -76,8 +76,8 @@ const APPS: Omit<AppCard, "stat">[] = [
 		description: "Real-time group video calls with WebRTC.",
 		icon: (
 			<svg {...svgProps}>
-				<path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z" />
-				<rect x="1" y="6" width="14" height="12" rx="2" />
+				<path d="M16 10l4.553-2.276A1 1 0 0122 8.618v6.764a1 1 0 01-1.447.894L16 14v-4z" />
+				<rect x="2" y="6" width="14" height="12" rx="2" />
 			</svg>
 		),
 		gradient: "from-electric to-sky-400",
@@ -175,10 +175,10 @@ export default function Home() {
 				</div>
 
 				<div className="subtle-scroll relative flex h-full flex-col overflow-y-auto">
-					<header className="mx-auto flex w-full max-w-5xl shrink-0 items-center justify-between px-4 py-4 sm:px-6">
-						<div className="flex items-center gap-2.5">
-							<img src="/favicon.svg" alt="" className="h-8 w-8 rounded-lg" />
-							<span className="font-display text-sm font-semibold tracking-tight text-paper">
+					<header className="mx-auto flex w-full max-w-5xl shrink-0 items-center justify-between px-3 pt-4 sm:px-6 sm:pt-6">
+						<div className="flex items-center gap-3">
+							<img src="/favicon.svg" alt="" className="h-9 w-9 rounded-xl shadow-lg" />
+							<span className="font-display text-xl font-bold leading-tight text-paper">
 								Stanley Labs
 							</span>
 						</div>
