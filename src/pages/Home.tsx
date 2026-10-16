@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react"
 import { Link } from "react-router-dom"
+import { ProfileDialog } from "../components/ProfileDialog"
 import { cn } from "../components/ui/styles"
 import { useDashboardRepo } from "../features/tasks/store"
 import { dayKey, entryDurationMs, formatClock, formatHours } from "../features/time/lib/time"
-import { useAuth } from "../lib/auth"
+import { initialsFor, useAuth } from "../lib/auth"
 import { useNow, useRunningTimer } from "../lib/runningTimer"
 
 type AppCard = {
@@ -351,6 +352,8 @@ function AuthControls({
 	user: ReturnType<typeof useAuth>["user"]
 	onSignOut: () => void
 }) {
+	const [editing, setEditing] = useState(false)
+
 	if (loading) return <div className="h-9 w-24 animate-pulse rounded-full bg-white/[0.05]" />
 
 	if (!user) {
@@ -378,16 +381,29 @@ function AuthControls({
 
 	return (
 		<div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] py-1 pl-1 pr-1 backdrop-blur-xl">
-			{user.avatarUrl ? (
-				<img src={user.avatarUrl} alt="" className="h-7 w-7 rounded-full" />
-			) : (
-				<div className="flex h-7 w-7 items-center justify-center rounded-full bg-electric/20 text-xs font-semibold text-blue-200">
-					{(user.email?.[0] ?? "?").toUpperCase()}
-				</div>
-			)}
-			<span className="hidden max-w-[12rem] truncate px-1.5 text-xs text-fog/70 sm:inline">
-				{user.name ?? user.email}
-			</span>
+			<button
+				onClick={() => setEditing(true)}
+				className="flex items-center rounded-full transition-colors hover:bg-white/10"
+				title="Edit profile"
+				aria-label="Edit profile"
+			>
+				{user.avatarUrl ? (
+					<img
+						src={user.avatarUrl}
+						alt=""
+						referrerPolicy="no-referrer"
+						className="h-7 w-7 rounded-full object-cover"
+					/>
+				) : (
+					<div className="flex h-7 w-7 items-center justify-center rounded-full bg-electric/20 text-xs font-semibold text-blue-200">
+						{initialsFor(user)}
+					</div>
+				)}
+				<span className="hidden max-w-[12rem] truncate px-1.5 text-xs text-fog/70 sm:inline">
+					{user.name ?? user.email}
+				</span>
+			</button>
+			{editing && <ProfileDialog user={user} onClose={() => setEditing(false)} />}
 			<button
 				onClick={onSignOut}
 				className="rounded-full px-3 py-1 text-xs font-medium text-fog/45 transition-colors hover:bg-white/10 hover:text-paper"

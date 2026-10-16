@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react"
 import type { RecordModel } from "pocketbase"
-import { AuthContext, type AppUser } from "./auth"
+import { AuthContext, type AppUser, type ProfilePatch } from "./auth"
 import { errorMessage, pb } from "./pocketbase"
 
 function toAppUser(record: RecordModel | null): AppUser | null {
@@ -65,7 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			const auth = await pb.collection("users").authWithOAuth2({ provider })
 			const meta = auth.meta ?? {}
 			const patch: Record<string, string> = {}
-			if (meta.avatarURL && !auth.record.avatar_url) patch.avatar_url = meta.avatarURL
+			if (meta.avatarURL && !auth.record.avatar_url && !auth.record.avatar)
+				patch.avatar_url = meta.avatarURL
 			if (meta.name && !auth.record.name) patch.name = meta.name
 			if (Object.keys(patch).length) {
 				await pb.collection("users").update(auth.record.id, patch)
@@ -84,6 +85,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		pb.authStore.clear()
 	}
 
+	const updateProfile = async ({ name, avatar }: ProfilePatch) => {
+		const id = pb.authStore.record?.id
+		if (!id) return { error: "Not signed in" }
+		const body: Record<string, unknown> = {}
+		if (name !== undefined) body.name = name.trim()
+		if (avatar !== undefined) {
+			// avatar_url wins over the uploaded file in toAppUser, so clear it either way.
+			body.avatar = avatar
+			body.avatar_url = ""
+		}
+		if (!Object.keys(body).length) return { error: null }
+		try {
+			await pb.collection("users").update(id, body)
+			return { error: null }
+		} catch (err) {
+			return { error: errorMessage(err) }
+		}
+	}
+
 	return (
 		<AuthContext.Provider
 			value={{
@@ -94,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				signInWithGoogle,
 				signInWithApple,
 				signOut,
+				updateProfile,
 			}}
 		>
 			{children}
