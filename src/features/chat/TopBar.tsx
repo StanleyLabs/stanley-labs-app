@@ -32,13 +32,13 @@ export default function TopBar({
 							</>
 						}
 					/>
+				</div>
+				<div className="flex items-center gap-3">
 					{peerCount > 0 && (
 						<div className="text-xs font-mono text-fog whitespace-nowrap shrink-0">
 							{peerCount} {peerCount === 1 ? "peer" : "peers"}
 						</div>
 					)}
-				</div>
-				<div className="flex items-center gap-3">
 					<div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full shrink-0">
 						<span
 							className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500 animate-pulse" : "bg-gray-500"}`}
