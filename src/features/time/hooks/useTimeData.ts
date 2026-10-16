@@ -118,22 +118,24 @@ export function useTimeData() {
 
 	// ── Projects ───────────────────────────────────────────────────────────────
 
+	const nextProjectColor = PROJECT_COLORS[projects.length % PROJECT_COLORS.length]
+
 	const createProject = useCallback(
-		async (name: string, clientId?: string) => {
+		async (name: string, fields?: Partial<Omit<ProjectFields, "name">>) => {
 			const p = await dashRepo.createProject({
-				name,
 				description: "",
-				color: PROJECT_COLORS[projects.length % PROJECT_COLORS.length],
-				clientId,
+				color: nextProjectColor,
+				...fields,
+				name,
 			})
 			setProjects((prev) => [...prev, p])
 			return p
 		},
-		[dashRepo, projects.length],
+		[dashRepo, nextProjectColor],
 	)
 
 	const updateProject = useCallback(
-		async (id: string, patch: { clientId?: string; hourlyRate?: number }) => {
+		async (id: string, patch: Partial<ProjectFields>) => {
 			setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)))
 			try {
 				const p = await dashRepo.updateProject(id, patch)
@@ -235,6 +237,7 @@ export function useTimeData() {
 		createClient,
 		updateClient,
 		deleteClient,
+		nextProjectColor,
 		createProject,
 		updateProject,
 		createEntry,
@@ -245,5 +248,10 @@ export function useTimeData() {
 		deleteInvoice,
 	}
 }
+
+export type ProjectFields = Pick<
+	Project,
+	"name" | "description" | "color" | "clientId" | "hourlyRate"
+>
 
 export type TimeData = ReturnType<typeof useTimeData>

@@ -1,18 +1,28 @@
 import { useEffect, useMemo, useState } from "react"
 import { useAuth } from "../../../lib/auth"
 import type { Project } from "../../tasks/types"
-import type { TimeData } from "../hooks/useTimeData"
+import type { ProjectFields, TimeData } from "../hooks/useTimeData"
 import { amountFor, formatMoney, projectClient, resolveCurrency, resolveRate } from "../lib/rates"
 import { entryDurationMs, formatHours } from "../lib/time"
 import type { Client } from "../types"
-import { IconFolder, IconPlus } from "../../../components/ui/icons"
+import { IconEdit, IconFolder, IconPlus } from "../../../components/ui/icons"
+import { Modal } from "../../../components/ui/Modal"
 import { Select } from "../../../components/ui/Select"
-import { btnGhost, btnPrimary, card, cn, input } from "../../../components/ui/styles"
+import { btnPrimary, card, cn, iconBtn, input } from "../../../components/ui/styles"
+import { ProjectForm } from "./ProjectForm"
 
 export function ProjectsView({ data }: { data: TimeData }) {
 	const { user } = useAuth()
-	const { projects, clients, clientsById, completed, createProject, updateProject } = data
-	const [newName, setNewName] = useState<string | null>(null)
+	const {
+		projects,
+		clients,
+		clientsById,
+		completed,
+		nextProjectColor,
+		createProject,
+		updateProject,
+	} = data
+	const [modal, setModal] = useState<{ project?: Project } | null>(null)
 	const [error, setError] = useState<string | null>(null)
 
 	const totals = useMemo(() => {
@@ -30,7 +40,7 @@ export function ProjectsView({ data }: { data: TimeData }) {
 
 	const canEdit = (p: Project) => !user || !p.ownerId || p.ownerId === user.id
 
-	const save = (id: string, patch: { clientId?: string; hourlyRate?: number }) => {
+	const save = (id: string, patch: Partial<ProjectFields>) => {
 		setError(null)
 		updateProject(id, patch).catch((err) =>
 			setError(err instanceof Error ? err.message : "Could not update project"),
@@ -44,39 +54,11 @@ export function ProjectsView({ data }: { data: TimeData }) {
 					Projects and tasks are shared with the Tasks app. Set a client and an hourly rate here; a
 					project rate overrides the client's default.
 				</p>
-				{newName === null && (
-					<button onClick={() => setNewName("")} className={cn(btnPrimary, "shrink-0")}>
-						<IconPlus className="h-4 w-4" />
-						New project
-					</button>
-				)}
+				<button onClick={() => setModal({})} className={cn(btnPrimary, "shrink-0")}>
+					<IconPlus className="h-4 w-4" />
+					New project
+				</button>
 			</div>
-
-			{newName !== null && (
-				<form
-					className={cn(card, "flex items-center gap-2 p-3 animate-slide-up")}
-					onSubmit={async (e) => {
-						e.preventDefault()
-						if (!newName.trim()) return
-						await createProject(newName.trim())
-						setNewName(null)
-					}}
-				>
-					<input
-						autoFocus
-						value={newName}
-						onChange={(e) => setNewName(e.target.value)}
-						placeholder="Project name"
-						className={input}
-					/>
-					<button type="button" onClick={() => setNewName(null)} className={btnGhost}>
-						Cancel
-					</button>
-					<button type="submit" disabled={!newName.trim()} className={btnPrimary}>
-						Create
-					</button>
-				</form>
-			)}
 
 			{error && <p className="text-xs text-signal">{error}</p>}
 
@@ -106,10 +88,32 @@ export function ProjectsView({ data }: { data: TimeData }) {
 							totals={totals.get(p.id)}
 							editable={canEdit(p)}
 							onSave={(patch) => save(p.id, patch)}
+							onEdit={() => setModal({ project: p })}
 						/>
 					))}
 				</div>
 			)}
+
+			<Modal
+				open={!!modal}
+				title={modal?.project ? "Edit project" : "New project"}
+				onClose={() => setModal(null)}
+			>
+				{modal && (
+					<ProjectForm
+						initial={modal.project}
+						defaultColor={nextProjectColor}
+						clients={clients}
+						submitLabel={modal.project ? "Save changes" : "Create project"}
+						onCancel={() => setModal(null)}
+						onSubmit={async ({ name, ...fields }) => {
+							if (modal.project) await updateProject(modal.project.id, { name, ...fields })
+							else await createProject(name, fields)
+							setModal(null)
+						}}
+					/>
+				)}
+			</Modal>
 		</div>
 	)
 }
@@ -121,13 +125,15 @@ function ProjectRow({
 	totals,
 	editable,
 	onSave,
+	onEdit,
 }: {
 	project: Project
 	clients: Client[]
 	clientsById: Map<string, Client>
 	totals?: { ms: number; billableMs: number }
 	editable: boolean
-	onSave: (patch: { clientId?: string; hourlyRate?: number }) => void
+	onSave: (patch: Partial<ProjectFields>) => void
+	onEdit: () => void
 }) {
 	const client = projectClient(project, clientsById)
 	const currency = resolveCurrency(client)
@@ -148,14 +154,32 @@ function ProjectRow({
 	}
 
 	return (
-		<div className="grid grid-cols-2 items-center gap-3 px-4 py-3 md:grid-cols-[1fr_12rem_9rem_7rem_7rem]">
+		<div className="group grid grid-cols-2 items-center gap-3 px-4 py-3 md:grid-cols-[1fr_12rem_9rem_7rem_7rem]">
 			<div className="col-span-2 flex min-w-0 items-center gap-2.5 md:col-span-1">
 				<span
 					className="h-3 w-3 shrink-0 rounded-full"
 					style={{ backgroundColor: project.color }}
 				/>
-				<span className="truncate text-sm font-medium text-paper">{project.name}</span>
-				{!editable && <span className="text-2xs text-fog/40">(shared)</span>}
+				<div className="min-w-0">
+					<div className="truncate text-sm font-medium text-paper">{project.name}</div>
+					{project.description && (
+						<div className="truncate text-xs text-fog/40">{project.description}</div>
+					)}
+				</div>
+				{!editable && <span className="shrink-0 text-2xs text-fog/40">(shared)</span>}
+				{editable && (
+					<button
+						onClick={onEdit}
+						className={cn(
+							iconBtn,
+							"ml-auto shrink-0 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100",
+						)}
+						title="Edit project"
+						aria-label={`Edit ${project.name}`}
+					>
+						<IconEdit className="h-3.5 w-3.5" />
+					</button>
+				)}
 			</div>
 			<Select
 				size="sm"

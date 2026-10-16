@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { CLIENT_COLORS, CURRENCIES, type Client, type ClientInput } from "../types"
+import { CURRENCIES, type Client, type ClientInput } from "../types"
+import { PROJECT_COLORS } from "../../tasks/types"
 import { Select } from "../../../components/ui/Select"
 import { btnGhost, btnPrimary, cn, input, label } from "../../../components/ui/styles"
 
@@ -19,7 +20,7 @@ export function ClientForm({
 	const [address, setAddress] = useState(initial?.address ?? "")
 	const [rate, setRate] = useState(initial?.hourlyRate ? String(initial.hourlyRate) : "")
 	const [currency, setCurrency] = useState(initial?.currency ?? "USD")
-	const [color, setColor] = useState(initial?.color ?? CLIENT_COLORS[0])
+	const [color, setColor] = useState(initial?.color ?? PROJECT_COLORS[0])
 	const [notes, setNotes] = useState(initial?.notes ?? "")
 	const [saving, setSaving] = useState(false)
 	const [error, setError] = useState<string | null>(null)
@@ -114,7 +115,7 @@ export function ClientForm({
 			<div>
 				<span className={label}>Color</span>
 				<div className="flex flex-wrap gap-2">
-					{CLIENT_COLORS.map((c) => (
+					{PROJECT_COLORS.map((c) => (
 						<button
 							key={c}
 							type="button"

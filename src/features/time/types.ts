@@ -73,14 +73,3 @@ export type TimeLabels = {
 }
 
 export const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "NZD", "CHF", "JPY", "INR"] as const
-
-export const CLIENT_COLORS = [
-	"#2D6BFF",
-	"#22C55E",
-	"#F59E0B",
-	"#EC4899",
-	"#8B5CF6",
-	"#14B8A6",
-	"#EF4444",
-	"#06B6D4",
-]
