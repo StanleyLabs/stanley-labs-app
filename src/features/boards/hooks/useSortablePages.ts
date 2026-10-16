@@ -138,13 +138,13 @@ export function useSortablePages(
 
 			if (mut.status === "dragging") {
 				const { id, index } = mut.pointing!
-				onMovePage(editor, id as TLPageId, index, mut.dragIndex, trackEvent)
+				onMovePage(editor, pages, id as TLPageId, index, mut.dragIndex, trackEvent)
 			}
 
 			releasePointerCapture(e.currentTarget, e)
 			mut.status = "idle"
 		},
-		[editor, trackEvent],
+		[editor, pages, trackEvent],
 	)
 
 	const handleKeyDown = useCallback(

@@ -107,7 +107,7 @@ export function createPocketBaseRepo(userId: string): DashboardRepo {
 		async updateProject(id, patch) {
 			const update: Record<string, unknown> = {}
 			if (patch.name !== undefined) update.name = patch.name
-			if (patch.description !== undefined) update.description = patch.description
+			if ("description" in patch) update.description = patch.description ?? ""
 			if (patch.color !== undefined) update.color = patch.color
 			if (patch.order !== undefined) update.order = patch.order
 			if ("clientId" in patch) update.client_id = patch.clientId ?? ""
@@ -153,12 +153,13 @@ export function createPocketBaseRepo(userId: string): DashboardRepo {
 		async updateTask(id, patch) {
 			const update: Record<string, unknown> = {}
 			if (patch.title !== undefined) update.title = patch.title
-			if (patch.description !== undefined) update.description = patch.description
+			// Keys present with an undefined value clear the field.
+			if ("description" in patch) update.description = patch.description ?? ""
 			if (patch.status !== undefined) update.status = patch.status
 			if (patch.priority !== undefined) update.priority = patch.priority
-			if (patch.assignee !== undefined) update.assignee = patch.assignee
-			if (patch.due !== undefined) update.due = patch.due
-			if (patch.tags !== undefined) update.tags = patch.tags
+			if ("assignee" in patch) update.assignee = patch.assignee ?? null
+			if ("due" in patch) update.due = patch.due ?? ""
+			if ("tags" in patch) update.tags = patch.tags ?? null
 			if (patch.order !== undefined) update.order = patch.order
 			return mapTaskRecord(await tasks().update(id, update))
 		},

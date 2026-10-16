@@ -1,3 +1,5 @@
+import type { Project } from "../tasks/types"
+
 export type Client = {
 	id: string
 	name: string
@@ -12,6 +14,12 @@ export type Client = {
 }
 
 export type ClientInput = Omit<Client, "id" | "createdAt" | "updatedAt">
+
+/** Editable project fields, shared by the Tasks and Time project forms. */
+export type ProjectFields = Pick<
+	Project,
+	"name" | "description" | "color" | "clientId" | "hourlyRate"
+>
 
 export type TimeEntry = {
 	id: string

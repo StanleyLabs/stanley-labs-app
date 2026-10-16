@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useAuth } from "../../../lib/auth"
 import type { Project } from "../../tasks/types"
-import type { ProjectFields, TimeData } from "../hooks/useTimeData"
+import type { TimeData } from "../hooks/useTimeData"
 import {
 	amountFor,
 	formatMoney,
@@ -11,7 +11,7 @@ import {
 	resolveRate,
 } from "../lib/rates"
 import { entryDurationMs, formatHours } from "../lib/time"
-import type { Client } from "../types"
+import type { Client, ProjectFields } from "../types"
 import { IconEdit, IconFolder, IconPlus } from "../../../components/ui/icons"
 import { Modal } from "../../../components/ui/Modal"
 import { Select } from "../../../components/ui/Select"

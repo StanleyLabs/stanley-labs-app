@@ -69,12 +69,12 @@ export function CustomPageItemSubmenu({
 	}, [editor, item, trackEvent])
 
 	const onMoveUp = useCallback(() => {
-		onMovePage(editor, item.id as TLPageId, index, index - 1, trackEvent)
-	}, [editor, item, index, trackEvent])
+		onMovePage(editor, pages, item.id as TLPageId, index, index - 1, trackEvent)
+	}, [editor, pages, item, index, trackEvent])
 
 	const onMoveDown = useCallback(() => {
-		onMovePage(editor, item.id as TLPageId, index, index + 1, trackEvent)
-	}, [editor, item, index, trackEvent])
+		onMovePage(editor, pages, item.id as TLPageId, index, index + 1, trackEvent)
+	}, [editor, pages, item, index, trackEvent])
 
 	const onOpenSettings = useCallback(() => {
 		if (!entry) return
@@ -114,7 +114,7 @@ export function CustomPageItemSubmenu({
 	const onDelete = useCallback(() => {
 		if (!isLoggedIn) {
 			// Guest: instant delete
-			performDelete()
+			void performDelete()
 			return
 		}
 
@@ -123,12 +123,21 @@ export function CustomPageItemSubmenu({
 				<ConfirmDeleteDialog
 					onClose={props.onClose}
 					pageName={item.name}
-					onConfirm={() => {
-						performDelete()
-						toasts.addToast({
-							title: isOwner ? "Page deleted permanently." : "Removed from your pages.",
-							severity: "success",
-						})
+					isOwner={isOwner}
+					onConfirm={async () => {
+						try {
+							await performDelete()
+							toasts.addToast({
+								title: isOwner ? "Page deleted permanently." : "Removed from your pages.",
+								severity: "success",
+							})
+						} catch (err) {
+							console.error("[boards] delete page failed", err)
+							toasts.addToast({
+								title: isOwner ? "Couldn't delete the page." : "Couldn't remove the page.",
+								severity: "error",
+							})
+						}
 					}}
 				/>
 			),

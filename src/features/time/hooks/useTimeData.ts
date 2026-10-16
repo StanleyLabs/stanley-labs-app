@@ -5,14 +5,14 @@ import { useDashboardRepo } from "../../tasks/store"
 import type { Project, Task } from "../../tasks/types"
 import { PROJECT_COLORS } from "../../tasks/types"
 import type {
-	Client,
-	ClientInput,
 	EntryInput,
 	EntryPatch,
 	Invoice,
 	InvoiceInput,
+	ProjectFields,
 	TimeEntry,
 } from "../types"
+import { useClients } from "./useClients"
 
 export function useTimeData() {
 	const { user } = useAuth()
@@ -20,7 +20,6 @@ export function useTimeData() {
 	const { repo, version, notifyChanged } = timer
 	const dashRepo = useDashboardRepo(false, user?.id)
 
-	const [clients, setClients] = useState<Client[]>([])
 	const [projects, setProjects] = useState<Project[]>([])
 	const [tasks, setTasks] = useState<Task[]>([])
 	const [entries, setEntries] = useState<TimeEntry[]>([])
@@ -31,14 +30,12 @@ export function useTimeData() {
 	const loadAll = useCallback(async () => {
 		try {
 			setError(null)
-			const [c, p, t, e, i] = await Promise.all([
-				repo.listClients(),
+			const [p, t, e, i] = await Promise.all([
 				dashRepo.listProjects(),
 				dashRepo.listAllTasks(),
 				repo.listEntries(),
 				repo.listInvoices(),
 			])
-			setClients(c)
 			setProjects(p)
 			setTasks(t)
 			setEntries(e)
@@ -72,49 +69,21 @@ export function useTimeData() {
 		}
 	}, [repo, version])
 
-	const clientsById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients])
+	const clientsApi = useClients({
+		projects,
+		updateProject: dashRepo.updateProject,
+		onDeleted: (id) =>
+			setProjects((prev) =>
+				prev.map((p) => (p.clientId === id ? { ...p, clientId: undefined } : p)),
+			),
+	})
+	const { clients, clientsById } = clientsApi
+
 	const projectsById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects])
 	const tasksById = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks])
 
 	/** Completed entries only; the running one lives in the timer context. */
 	const completed = useMemo(() => entries.filter((e) => !!e.end), [entries])
-
-	// ── Clients ────────────────────────────────────────────────────────────────
-
-	const createClient = useCallback(
-		async (input: ClientInput) => {
-			const c = await repo.createClient(input)
-			setClients((prev) => [...prev, c].sort((a, b) => a.name.localeCompare(b.name)))
-			return c
-		},
-		[repo],
-	)
-
-	const updateClient = useCallback(
-		async (id: string, patch: Partial<ClientInput>) => {
-			const c = await repo.updateClient(id, patch)
-			setClients((prev) => prev.map((x) => (x.id === id ? c : x)))
-			return c
-		},
-		[repo],
-	)
-
-	const deleteClient = useCallback(
-		async (id: string) => {
-			await repo.deleteClient(id)
-			setClients((prev) => prev.filter((x) => x.id !== id))
-			// PocketBase clears the relation itself; guest projects need it done here.
-			if (repo.isGuest) {
-				for (const p of projects) {
-					if (p.clientId === id) await dashRepo.updateProject(p.id, { clientId: undefined })
-				}
-			}
-			setProjects((prev) =>
-				prev.map((p) => (p.clientId === id ? { ...p, clientId: undefined } : p)),
-			)
-		},
-		[repo, dashRepo, projects],
-	)
 
 	// ── Projects ───────────────────────────────────────────────────────────────
 
@@ -222,9 +191,9 @@ export function useTimeData() {
 	return {
 		timer,
 		isGuest: repo.isGuest,
-		loading,
-		error,
-		reload: loadAll,
+		loading: loading || clientsApi.loading,
+		error: error ?? clientsApi.error,
+		reload: () => Promise.all([loadAll(), clientsApi.reload()]),
 		clients,
 		projects,
 		tasks,
@@ -234,9 +203,9 @@ export function useTimeData() {
 		clientsById,
 		projectsById,
 		tasksById,
-		createClient,
-		updateClient,
-		deleteClient,
+		createClient: clientsApi.create,
+		updateClient: clientsApi.update,
+		deleteClient: clientsApi.remove,
 		nextProjectColor,
 		createProject,
 		updateProject,
@@ -248,10 +217,5 @@ export function useTimeData() {
 		deleteInvoice,
 	}
 }
-
-export type ProjectFields = Pick<
-	Project,
-	"name" | "description" | "color" | "clientId" | "hourlyRate"
->
 
 export type TimeData = ReturnType<typeof useTimeData>

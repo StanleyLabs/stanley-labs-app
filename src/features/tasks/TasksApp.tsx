@@ -2,18 +2,18 @@ import { useCallback, useState } from "react"
 import { ConfirmDialog, Modal } from "../../components/ui/Modal"
 import { btnPrimary, cn, iconBtn, tabBar, tabItem } from "../../components/ui/styles"
 import { ClientForm } from "../time/components/ClientForm"
+import { ProjectForm } from "../time/components/ProjectForm"
+import { deleteClientMessage, useClients } from "../time/hooks/useClients"
 import type { Client } from "../time/types"
 import { TaskTimeProvider } from "../time/taskTime/TaskTimeProvider"
 import { TaskTimeSection } from "../time/taskTime/TaskTimeSection"
-import { PROJECT_COLORS } from "./types"
 import { IconFolder, IconKanban, IconList, IconMenu, IconPlus, IconSearch } from "./icons"
 import { Sidebar } from "./sidebar/Sidebar"
 import { KanbanBoard } from "./kanban/KanbanBoard"
 import { ListView } from "./list/ListView"
 import { TaskForm } from "./forms/TaskForm"
-import { ProjectForm } from "./forms/ProjectForm"
+import { ProjectMembers } from "./forms/ProjectMembers"
 import { ClientsPanel } from "./clients/ClientsPanel"
-import { useClients } from "./hooks/useClients"
 import { useTasksPage } from "./hooks/useTasksPage"
 
 const isMobile = () => typeof window !== "undefined" && window.innerWidth < 1024
@@ -63,9 +63,9 @@ export default function App() {
 		enabled: !useMockData,
 		projects,
 		updateProject: projectsApi.update,
-		refreshProjects: projectsApi.refresh,
+		onDeleted: projectsApi.refresh,
 	})
-	const clients = clientsApi.enabled ? clientsApi.clients : undefined
+	const clients = useMockData ? undefined : clientsApi.clients
 	const activeClient = activeProject?.clientId
 		? clientsApi.clientsById.get(activeProject.clientId)
 		: undefined
@@ -84,13 +84,9 @@ export default function App() {
 	const newProjectForClient = (clientId: string) => setProjectModal({ mode: "create", clientId })
 
 	const confirmDeleteClient = (c: Client) => {
-		const count = projects.filter((p) => p.clientId === c.id).length
 		setConfirmDialog({
 			title: "Delete client",
-			message:
-				count > 0
-					? `"${c.name}" will be deleted and ${count} project${count === 1 ? "" : "s"} will be unassigned. Projects, tasks and tracked time are kept.`
-					: `"${c.name}" will be deleted.`,
+			message: deleteClientMessage(c, projects.filter((p) => p.clientId === c.id).length),
 			confirmLabel: "Delete client",
 			onConfirm: async () => {
 				setConfirmDialog(null)
@@ -310,22 +306,20 @@ export default function App() {
 				>
 					{projectModal && (
 						<ProjectForm
-							initial={{
-								name: projectModal.project?.name ?? "",
-								description: projectModal.project?.description ?? "",
-								color: projectModal.project?.color ?? PROJECT_COLORS[0],
-								clientId: projectModal.project?.clientId ?? projectModal.clientId,
-								hourlyRate: projectModal.project?.hourlyRate,
-							}}
+							initial={projectModal.project ?? { clientId: projectModal.clientId }}
 							clients={clients}
 							onCreateClient={clients ? clientsApi.create : undefined}
-							projectId={projectModal.project?.id}
-							projectOwnerId={projectModal.project?.ownerId}
-							isLoggedIn={!!user && !useMockData}
 							onSubmit={projectModal.mode === "create" ? handleCreateProject : handleUpdateProject}
 							onCancel={() => setProjectModal(null)}
 							submitLabel={projectModal.mode === "create" ? "Create Project" : "Save Changes"}
-						/>
+						>
+							{user && !useMockData && projectModal.project && (
+								<ProjectMembers
+									projectId={projectModal.project.id}
+									projectOwnerId={projectModal.project.ownerId}
+								/>
+							)}
+						</ProjectForm>
 					)}
 				</Modal>
 

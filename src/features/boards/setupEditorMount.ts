@@ -44,6 +44,6 @@ export function createEditorOnMount(editor: Editor, store: TLStore): () => void 
 	return () => {
 		unlistenPage()
 		rightClickPanCleanup()
-		container.removeEventListener("wheel", onWheelDetect)
+		container.removeEventListener("wheel", onWheelDetect, { capture: true })
 	}
 }
