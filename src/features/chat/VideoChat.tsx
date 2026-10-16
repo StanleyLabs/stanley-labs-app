@@ -1,6 +1,8 @@
 import { useRef, useCallback, useEffect, useState, type RefObject } from "react"
 import { useMachine } from "@xstate/react"
-import { roomMachine } from "./machines/roomMachine"
+import { useAuth } from "../../lib/auth"
+import { errorMessage, pb } from "../../lib/pocketbase"
+import { roomMachine, type PeerMediaState } from "./machines/roomMachine"
 import { useWebRTC } from "./hooks/useWebRTC"
 import { useDevices } from "./hooks/useDevices"
 import { useDraggable } from "./hooks/useDraggable"
@@ -77,6 +79,24 @@ function useGridFit(gridRef: RefObject<HTMLDivElement | null>, peerCount: number
 			grid.style.visibility = ""
 		}
 	}, [gridRef, peerCount])
+}
+
+const GUEST_NAME_KEY = "chat:displayName"
+
+function loadGuestName(): string {
+	try {
+		return localStorage.getItem(GUEST_NAME_KEY) ?? ""
+	} catch {
+		return ""
+	}
+}
+
+function saveGuestName(name: string) {
+	try {
+		localStorage.setItem(GUEST_NAME_KEY, name)
+	} catch {
+		/* storage unavailable */
+	}
 }
 
 interface VideoChatProps {
@@ -166,6 +186,13 @@ export default function VideoChat({ roomId, onLeave, streamRef }: VideoChatProps
 		[send],
 	)
 
+	const onPeerMediaState = useCallback(
+		(peerId: string, mediaState: PeerMediaState) => {
+			send({ type: "PEER_MEDIA_STATE", peerId, state: mediaState })
+		},
+		[send],
+	)
+
 	const onConnected = useCallback(() => {
 		send({ type: "SOCKET_CONNECTED" })
 	}, [send])
@@ -174,7 +201,7 @@ export default function VideoChat({ roomId, onLeave, streamRef }: VideoChatProps
 		send({ type: "SOCKET_DISCONNECTED" })
 	}, [send])
 
-	const { replaceTrackInPeers, sendName } = useWebRTC({
+	const { replaceTrackInPeers, sendName, sendMediaState } = useWebRTC({
 		roomId,
 		localStream,
 		onConnected,
@@ -182,6 +209,7 @@ export default function VideoChat({ roomId, onLeave, streamRef }: VideoChatProps
 		onPeerAdded,
 		onPeerRemoved,
 		onPeerName,
+		onPeerMediaState,
 	})
 
 	// Device management
@@ -230,15 +258,34 @@ export default function VideoChat({ roomId, onLeave, streamRef }: VideoChatProps
 		prevModeRef.current = currentMode
 	}, [currentMode])
 
-	// Display name
+	// Display name: persisted to the user record when signed in, localStorage for guests
+	const { user } = useAuth()
 	const [displayName, setDisplayName] = useState("")
-	const [savedName, setSavedName] = useState("")
+	const [savedName, setSavedName] = useState(() => user?.name || loadGuestName())
 	const handleNameSave = useCallback(() => {
 		const trimmed = displayName.trim()
 		sendName(trimmed)
 		setSavedName(trimmed)
 		setDisplayName("")
-	}, [sendName, displayName])
+		if (!trimmed) return
+		if (user) {
+			if (trimmed !== user.name) {
+				pb.collection("users")
+					.update(user.id, { name: trimmed })
+					.catch((err) => console.warn("[chat] failed to save name:", errorMessage(err)))
+			}
+		} else {
+			saveGuestName(trimmed)
+		}
+	}, [sendName, displayName, user])
+
+	useEffect(() => {
+		if (isConnected && savedName) sendName(savedName)
+	}, [isConnected, savedName, sendName])
+
+	useEffect(() => {
+		if (isConnected) sendMediaState({ videoMuted: isVideoMuted, avatarUrl: user?.avatarUrl })
+	}, [isConnected, isVideoMuted, user?.avatarUrl, sendMediaState])
 
 	// Leave confirmation (shared between top bar and controls bar)
 	const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
@@ -295,6 +342,8 @@ export default function VideoChat({ roomId, onLeave, streamRef }: VideoChatProps
 								peerId={spotlightPeer.id}
 								name={spotlightPeer.name}
 								stream={spotlightPeer.stream}
+								videoMuted={spotlightPeer.videoMuted}
+								avatarUrl={spotlightPeer.avatarUrl}
 								isSpotlight
 								isThumb={false}
 								onSelect={() => send({ type: "SPOTLIGHT", peerId: null })}
@@ -307,6 +356,8 @@ export default function VideoChat({ roomId, onLeave, streamRef }: VideoChatProps
 											peerId={p.id}
 											name={p.name}
 											stream={p.stream}
+											videoMuted={p.videoMuted}
+											avatarUrl={p.avatarUrl}
 											isSpotlight={false}
 											isThumb
 											onSelect={() => send({ type: "SPOTLIGHT", peerId: p.id })}
@@ -326,6 +377,8 @@ export default function VideoChat({ roomId, onLeave, streamRef }: VideoChatProps
 									peerId={p.id}
 									name={p.name}
 									stream={p.stream}
+									videoMuted={p.videoMuted}
+									avatarUrl={p.avatarUrl}
 									isSpotlight={false}
 									isThumb={false}
 									onSelect={() => send({ type: "SPOTLIGHT", peerId: p.id })}
@@ -337,7 +390,14 @@ export default function VideoChat({ roomId, onLeave, streamRef }: VideoChatProps
 			</div>
 
 			{/* Local video pip */}
-			<LocalVideo ref={pipRef} videoRef={localVideoRef} isVideoMuted={isVideoMuted} />
+			<LocalVideo
+				ref={pipRef}
+				videoRef={localVideoRef}
+				stream={localStream}
+				isVideoMuted={isVideoMuted}
+				name={savedName || user?.name || user?.email}
+				avatarUrl={user?.avatarUrl}
+			/>
 
 			{/* Controls */}
 			<ControlsBar

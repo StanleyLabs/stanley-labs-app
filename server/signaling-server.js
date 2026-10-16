@@ -62,6 +62,9 @@ export default function initSignaling(server) {
 						name: existing.displayName,
 					})
 				}
+				if (existing.mediaState) {
+					socket.emit("peerMediaState", { peer_id: id, ...existing.mediaState })
+				}
 			}
 
 			channels[channel][socket.id] = socket
@@ -99,6 +102,24 @@ export default function initSignaling(server) {
 						channels[channel][id].emit("peerName", {
 							peer_id: socket.id,
 							name: socket.displayName,
+						})
+					}
+				}
+			}
+		})
+
+		socket.on("relayMediaState", (config) => {
+			const avatarUrl =
+				typeof config?.avatarUrl === "string" && /^https?:\/\//i.test(config.avatarUrl)
+					? config.avatarUrl.slice(0, 2048)
+					: ""
+			socket.mediaState = { videoMuted: !!config?.videoMuted, avatarUrl }
+			for (const channel in socket.channels) {
+				for (const id in channels[channel]) {
+					if (id !== socket.id) {
+						channels[channel][id].emit("peerMediaState", {
+							peer_id: socket.id,
+							...socket.mediaState,
 						})
 					}
 				}

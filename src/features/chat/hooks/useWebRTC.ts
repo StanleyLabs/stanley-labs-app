@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from "react"
 import { io, Socket } from "socket.io-client"
+import type { PeerMediaState } from "../machines/roomMachine"
 
 function getIceServers(): RTCIceServer[] {
 	const raw = import.meta.env.VITE_ICE_SERVERS_JSON
@@ -22,6 +23,7 @@ interface UseWebRTCOptions {
 	onPeerAdded: (peerId: string, stream: MediaStream) => void
 	onPeerRemoved: (peerId: string) => void
 	onPeerName: (peerId: string, name: string) => void
+	onPeerMediaState: (peerId: string, state: PeerMediaState) => void
 }
 
 export function useWebRTC({
@@ -32,6 +34,7 @@ export function useWebRTC({
 	onPeerAdded,
 	onPeerRemoved,
 	onPeerName,
+	onPeerMediaState,
 }: UseWebRTCOptions) {
 	const socketRef = useRef<Socket | null>(null)
 	const peersRef = useRef<Record<string, RTCPeerConnection>>({})
@@ -179,6 +182,16 @@ export function useWebRTC({
 			onPeerName(config.peer_id, config.name)
 		})
 
+		socket.on(
+			"peerMediaState",
+			(config: { peer_id: string; videoMuted?: boolean; avatarUrl?: string }) => {
+				onPeerMediaState(config.peer_id, {
+					videoMuted: !!config.videoMuted,
+					avatarUrl: config.avatarUrl || undefined,
+				})
+			},
+		)
+
 		return () => {
 			Object.values(peersRef.current).forEach((pc) => pc.close())
 			peersRef.current = {}
@@ -186,11 +199,24 @@ export function useWebRTC({
 			socket.disconnect()
 			socketRef.current = null
 		}
-	}, [roomId, localStream, onConnected, onDisconnected, onPeerAdded, onPeerRemoved, onPeerName])
+	}, [
+		roomId,
+		localStream,
+		onConnected,
+		onDisconnected,
+		onPeerAdded,
+		onPeerRemoved,
+		onPeerName,
+		onPeerMediaState,
+	])
 
 	const sendName = useCallback((name: string) => {
 		socketRef.current?.emit("relayName", { name })
 	}, [])
 
-	return { getSocket, replaceTrackInPeers, sendName }
+	const sendMediaState = useCallback((state: PeerMediaState) => {
+		socketRef.current?.emit("relayMediaState", state)
+	}, [])
+
+	return { getSocket, replaceTrackInPeers, sendName, sendMediaState }
 }

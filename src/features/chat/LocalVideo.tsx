@@ -1,13 +1,20 @@
 import { forwardRef, useEffect, useRef, useState, type RefObject } from "react"
+import CameraOffTile from "./CameraOffTile"
+import SpeakingRing from "./SpeakingRing"
+import { useSpeaking } from "./hooks/useSpeaking"
 
 interface LocalVideoProps {
 	videoRef: RefObject<HTMLVideoElement | null>
+	stream: MediaStream | null
 	isVideoMuted: boolean
+	name?: string
+	avatarUrl?: string
 }
 
 const LocalVideo = forwardRef<HTMLDivElement, LocalVideoProps>(
-	({ videoRef, isVideoMuted }, pipRef) => {
+	({ videoRef, stream, isVideoMuted, name, avatarUrl }, pipRef) => {
 		const internalVideoRef = useRef<HTMLVideoElement | null>(null)
+		const speaking = useSpeaking(stream)
 		const [isPortrait, setIsPortrait] = useState(false)
 
 		// Sync internal ref to parent's ref
@@ -52,7 +59,9 @@ const LocalVideo = forwardRef<HTMLDivElement, LocalVideoProps>(
 				className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-10 group landscape-pip ${isPortrait ? "w-24 sm:w-32" : "w-40 sm:w-56"}`}
 				style={{ cursor: "grab", touchAction: "none", userSelect: "none" }}
 			>
-				<div className="relative rounded-xl overflow-hidden border-2 border-electric shadow-lg shadow-electric/10">
+				<div
+					className={`relative rounded-xl overflow-hidden border-2 shadow-lg transition-colors duration-150 ${speaking ? "border-green-400 shadow-green-400/20" : "border-electric shadow-electric/10"}`}
+				>
 					<video
 						ref={internalVideoRef}
 						autoPlay
@@ -60,30 +69,11 @@ const LocalVideo = forwardRef<HTMLDivElement, LocalVideoProps>(
 						muted
 						className="w-full h-full bg-graphite pointer-events-none"
 					/>
+					{isVideoMuted && <CameraOffTile name={name} avatarUrl={avatarUrl} size="sm" />}
+					<SpeakingRing active={speaking} />
 					<div className="absolute top-2 left-2 px-2 py-0.5 bg-electric/90 backdrop-blur-sm rounded text-[10px] font-semibold text-white pointer-events-none">
 						You
 					</div>
-					{isVideoMuted && (
-						<div className="absolute inset-0 flex items-center justify-center bg-graphite/90 pointer-events-none">
-							<div className="text-center">
-								<svg
-									className="w-6 h-6 text-fog/60 mx-auto mb-1"
-									fill="none"
-									viewBox="0 0 24 24"
-									strokeWidth={1.5}
-									stroke="currentColor"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"
-									/>
-									<path strokeLinecap="round" d="M3 21 21 3" />
-								</svg>
-								<div className="text-[10px] text-fog/60">Camera off</div>
-							</div>
-						</div>
-					)}
 				</div>
 			</div>
 		)

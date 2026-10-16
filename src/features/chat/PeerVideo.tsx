@@ -1,9 +1,14 @@
 import { useRef, useEffect, useState } from "react"
+import CameraOffTile from "./CameraOffTile"
+import SpeakingRing from "./SpeakingRing"
+import { useSpeaking } from "./hooks/useSpeaking"
 
 interface PeerVideoProps {
 	peerId: string
 	name: string
 	stream: MediaStream
+	videoMuted?: boolean
+	avatarUrl?: string
 	isSpotlight: boolean
 	isThumb: boolean
 	onSelect: () => void
@@ -56,6 +61,8 @@ export default function PeerVideo({
 	peerId,
 	name,
 	stream,
+	videoMuted = false,
+	avatarUrl,
 	isSpotlight,
 	isThumb,
 	onSelect,
@@ -63,6 +70,7 @@ export default function PeerVideo({
 	const videoRef = useRef<HTMLVideoElement>(null)
 	const overlayRef = useRef<HTMLDivElement>(null)
 	const [isMuted, setIsMuted] = useState(false)
+	const speaking = useSpeaking(stream)
 	const gainRef = useRef<GainNode | null>(null)
 	const rafRef = useRef<number>(0)
 
@@ -143,11 +151,18 @@ export default function PeerVideo({
 			<div
 				ref={overlayRef}
 				className={`
-          absolute pointer-events-none rounded-xl overflow-hidden
-          ${isSpotlight ? "border-2 border-electric" : "border border-white/10"}
+          absolute pointer-events-none rounded-xl overflow-hidden transition-colors duration-150
+          ${isSpotlight ? "border-2" : "border"}
+          ${speaking ? "border-green-400" : isSpotlight ? "border-electric" : "border-white/10"}
         `}
 				style={{ display: "none" }}
 			>
+				{videoMuted && (
+					<CameraOffTile name={name} avatarUrl={avatarUrl} size={isThumb ? "sm" : "lg"} />
+				)}
+
+				<SpeakingRing active={speaking} />
+
 				{/* Label */}
 				<div
 					className={`
