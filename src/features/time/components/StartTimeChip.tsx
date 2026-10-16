@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useRef, useState } from "react"
 import { dayKey, formatTime, fromDayKey, MINUTE } from "../lib/time"
-import { DatePicker } from "../ui/DatePicker"
-import { FloatingPanel } from "../ui/FloatingPanel"
-import { IconClock } from "../ui/icons"
-import { cn } from "../ui/styles"
-import { useDismiss } from "../ui/useDismiss"
+import { DatePicker } from "../../../components/ui/DatePicker"
+import { FloatingPanel } from "../../../components/ui/FloatingPanel"
+import { IconClock } from "../../../components/ui/icons"
+import { cn } from "../../../components/ui/styles"
+import { useDismiss } from "../../../components/ui/useDismiss"
 import { TimeInput } from "./TimeInput"
 
 const NUDGES = [-15, -5, 5] as const

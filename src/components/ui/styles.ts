@@ -18,5 +18,16 @@ export const btnGhost =
 export const btnDanger =
 	"inline-flex items-center justify-center gap-1.5 rounded-lg bg-signal/90 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-signal active:scale-[0.98]"
 
+/** Segmented control container + items (Time tabs, Tasks board/list toggle). */
+export const tabBar =
+	"flex gap-1 rounded-xl border border-white/10 bg-white/[0.04] p-1 backdrop-blur-xl"
+
+export function tabItem(active: boolean) {
+	return cn(
+		"flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+		active ? "bg-white/[0.12] text-paper" : "text-fog/50 hover:bg-white/[0.05] hover:text-fog",
+	)
+}
+
 export const iconBtn =
 	"inline-flex h-8 w-8 items-center justify-center rounded-lg text-fog/50 transition-colors hover:bg-white/10 hover:text-paper"

@@ -1,9 +1,9 @@
 import { useState } from "react"
 import type { TimeData } from "../hooks/useTimeData"
 import { dayKey, formatHM, fromDayKey, HOUR, parseDuration, parseTimeInput } from "../lib/time"
-import { DatePicker } from "../ui/DatePicker"
-import { IconDollar } from "../ui/icons"
-import { btnGhost, btnPrimary, card, cn, input, label } from "../ui/styles"
+import { DatePicker } from "../../../components/ui/DatePicker"
+import { IconDollar } from "../../../components/ui/icons"
+import { btnGhost, btnPrimary, card, cn, input, label } from "../../../components/ui/styles"
 import { ProjectTaskPicker, type PickerValue } from "./ProjectTaskPicker"
 
 /** Inline card for adding a past time entry. */

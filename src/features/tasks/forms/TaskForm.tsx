@@ -1,11 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useMemo, useRef, useState } from "react"
+import { FloatingPanel } from "../../../components/ui/FloatingPanel"
+import { Select } from "../../../components/ui/Select"
+import { btnGhost, btnPrimary, cn, input, label } from "../../../components/ui/styles"
+import { useDismiss } from "../../../components/ui/useDismiss"
 import type { TaskPriority, TaskStatus } from "../types"
 import { STATUS_COLUMNS, PRIORITY_CONFIG } from "../types"
-import { CustomSelect, Avatar } from "../ui"
+import { Avatar } from "../ui"
 import { IconX } from "../icons"
-import { AVATAR_COLORS, cn, nameToInitials } from "../utils"
+import { AVATAR_COLORS, nameToInitials } from "../utils"
 
 export type KnownAssignee = { name: string; initials: string; color: string }
+
+const STATUS_OPTIONS = STATUS_COLUMNS.map((c) => ({ value: c.key, label: c.label, color: c.color }))
+const PRIORITY_OPTIONS = (["urgent", "high", "medium", "low"] as TaskPriority[]).map((p) => ({
+	value: p,
+	label: PRIORITY_CONFIG[p].label,
+	color: PRIORITY_CONFIG[p].dot,
+}))
+
+const suggestionItem =
+	"flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-paper/90 transition-colors hover:bg-white/[0.08]"
 
 export function TaskForm({
 	initial,
@@ -44,10 +58,12 @@ export function TaskForm({
 	const [tagInput, setTagInput] = useState("")
 	const [tagFocused, setTagFocused] = useState(false)
 	const tagRef = useRef<HTMLDivElement>(null)
+	const tagPanelRef = useRef<HTMLDivElement>(null)
 	const [assignee, setAssignee] = useState(initial.assignee)
 	const [assigneeColor, setAssigneeColor] = useState(initial.assigneeColor || AVATAR_COLORS[0])
 	const [assigneeFocused, setAssigneeFocused] = useState(false)
 	const assigneeRef = useRef<HTMLDivElement>(null)
+	const assigneePanelRef = useRef<HTMLDivElement>(null)
 
 	const suggestions = useMemo(() => {
 		if (!assignee.trim()) return knownAssignees
@@ -66,6 +82,11 @@ export function TaskForm({
 
 	const showTagSuggestions = tagFocused && tagSuggestions.length > 0
 
+	const tagRefs = useMemo(() => [tagRef, tagPanelRef], [])
+	const assigneeRefs = useMemo(() => [assigneeRef, assigneePanelRef], [])
+	useDismiss(tagRefs, showTagSuggestions, () => setTagFocused(false))
+	useDismiss(assigneeRefs, showSuggestions, () => setAssigneeFocused(false))
+
 	function addTag(tag: string) {
 		const t = tag.trim().toLowerCase()
 		if (t && !tags.includes(t)) setTags([...tags, t])
@@ -75,26 +96,6 @@ export function TaskForm({
 	function removeTag(tag: string) {
 		setTags(tags.filter((t) => t !== tag))
 	}
-
-	useEffect(() => {
-		if (!showTagSuggestions) return
-		const handler = (e: MouseEvent) => {
-			if (tagRef.current && !tagRef.current.contains(e.target as Node)) setTagFocused(false)
-		}
-		document.addEventListener("mousedown", handler)
-		return () => document.removeEventListener("mousedown", handler)
-	}, [showTagSuggestions])
-
-	useEffect(() => {
-		if (!showSuggestions) return
-		const handler = (e: MouseEvent) => {
-			if (assigneeRef.current && !assigneeRef.current.contains(e.target as Node)) {
-				setAssigneeFocused(false)
-			}
-		}
-		document.addEventListener("mousedown", handler)
-		return () => document.removeEventListener("mousedown", handler)
-	}, [showSuggestions])
 
 	function selectAssignee(a: KnownAssignee) {
 		setAssignee(a.name)
@@ -119,117 +120,77 @@ export function TaskForm({
 			}}
 		>
 			<label className="block">
-				<span className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">
-					Title
-				</span>
+				<span className={label}>Title</span>
 				<input
 					value={title}
 					onChange={(e) => setTitle(e.target.value)}
-					className="block w-full rounded-lg border border-gray-200 dark:border-dark-border bg-raised dark:bg-dark-raised px-3 py-2 text-base sm:text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+					className={input}
 					placeholder="What needs to be done?"
 					required
 					autoFocus
 				/>
 			</label>
 			<label className="block">
-				<span className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">
-					Description
-				</span>
+				<span className={label}>Description</span>
 				<textarea
 					value={description}
 					onChange={(e) => setDescription(e.target.value)}
 					rows={3}
-					className="block w-full rounded-lg border border-gray-200 dark:border-dark-border bg-raised dark:bg-dark-raised px-3 py-2 text-base sm:text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+					className={cn(input, "resize-none")}
 					placeholder="Add more detail…"
 				/>
 			</label>
 			<div className="grid grid-cols-2 gap-3">
-				<div className="block">
-					<span className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">
-						Status
-					</span>
-					<CustomSelect
-						value={status}
-						onChange={setStatus}
-						options={STATUS_COLUMNS.map((c) => ({ value: c.key, label: c.label }))}
-						renderOption={(opt) => {
-							const col = STATUS_COLUMNS.find((c) => c.key === opt.value)
-							return (
-								<span className="flex items-center gap-2">
-									<span className="text-xs">{col?.icon}</span>
-									<span>{opt.label}</span>
-								</span>
-							)
-						}}
-					/>
+				<div>
+					<span className={label}>Status</span>
+					<Select value={status} onChange={setStatus} options={STATUS_OPTIONS} ariaLabel="Status" />
 				</div>
-				<div className="block">
-					<span className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">
-						Priority
-					</span>
-					<CustomSelect
+				<div>
+					<span className={label}>Priority</span>
+					<Select
 						value={priority}
 						onChange={setPriority}
-						options={[
-							{ value: "urgent" as TaskPriority, label: "Urgent" },
-							{ value: "high" as TaskPriority, label: "High" },
-							{ value: "medium" as TaskPriority, label: "Medium" },
-							{ value: "low" as TaskPriority, label: "Low" },
-						]}
-						renderOption={(opt) => {
-							const cfg = PRIORITY_CONFIG[opt.value as TaskPriority]
-							return (
-								<span className="flex items-center gap-2">
-									<span
-										className="inline-block h-2 w-2 rounded-full"
-										style={{ backgroundColor: cfg.dot }}
-									/>
-									<span>{opt.label}</span>
-								</span>
-							)
-						}}
+						options={PRIORITY_OPTIONS}
+						ariaLabel="Priority"
+						align="end"
 					/>
 				</div>
 			</div>
-			<div className="block" ref={assigneeRef}>
-				<span className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">
-					Assignee
-				</span>
+			<div>
+				<span className={label}>Assignee</span>
 				<div className="flex items-center gap-2">
 					{assignee.trim() && <Avatar initials={nameToInitials(assignee)} color={assigneeColor} />}
-					<div className="relative flex-1">
+					<div ref={assigneeRef} className="relative flex-1">
 						<input
 							value={assignee}
 							onChange={(e) => setAssignee(e.target.value)}
 							onFocus={() => setAssigneeFocused(true)}
-							onKeyDown={(e) => {
-								if (e.key === "Escape" && assigneeFocused) {
-									e.stopPropagation()
-									setAssigneeFocused(false)
-									;(e.target as HTMLElement).blur()
-								}
-							}}
-							className="block w-full rounded-lg border border-gray-200 dark:border-dark-border bg-raised dark:bg-dark-raised px-3 py-2 text-base sm:text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+							className={input}
 							placeholder="Type a name…"
 						/>
-						{showSuggestions && (
-							<div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-40 overflow-y-auto rounded-lg border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-surface shadow-lifted animate-fade-in">
+						<FloatingPanel
+							open={showSuggestions}
+							anchorRef={assigneeRef}
+							panelRef={assigneePanelRef}
+							maxHeight={200}
+						>
+							<div className="subtle-scroll overflow-y-auto p-1">
 								{suggestions.map((a) => (
 									<button
 										key={a.name}
 										type="button"
-										className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-gray-900 dark:text-gray-100 hover:bg-canvas dark:hover:bg-dark-raised transition-colors"
+										className={suggestionItem}
 										onMouseDown={(e) => {
 											e.preventDefault()
 											selectAssignee(a)
 										}}
 									>
 										<Avatar initials={a.initials} color={a.color} />
-										<span>{a.name}</span>
+										<span className="truncate">{a.name}</span>
 									</button>
 								))}
 							</div>
-						)}
+						</FloatingPanel>
 					</div>
 					{assignee.trim() && (
 						<button
@@ -238,7 +199,7 @@ export function TaskForm({
 								setAssignee("")
 								setAssigneeFocused(false)
 							}}
-							className="rounded-md p-1 text-gray-400 hover:text-gray-600"
+							className="rounded-lg p-1.5 text-fog/40 transition-colors hover:bg-white/10 hover:text-paper"
 							title="Clear assignee"
 						>
 							<IconX className="h-3.5 w-3.5" />
@@ -246,8 +207,8 @@ export function TaskForm({
 					)}
 				</div>
 				{assignee.trim() && (
-					<div className="mt-2 flex items-center gap-1.5">
-						<span className="text-2xs text-gray-500 dark:text-gray-400">Color:</span>
+					<div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+						<span className="mr-0.5 text-2xs text-fog/40">Color</span>
 						{AVATAR_COLORS.map((c) => (
 							<button
 								key={c}
@@ -256,21 +217,21 @@ export function TaskForm({
 								className={cn(
 									"h-5 w-5 rounded-full border-2 transition-all",
 									assigneeColor === c
-										? "border-sidebar scale-110"
+										? "scale-110 border-paper"
 										: "border-transparent hover:scale-105",
 								)}
 								style={{ backgroundColor: c }}
+								aria-label={`Color ${c}`}
 							/>
 						))}
 					</div>
 				)}
 			</div>
-			<div ref={tagRef} className="relative">
-				<span className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">
-					Tags
-				</span>
+			<div>
+				<span className={label}>Tags</span>
 				<div
-					className="flex flex-wrap items-center gap-1.5 rounded-lg border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-raised px-2 py-1.5 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25 min-h-[38px] cursor-text"
+					ref={tagRef}
+					className="flex min-h-[38px] cursor-text flex-wrap items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 transition-all focus-within:border-electric focus-within:ring-2 focus-within:ring-electric/20"
 					onClick={() => {
 						tagRef.current?.querySelector("input")?.focus()
 						setTagFocused(true)
@@ -279,7 +240,7 @@ export function TaskForm({
 					{tags.map((t) => (
 						<span
 							key={t}
-							className="inline-flex items-center gap-1 rounded-md bg-accent/8 dark:bg-accent/15 px-2 py-0.5 text-2xs font-medium text-accent-dark dark:text-accent-light"
+							className="inline-flex items-center gap-1 rounded-full border border-electric/30 bg-electric/10 py-0.5 pl-2 pr-1 text-2xs font-medium text-blue-200"
 						>
 							{t}
 							<button
@@ -288,71 +249,60 @@ export function TaskForm({
 									e.stopPropagation()
 									removeTag(t)
 								}}
-								className="text-accent-dark/50 hover:text-accent-dark"
+								className="rounded-full p-0.5 text-blue-200/50 hover:bg-white/10 hover:text-paper"
+								aria-label={`Remove ${t}`}
 							>
 								<IconX className="h-2.5 w-2.5" />
 							</button>
 						</span>
 					))}
-					<div className="flex-1 min-w-[80px]">
+					<div className="min-w-[80px] flex-1">
 						<input
 							value={tagInput}
 							onChange={(e) => setTagInput(e.target.value)}
 							onFocus={() => setTagFocused(true)}
-							onClick={() => setTagFocused(true)}
 							onKeyDown={(e) => {
-								if (e.key === "Escape") {
-									e.stopPropagation()
-									setTagFocused(false)
-									;(e.target as HTMLElement).blur()
-									return
-								}
-								if (e.key === "Enter" && tagInput.trim()) {
+								if ((e.key === "Enter" || e.key === ",") && tagInput.trim()) {
 									e.preventDefault()
 									addTag(tagInput)
 								}
 								if (e.key === "Backspace" && !tagInput && tags.length > 0)
 									removeTag(tags[tags.length - 1])
-								if (e.key === "," && tagInput.trim()) {
-									e.preventDefault()
-									addTag(tagInput)
-								}
 							}}
-							className="w-full border-none bg-transparent py-0.5 text-base sm:text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 outline-none"
+							className="w-full border-none bg-transparent py-0.5 text-base text-paper outline-none placeholder:text-fog/40 sm:text-sm"
 							placeholder={tags.length === 0 ? "Type to add tags…" : ""}
 						/>
 					</div>
 				</div>
-				{showTagSuggestions && (
-					<div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-36 overflow-y-auto rounded-lg border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-surface shadow-lifted animate-fade-in">
+				<FloatingPanel
+					open={showTagSuggestions}
+					anchorRef={tagRef}
+					panelRef={tagPanelRef}
+					maxHeight={200}
+				>
+					<div className="subtle-scroll overflow-y-auto p-1">
 						{tagSuggestions.slice(0, 8).map((t) => (
 							<button
 								key={t}
 								type="button"
-								className="flex w-full items-center px-3 py-1.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-canvas dark:hover:bg-dark-raised transition-colors"
+								className={cn(suggestionItem, "py-1.5")}
 								onMouseDown={(e) => {
 									e.preventDefault()
 									addTag(t)
 								}}
 							>
+								<span className="h-1.5 w-1.5 rounded-full bg-fog/40" />
 								{t}
 							</button>
 						))}
 					</div>
-				)}
+				</FloatingPanel>
 			</div>
 			<div className="flex items-center justify-end gap-2 pt-2">
-				<button
-					type="button"
-					onClick={onCancel}
-					className="rounded-lg border border-gray-200 dark:border-dark-border bg-raised dark:bg-dark-raised px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-dark-border"
-				>
+				<button type="button" onClick={onCancel} className={btnGhost}>
 					Cancel
 				</button>
-				<button
-					type="submit"
-					className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-dark focus:outline-none focus:ring-2 focus:ring-accent/30"
-				>
+				<button type="submit" className={btnPrimary}>
 					Save Task
 				</button>
 			</div>

@@ -9,8 +9,8 @@ import { ReportsView } from "./components/ReportsView"
 import { TimerBar } from "./components/TimerBar"
 import { useTimeData, type TimeData } from "./hooks/useTimeData"
 import { dayKey, entryDurationMs, formatHours, startOfWeek } from "./lib/time"
-import { IconChart, IconClock, IconFolder, IconInvoice, IconUsers } from "./ui/icons"
-import { cn } from "./ui/styles"
+import { IconChart, IconClock, IconFolder, IconInvoice, IconUsers } from "../../components/ui/icons"
+import { cn, tabBar, tabItem } from "../../components/ui/styles"
 
 const TABS = [
 	{ to: "/time", label: "Timer", icon: IconClock, end: true },
@@ -60,20 +60,13 @@ export default function TimeApp() {
 									<WeekSummary data={data} />
 								</div>
 							</div>
-							<nav className="subtle-scroll -mx-1 flex max-w-full gap-1 overflow-x-auto rounded-xl border border-white/10 bg-white/[0.04] p-1 backdrop-blur-xl">
+							<nav className={cn(tabBar, "subtle-scroll -mx-1 max-w-full overflow-x-auto")}>
 								{TABS.map(({ to, label, icon: Icon, end }) => (
 									<NavLink
 										key={to}
 										to={to}
 										end={end}
-										className={({ isActive }) =>
-											cn(
-												"flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
-												isActive
-													? "bg-white/[0.12] text-paper"
-													: "text-fog/50 hover:bg-white/[0.05] hover:text-fog",
-											)
-										}
+										className={({ isActive }) => tabItem(isActive)}
 									>
 										<Icon className="h-3.5 w-3.5" />
 										{label}

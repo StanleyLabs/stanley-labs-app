@@ -152,17 +152,17 @@ export function KanbanBoard({
 			onDragEnd={handleDragEnd}
 			onDragCancel={handleDragCancel}
 		>
-			<div className="min-w-0 overflow-x-auto kanban-scroll">
-				<div className="flex gap-4 pb-4 w-max min-w-full lg:w-full">
+			<div className="kanban-scroll -mx-3 min-w-0 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+				<div className="flex w-max min-w-full gap-3 pb-4 lg:w-full">
 					{STATUS_COLUMNS.map((col) => (
 						<div
 							key={col.key}
-							className="min-w-[272px] w-[272px] shrink-0 lg:min-w-0 lg:w-auto lg:flex-1"
+							className="w-[280px] min-w-[280px] shrink-0 lg:w-auto lg:min-w-0 lg:flex-1"
 						>
 							<KanbanColumn
 								status={col.key}
 								label={col.label}
-								icon={col.icon}
+								color={col.color}
 								tasks={liveColumns[col.key]}
 								activeTaskId={activeTask?.id ?? null}
 								onAddTask={onAddTask ? () => onAddTask(col.key) : undefined}

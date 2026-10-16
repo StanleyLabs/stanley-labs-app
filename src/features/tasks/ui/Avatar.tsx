@@ -12,7 +12,7 @@ export function Avatar({
 	return (
 		<span
 			className={cn(
-				"inline-flex items-center justify-center rounded-full font-medium text-white",
+				"inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white shadow-sm ring-2 ring-ink",
 				size === "sm" ? "h-6 w-6 text-2xs" : "h-8 w-8 text-xs",
 			)}
 			style={{ backgroundColor: color }}

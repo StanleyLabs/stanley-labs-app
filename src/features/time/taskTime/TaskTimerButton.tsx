@@ -27,11 +27,11 @@ export function TaskTimerButton({ task, alwaysVisible }: { task: Task; alwaysVis
 					timer.stop()
 				}}
 				onPointerDown={stop}
-				className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-red-500/10 py-0.5 pl-1 pr-2 text-2xs font-semibold text-red-600 ring-1 ring-red-500/30 transition-colors hover:bg-red-500/20 dark:text-red-300"
+				className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-signal/10 py-0.5 pl-1 pr-2 text-2xs font-semibold text-red-300 ring-1 ring-signal/30 transition-colors hover:bg-signal/20"
 				title="Stop timer"
 			>
-				<span className="relative flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white">
-					<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-40" />
+				<span className="relative flex h-4 w-4 items-center justify-center rounded-full bg-signal text-white">
+					<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-signal opacity-40" />
 					<svg
 						className="relative h-2 w-2"
 						viewBox="0 0 24 24"
@@ -50,7 +50,7 @@ export function TaskTimerButton({ task, alwaysVisible }: { task: Task; alwaysVis
 		<span className="inline-flex shrink-0 items-center gap-1">
 			{tracked > 0 && (
 				<span
-					className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-1.5 py-0.5 font-mono text-2xs text-gray-500 dark:bg-dark-raised dark:text-gray-400"
+					className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-1.5 py-0.5 font-mono text-2xs text-fog/60"
 					title="Tracked time"
 				>
 					<svg
@@ -74,7 +74,7 @@ export function TaskTimerButton({ task, alwaysVisible }: { task: Task; alwaysVis
 					timer.start({ projectId: task.projectId, taskId: task.id, description: task.title })
 				}}
 				onPointerDown={stop}
-				className={`flex h-5 w-5 items-center justify-center rounded-full bg-accent/10 text-accent transition-all hover:scale-110 hover:bg-accent hover:text-white dark:text-accent-light ${
+				className={`flex h-5 w-5 items-center justify-center rounded-full bg-electric/15 text-blue-300 transition-all hover:scale-110 hover:bg-electric hover:text-white hover:shadow-glow-electric ${
 					alwaysVisible ? "" : "opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
 				}`}
 				title="Start timer for this task"

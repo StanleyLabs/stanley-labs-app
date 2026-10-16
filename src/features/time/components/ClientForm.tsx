@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { CLIENT_COLORS, CURRENCIES, type Client, type ClientInput } from "../types"
-import { Select } from "../ui/Select"
-import { btnGhost, btnPrimary, cn, input, label } from "../ui/styles"
+import { Select } from "../../../components/ui/Select"
+import { btnGhost, btnPrimary, cn, input, label } from "../../../components/ui/styles"
 
 export function ClientForm({
 	initial,

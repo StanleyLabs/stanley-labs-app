@@ -3,9 +3,9 @@ import type { TimeData } from "../hooks/useTimeData"
 import { amountFor, formatMoney, resolveRate } from "../lib/rates"
 import { entryDurationMs, formatHours } from "../lib/time"
 import type { Client } from "../types"
-import { IconEdit, IconPlus, IconTrash, IconUsers } from "../ui/icons"
-import { ConfirmDialog, Modal } from "../ui/Modal"
-import { btnPrimary, card, cn, iconBtn } from "../ui/styles"
+import { IconEdit, IconPlus, IconTrash, IconUsers } from "../../../components/ui/icons"
+import { ConfirmDialog, Modal } from "../../../components/ui/Modal"
+import { btnPrimary, card, cn, iconBtn } from "../../../components/ui/styles"
 import { ClientForm } from "./ClientForm"
 
 export function ClientsView({ data }: { data: TimeData }) {

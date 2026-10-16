@@ -8,10 +8,10 @@ import {
 	IconPlus,
 	IconSearch,
 	IconX,
-} from "../ui/icons"
-import { cn } from "../ui/styles"
-import { FloatingPanel } from "../ui/FloatingPanel"
-import { useDismiss } from "../ui/useDismiss"
+} from "../../../components/ui/icons"
+import { cn } from "../../../components/ui/styles"
+import { FloatingPanel } from "../../../components/ui/FloatingPanel"
+import { useDismiss } from "../../../components/ui/useDismiss"
 
 export type PickerValue = { projectId?: string; taskId?: string }
 

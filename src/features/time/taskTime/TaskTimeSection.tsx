@@ -36,11 +36,13 @@ export function TaskTimeSection({ task }: { task: Task }) {
 		(isRunning && running ? entryDurationMs(running, now) : 0)
 
 	return (
-		<div className="mt-4 rounded-lg border border-gray-200 bg-raised px-4 py-3 dark:border-dark-border dark:bg-dark-raised">
+		<div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
 			<div className="flex items-center justify-between gap-3">
 				<div>
-					<div className="text-xs font-semibold text-gray-800 dark:text-gray-200">Time</div>
-					<div className="font-mono text-lg font-semibold text-gray-900 dark:text-gray-100">
+					<div className="text-[10px] font-semibold uppercase tracking-wider text-fog/40">
+						Time tracked
+					</div>
+					<div className="font-mono text-lg font-semibold tabular-nums text-paper">
 						{formatHours(total)}
 					</div>
 				</div>
@@ -48,23 +50,21 @@ export function TaskTimeSection({ task }: { task: Task }) {
 					<TaskTimerButton task={task} alwaysVisible />
 					<Link
 						to={`/time?task=${encodeURIComponent(task.id)}`}
-						className="text-xs font-medium text-accent hover:underline dark:text-accent-light"
+						className="text-xs font-medium text-electric hover:underline"
 					>
 						Open in Time
 					</Link>
 				</div>
 			</div>
 			{entries && entries.length > 0 && (
-				<ul className="mt-2 divide-y divide-gray-100 dark:divide-dark-border">
+				<ul className="mt-2 divide-y divide-white/[0.06]">
 					{entries.slice(0, RECENT).map((e) => (
 						<li key={e.id} className="flex items-center gap-3 py-1.5 text-xs">
-							<span className="w-24 shrink-0 text-gray-500 dark:text-gray-400">
-								{formatDayLabel(dayKey(e.start))}
-							</span>
-							<span className="min-w-0 flex-1 truncate text-gray-700 dark:text-gray-300">
+							<span className="w-24 shrink-0 text-fog/45">{formatDayLabel(dayKey(e.start))}</span>
+							<span className="min-w-0 flex-1 truncate text-fog/80">
 								{e.description || `${formatTime(e.start)} – ${formatTime(e.end!)}`}
 							</span>
-							<span className="font-mono text-gray-900 dark:text-gray-100">
+							<span className="font-mono tabular-nums text-paper">
 								{formatHours(entryDurationMs(e))}
 							</span>
 						</li>

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { formatHours, HOUR } from "../lib/time"
-import { cn } from "../ui/styles"
+import { cn } from "../../../components/ui/styles"
 
 export type BarSegment = { key: string; label: string; color: string; ms: number }
 export type Bar = { key: string; label: string; tooltipLabel: string; segments: BarSegment[] }

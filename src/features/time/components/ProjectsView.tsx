@@ -5,9 +5,9 @@ import type { TimeData } from "../hooks/useTimeData"
 import { amountFor, formatMoney, projectClient, resolveCurrency, resolveRate } from "../lib/rates"
 import { entryDurationMs, formatHours } from "../lib/time"
 import type { Client } from "../types"
-import { IconFolder, IconPlus } from "../ui/icons"
-import { Select } from "../ui/Select"
-import { btnGhost, btnPrimary, card, cn, input } from "../ui/styles"
+import { IconFolder, IconPlus } from "../../../components/ui/icons"
+import { Select } from "../../../components/ui/Select"
+import { btnGhost, btnPrimary, card, cn, input } from "../../../components/ui/styles"
 
 export function ProjectsView({ data }: { data: TimeData }) {
 	const { user } = useAuth()

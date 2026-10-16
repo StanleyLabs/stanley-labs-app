@@ -1,14 +1,17 @@
-import { cn } from "./utils"
+import { useCallback, useState } from "react"
+import { ConfirmDialog, Modal } from "../../components/ui/Modal"
+import { btnPrimary, cn, iconBtn, tabBar, tabItem } from "../../components/ui/styles"
+import { ClientForm } from "../time/components/ClientForm"
+import type { Client } from "../time/types"
+import { TaskTimeProvider } from "../time/taskTime/TaskTimeProvider"
+import { TaskTimeSection } from "../time/taskTime/TaskTimeSection"
 import { PROJECT_COLORS } from "./types"
 import {
 	Sidebar,
 	KanbanBoard,
 	ListView,
-	Modal,
-	ThemeToggle,
 	TaskForm,
 	ProjectForm,
-	ConfirmDialog,
 	IconPlus,
 	IconKanban,
 	IconList,
@@ -16,9 +19,11 @@ import {
 	IconMenu,
 	IconSearch,
 } from "./index"
+import { ClientsPanel } from "./clients/ClientsPanel"
+import { useClients } from "./hooks/useClients"
 import { useTasksPage } from "./hooks/useTasksPage"
-import { TaskTimeProvider } from "../time/taskTime/TaskTimeProvider"
-import { TaskTimeSection } from "../time/taskTime/TaskTimeSection"
+
+const isMobile = () => typeof window !== "undefined" && window.innerWidth < 1024
 
 export default function App() {
 	const {
@@ -60,167 +65,260 @@ export default function App() {
 		handleReorder,
 	} = useTasksPage()
 
+	const projects = projectsApi.projects ?? []
+	const clientsApi = useClients({
+		enabled: !useMockData,
+		projects,
+		updateProject: projectsApi.update,
+		refreshProjects: projectsApi.refresh,
+	})
+	const clients = clientsApi.enabled ? clientsApi.clients : undefined
+	const activeClient = activeProject?.clientId
+		? clientsApi.clientsById.get(activeProject.clientId)
+		: undefined
+
+	const [clientsPanelOpen, setClientsPanelOpen] = useState(false)
+	const [clientModal, setClientModal] = useState<{ client?: Client } | null>(null)
+
+	const selectProject = useCallback(
+		(id: string) => {
+			setActiveProjectId(id)
+			if (isMobile()) setSidebarOpen(false)
+		},
+		[setActiveProjectId, setSidebarOpen],
+	)
+
+	const newProjectForClient = (clientId: string) => setProjectModal({ mode: "create", clientId })
+
+	const confirmDeleteClient = (c: Client) => {
+		const count = projects.filter((p) => p.clientId === c.id).length
+		setConfirmDialog({
+			title: "Delete client",
+			message:
+				count > 0
+					? `"${c.name}" will be deleted and ${count} project${count === 1 ? "" : "s"} will be unassigned. Projects, tasks and tracked time are kept.`
+					: `"${c.name}" will be deleted.`,
+			confirmLabel: "Delete client",
+			onConfirm: async () => {
+				setConfirmDialog(null)
+				await clientsApi.remove(c.id)
+			},
+		})
+	}
+
+	const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0
+
 	return (
 		<TaskTimeProvider projectId={activeProjectId} enabled={!useMockData && canEdit}>
-			<div className="flex h-full overflow-hidden">
-				<Sidebar
-					projects={projectsApi.projects ?? []}
-					activeId={activeProjectId}
-					onSelect={setActiveProjectId}
-					onAdd={() => setProjectModal({ mode: "create" })}
-					onEdit={(p) => setProjectModal({ mode: "edit", project: p })}
-					onDelete={handleDeleteProject}
-					canManageProject={canManageProject}
-					onExport={handleExportProject}
-					onImport={handleImportProject}
-					hasActiveProject={!!activeProject}
-					onLeaveProject={handleLeaveProject}
-					currentUserId={user?.id}
-					onReorder={(ids) => projectsApi.reorder(ids)}
-					collapsed={!sidebarOpen}
-					onToggle={() => setSidebarOpen((v) => !v)}
-					useMockData={useMockData}
-				/>
+			<div className="grain h-full overflow-hidden bg-ink text-paper [color-scheme:dark]">
+				<div className="flex h-full">
+					<div className="pointer-events-none absolute inset-0 overflow-hidden">
+						<div className="absolute -top-32 left-1/3 h-96 w-96 rounded-full bg-electric/10 blur-3xl" />
+						<div className="absolute bottom-0 right-1/4 h-96 w-96 rounded-full bg-electric/5 blur-3xl" />
+					</div>
 
-				<div className="flex flex-1 flex-col overflow-hidden">
-					<header className="flex h-14 shrink-0 items-center gap-3 border-b border-gray-200 dark:border-dark-border bg-white/80 dark:bg-dark-surface/80 backdrop-blur-md px-4">
-						<button
-							onClick={() => setSidebarOpen((v) => !v)}
-							className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-border hover:text-gray-600"
-							title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-						>
-							<IconMenu />
-						</button>
+					<Sidebar
+						projects={projects}
+						activeId={activeProjectId}
+						onSelect={selectProject}
+						onAdd={() => setProjectModal({ mode: "create" })}
+						onEdit={(p) => setProjectModal({ mode: "edit", project: p })}
+						onDelete={handleDeleteProject}
+						canManageProject={canManageProject}
+						onExport={handleExportProject}
+						onImport={handleImportProject}
+						hasActiveProject={!!activeProject}
+						onLeaveProject={handleLeaveProject}
+						currentUserId={user?.id}
+						onReorder={(ids) => projectsApi.reorder(ids)}
+						collapsed={!sidebarOpen}
+						onToggle={() => setSidebarOpen((v) => !v)}
+						useMockData={useMockData}
+						clients={clients}
+						onOpenClients={clients ? () => setClientsPanelOpen(true) : undefined}
+						onEditClient={(c) => setClientModal({ client: c })}
+						onAddProjectForClient={newProjectForClient}
+					/>
 
-						{activeProject && (
-							<div className="flex min-w-0 items-center gap-2.5">
-								<span
-									className="flex h-6 w-6 shrink-0 items-center justify-center rounded"
-									style={{
-										backgroundColor: activeProject.color + "20",
-										color: activeProject.color,
-									}}
+					<div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+						<header className="shrink-0 border-b border-white/[0.06] bg-ink/40 backdrop-blur-xl">
+							<div className="flex h-14 items-center gap-2 px-3 sm:gap-3 sm:px-4">
+								<button
+									onClick={() => setSidebarOpen((v) => !v)}
+									className={iconBtn}
+									title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
 								>
-									<IconFolder className="h-3.5 w-3.5" />
-								</span>
-								<h1 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-									{activeProject.name}
-								</h1>
-							</div>
-						)}
+									<IconMenu />
+								</button>
 
-						<div className="ml-auto flex items-center gap-2 shrink-0">
-							<div className="relative hidden sm:block">
-								<IconSearch className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+								{activeProject && (
+									<div className="flex min-w-0 items-center gap-2.5">
+										<span
+											className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl"
+											style={{
+												backgroundColor: activeProject.color + "22",
+												color: activeProject.color,
+												boxShadow: `inset 0 0 0 1px ${activeProject.color}40`,
+											}}
+										>
+											<IconFolder className="h-4 w-4" />
+										</span>
+										<div className="min-w-0">
+											<h1 className="truncate font-display text-base font-semibold leading-tight text-paper">
+												{activeProject.name}
+											</h1>
+											{activeClient ? (
+												<p className="flex items-center gap-1.5 truncate text-2xs text-fog/45">
+													<span
+														className="h-1.5 w-1.5 rounded-full"
+														style={{ backgroundColor: activeClient.color }}
+													/>
+													{activeClient.name}
+												</p>
+											) : (
+												activeProject.description && (
+													<p className="truncate text-2xs text-fog/40">
+														{activeProject.description}
+													</p>
+												)
+											)}
+										</div>
+									</div>
+								)}
+
+								<div className="ml-auto flex shrink-0 items-center gap-2">
+									<div className="relative hidden md:block">
+										<IconSearch className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fog/40" />
+										<input
+											value={search}
+											onChange={(e) => setSearch(e.target.value)}
+											placeholder="Search tasks…"
+											className="h-8 w-52 rounded-lg border border-white/10 bg-white/5 pl-8 pr-3 text-xs text-paper outline-none transition-all placeholder:text-fog/40 focus:border-electric focus:ring-2 focus:ring-electric/20"
+										/>
+									</div>
+
+									<div className={cn(tabBar, "p-0.5")}>
+										<button
+											onClick={() => setView("kanban")}
+											className={tabItem(view === "kanban")}
+											aria-pressed={view === "kanban"}
+										>
+											<IconKanban className="h-3.5 w-3.5" />
+											<span className="hidden sm:inline">Board</span>
+										</button>
+										<button
+											onClick={() => setView("list")}
+											className={tabItem(view === "list")}
+											aria-pressed={view === "list"}
+										>
+											<IconList className="h-3.5 w-3.5" />
+											<span className="hidden sm:inline">List</span>
+										</button>
+									</div>
+
+									{canEdit && activeProject && (
+										<button
+											onClick={() => setTaskModal({ mode: "create", defaultStatus: "todo" })}
+											className={cn(btnPrimary, "h-8 px-2.5 py-0 text-xs sm:px-3")}
+										>
+											<IconPlus className="h-3.5 w-3.5" />
+											<span className="hidden sm:inline">New Task</span>
+										</button>
+									)}
+								</div>
+							</div>
+
+							{activeProject && totalTasks > 0 && (
+								<div className="flex items-center gap-3 px-3 pb-2.5 sm:px-4">
+									<div className="h-1 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
+										<div
+											className="h-full rounded-full bg-gradient-to-r from-electric to-sky-400 shadow-glow-electric transition-all duration-500"
+											style={{ width: `${progress}%` }}
+										/>
+									</div>
+									<span className="font-mono text-2xs text-fog/50">
+										{doneTasks}/{totalTasks} done
+										<span className="mx-1.5 text-fog/20">·</span>
+										{progress}%
+									</span>
+								</div>
+							)}
+						</header>
+
+						<div className="border-b border-white/[0.06] px-3 py-2 md:hidden">
+							<div className="relative">
+								<IconSearch className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fog/40" />
 								<input
 									value={search}
 									onChange={(e) => setSearch(e.target.value)}
 									placeholder="Search tasks…"
-									className="h-8 w-48 rounded-lg border border-gray-200 dark:border-dark-border bg-canvas dark:bg-dark-raised pl-8 pr-3 text-xs text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:border-accent focus:bg-white dark:focus:bg-dark-surface focus:outline-none focus:ring-2 focus:ring-accent/25"
+									className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-8 pr-3 text-base text-paper outline-none transition-all placeholder:text-fog/40 focus:border-electric focus:ring-2 focus:ring-electric/20"
 								/>
 							</div>
-
-							<div className="flex rounded-lg border border-gray-200 dark:border-dark-border bg-canvas dark:bg-dark-raised p-0.5">
-								<button
-									onClick={() => setView("kanban")}
-									className={cn(
-										"flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all",
-										view === "kanban"
-											? "bg-white dark:bg-dark-surface text-gray-900 dark:text-gray-100 shadow-card"
-											: "text-gray-500 hover:text-gray-700",
-									)}
-								>
-									<IconKanban className="h-3.5 w-3.5" />
-									Board
-								</button>
-								<button
-									onClick={() => setView("list")}
-									className={cn(
-										"flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all",
-										view === "list"
-											? "bg-white dark:bg-dark-surface text-gray-900 dark:text-gray-100 shadow-card"
-											: "text-gray-500 hover:text-gray-700",
-									)}
-								>
-									<IconList className="h-3.5 w-3.5" />
-									List
-								</button>
-							</div>
-
-							<ThemeToggle />
-
-							{canEdit && (
-								<button
-									onClick={() => setTaskModal({ mode: "create", defaultStatus: "todo" })}
-									className="flex items-center gap-1.5 rounded-lg bg-accent px-2 py-1.5 sm:px-3 text-xs font-medium text-white hover:bg-accent-dark transition-colors"
-								>
-									<IconPlus className="h-3.5 w-3.5" />
-									<span className="hidden sm:inline">New Task</span>
-								</button>
-							)}
 						</div>
-					</header>
 
-					{activeProject && totalTasks > 0 && (
-						<div className="border-b border-gray-200 dark:border-dark-border bg-white/80 dark:bg-dark-surface/80 backdrop-blur-md px-4 py-2.5">
-							<div className="flex items-center gap-3">
-								<div className="flex-1">
-									<div className="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-border">
-										<div
-											className="h-full rounded-full bg-gradient-to-r from-accent to-accent-light transition-all duration-500"
-											style={{ width: `${(doneTasks / totalTasks) * 100}%` }}
-										/>
+						<main className="subtle-scroll flex-1 overflow-auto p-3 pb-24 sm:p-6 sm:pb-24">
+							{!activeProjectId ? (
+								<div className="flex flex-col items-center justify-center py-20 text-center">
+									<div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-electric/10 text-electric">
+										<IconFolder className="h-7 w-7" />
 									</div>
+									<p className="font-display text-xl font-semibold text-paper">
+										Select or create a project
+									</p>
+									<p className="mt-1 text-sm text-fog/50">Your tasks will appear here</p>
+									<button
+										onClick={() => setProjectModal({ mode: "create" })}
+										className={cn(btnPrimary, "mt-5")}
+									>
+										<IconPlus className="h-4 w-4" />
+										Create Project
+									</button>
 								</div>
-								<span className="text-2xs font-medium text-gray-500 dark:text-gray-400">
-									{doneTasks}/{totalTasks} done
-								</span>
-							</div>
-						</div>
-					)}
-
-					<main className="flex-1 overflow-auto bg-canvas dark:bg-dark-canvas p-4 sm:p-6">
-						{!activeProjectId ? (
-							<div className="flex flex-col items-center justify-center py-20 text-gray-400">
-								<IconFolder className="mb-4 h-12 w-12" />
-								<p className="text-lg font-medium text-gray-600 dark:text-gray-400">
-									Select or create a project
-								</p>
-								<p className="mt-1 text-sm">Your tasks will appear here</p>
-								<button
-									onClick={() => setProjectModal({ mode: "create" })}
-									className="mt-4 flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-dark"
-								>
-									<IconPlus className="h-4 w-4" />
-									Create Project
-								</button>
-							</div>
-						) : tasksApi.loading ? (
-							<div className="flex items-center justify-center py-20">
-								<div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-accent" />
-							</div>
-						) : view === "kanban" ? (
-							<KanbanBoard
-								tasks={filteredTasks}
-								onEditTask={canEdit ? (t) => setTaskModal({ mode: "edit", task: t }) : undefined}
-								onDeleteTask={canEdit ? handleDeleteTask : undefined}
-								onAddTask={
-									canEdit
-										? (status) => setTaskModal({ mode: "create", defaultStatus: status })
-										: undefined
-								}
-								onReorder={canEdit ? handleReorder : undefined}
-							/>
-						) : (
-							<ListView
-								tasks={filteredTasks}
-								onEditTask={canEdit ? (t) => setTaskModal({ mode: "edit", task: t }) : undefined}
-								onDeleteTask={canEdit ? handleDeleteTask : undefined}
-								onReorder={canEdit ? handleReorder : undefined}
-							/>
-						)}
-					</main>
+							) : tasksApi.loading ? (
+								<div className="flex items-center justify-center py-20">
+									<div className="h-6 w-6 animate-spin rounded-full border-2 border-electric/30 border-t-electric" />
+								</div>
+							) : view === "kanban" ? (
+								<KanbanBoard
+									tasks={filteredTasks}
+									onEditTask={canEdit ? (t) => setTaskModal({ mode: "edit", task: t }) : undefined}
+									onDeleteTask={canEdit ? handleDeleteTask : undefined}
+									onAddTask={
+										canEdit
+											? (status) => setTaskModal({ mode: "create", defaultStatus: status })
+											: undefined
+									}
+									onReorder={canEdit ? handleReorder : undefined}
+								/>
+							) : (
+								<ListView
+									tasks={filteredTasks}
+									onEditTask={canEdit ? (t) => setTaskModal({ mode: "edit", task: t }) : undefined}
+									onDeleteTask={canEdit ? handleDeleteTask : undefined}
+									onReorder={canEdit ? handleReorder : undefined}
+								/>
+							)}
+						</main>
+					</div>
 				</div>
+
+				{clients && (
+					<ClientsPanel
+						open={clientsPanelOpen}
+						onClose={() => setClientsPanelOpen(false)}
+						clients={clients}
+						projects={projects}
+						onSelectProject={(id) => {
+							selectProject(id)
+							setClientsPanelOpen(false)
+						}}
+						onNewClient={() => setClientModal({})}
+						onEditClient={(c) => setClientModal({ client: c })}
+						onDeleteClient={confirmDeleteClient}
+						onAddProjectForClient={newProjectForClient}
+					/>
+				)}
 
 				<Modal
 					open={!!projectModal}
@@ -233,16 +331,36 @@ export default function App() {
 								name: projectModal.project?.name ?? "",
 								description: projectModal.project?.description ?? "",
 								color: projectModal.project?.color ?? PROJECT_COLORS[0],
-								clientId: projectModal.project?.clientId,
+								clientId: projectModal.project?.clientId ?? projectModal.clientId,
 								hourlyRate: projectModal.project?.hourlyRate,
 							}}
-							showBilling={!useMockData}
+							clients={clients}
+							onCreateClient={clients ? clientsApi.create : undefined}
 							projectId={projectModal.project?.id}
 							projectOwnerId={projectModal.project?.ownerId}
 							isLoggedIn={!!user && !useMockData}
 							onSubmit={projectModal.mode === "create" ? handleCreateProject : handleUpdateProject}
 							onCancel={() => setProjectModal(null)}
 							submitLabel={projectModal.mode === "create" ? "Create Project" : "Save Changes"}
+						/>
+					)}
+				</Modal>
+
+				<Modal
+					open={!!clientModal}
+					title={clientModal?.client ? "Edit client" : "New client"}
+					onClose={() => setClientModal(null)}
+				>
+					{clientModal && (
+						<ClientForm
+							initial={clientModal.client}
+							submitLabel={clientModal.client ? "Save changes" : "Create client"}
+							onCancel={() => setClientModal(null)}
+							onSubmit={async (v) => {
+								if (clientModal.client) await clientsApi.update(clientModal.client.id, v)
+								else await clientsApi.create(v)
+								setClientModal(null)
+							}}
 						/>
 					)}
 				</Modal>
@@ -273,13 +391,11 @@ export default function App() {
 								<TaskTimeSection task={taskModal.task} />
 							)}
 							{taskModal.mode === "edit" && taskModal.task && (
-								<div className="mt-4 flex items-center justify-between rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/50 px-4 py-3">
-									<span className="text-xs text-red-700">Delete this task permanently</span>
+								<div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-signal/20 bg-signal/[0.06] px-4 py-3">
+									<span className="text-xs text-red-300/80">Delete this task permanently</span>
 									<button
-										onClick={() => {
-											handleDeleteTask(taskModal.task!)
-										}}
-										className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+										onClick={() => handleDeleteTask(taskModal.task!)}
+										className="rounded-lg bg-signal/90 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-signal"
 									>
 										Delete
 									</button>
@@ -294,6 +410,7 @@ export default function App() {
 					title={confirmDialog?.title ?? ""}
 					message={confirmDialog?.message ?? ""}
 					confirmLabel={confirmDialog?.confirmLabel}
+					tone={confirmDialog?.tone}
 					onConfirm={() => confirmDialog?.onConfirm()}
 					onCancel={() => setConfirmDialog(null)}
 				/>

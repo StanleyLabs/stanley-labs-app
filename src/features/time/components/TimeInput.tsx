@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { formatTime, parseTimeInput } from "../lib/time"
-import { cn } from "../ui/styles"
+import { cn } from "../../../components/ui/styles"
 
 /**
  * Text field for a clock time that accepts loose input ("9", "930", "2:15p",

@@ -133,10 +133,12 @@ export function ListView({
 
 	if (tasks.length === 0) {
 		return (
-			<div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 dark:border-dark-border py-16 text-gray-400">
-				<IconFolder className="mb-3 h-8 w-8" />
-				<p className="text-sm font-medium">No tasks yet</p>
-				<p className="mt-1 text-xs">Create a task to get started</p>
+			<div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 py-16 text-center">
+				<div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.04] text-fog/40">
+					<IconFolder className="h-6 w-6" />
+				</div>
+				<p className="text-sm font-medium text-paper">No tasks yet</p>
+				<p className="mt-1 text-xs text-fog/40">Create a task to get started</p>
 			</div>
 		)
 	}
@@ -150,13 +152,13 @@ export function ListView({
 			onDragEnd={handleDragEnd}
 			onDragCancel={handleDragCancel}
 		>
-			<div className="space-y-4">
+			<div className="space-y-3">
 				{STATUS_COLUMNS.map((col) => (
 					<ListStatusGroup
 						key={col.key}
 						status={col.key}
 						label={col.label}
-						icon={col.icon}
+						color={col.color}
 						tasks={liveColumns[col.key]}
 						activeTaskId={activeTask?.id ?? null}
 						onEditTask={onEditTask}

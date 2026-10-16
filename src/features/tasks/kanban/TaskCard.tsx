@@ -1,10 +1,10 @@
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
+import { cn } from "../../../components/ui/styles"
 import type { Task } from "../types"
 import { IconGrip, IconEdit, IconTrash } from "../icons"
 import { PriorityBadge, Avatar, Tag } from "../ui"
 import { stopProp } from "../utils"
-import { cn } from "../utils"
 import { TaskTimerButton } from "../../time/taskTime/TaskTimerButton"
 
 export function SortableTaskCard({
@@ -38,6 +38,8 @@ export function SortableTaskCard({
 	)
 }
 
+const actionBtn = "rounded-md p-1 text-fog/40 transition-colors hover:bg-white/10 hover:text-paper"
+
 export function TaskCardInner({
 	task,
 	onEdit,
@@ -54,39 +56,43 @@ export function TaskCardInner({
 	return (
 		<div
 			className={cn(
-				"group rounded-xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-surface p-3.5 transition-all hover:shadow-lifted hover:border-gray-300",
-				overlay && "shadow-lifted ring-2 ring-accent/25 border-accent/30",
+				"group rounded-xl border border-white/[0.08] bg-white/[0.04] p-3 transition-all hover:border-white/[0.14] hover:bg-white/[0.07]",
+				overlay &&
+					"border-electric/40 bg-graphite/95 shadow-2xl ring-2 ring-electric/30 backdrop-blur-xl",
 			)}
 		>
-			<div className="flex items-start gap-2">
+			<div className="flex items-start gap-1.5">
 				<button
-					className="mt-0.5 shrink-0 cursor-grab rounded p-0.5 text-gray-300 hover:text-gray-500 active:cursor-grabbing"
+					className="mt-0.5 shrink-0 cursor-grab rounded p-0.5 text-fog/20 transition-colors hover:text-fog/60 active:cursor-grabbing"
 					{...dragProps}
 				>
 					<IconGrip className="h-3.5 w-3.5" />
 				</button>
 				<div className="min-w-0 flex-1">
 					<div className="flex items-start justify-between gap-2">
-						<p className="text-sm font-medium text-gray-900 dark:text-gray-100 leading-snug select-none sm:select-text">
+						<p
+							className={cn(
+								"select-none text-sm font-medium leading-snug text-paper sm:select-text",
+								task.status === "done" && "text-fog/50 line-through decoration-fog/30",
+							)}
+						>
 							{task.title}
 						</p>
 						{(onEdit || onDelete) && (
 							<div
-								className="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+								className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
 								onClick={stopProp}
 							>
 								{onEdit && (
-									<button
-										onClick={onEdit}
-										className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-border hover:text-gray-600 dark:hover:text-gray-200"
-									>
+									<button onClick={onEdit} className={actionBtn} title="Edit">
 										<IconEdit className="h-3 w-3" />
 									</button>
 								)}
 								{onDelete && (
 									<button
 										onClick={onDelete}
-										className="rounded p-1 text-gray-400 hover:bg-red-50 dark:hover:bg-red-500/20 hover:text-red-500 dark:hover:text-red-400"
+										className={cn(actionBtn, "hover:bg-signal/15 hover:text-signal")}
+										title="Delete"
 									>
 										<IconTrash className="h-3 w-3" />
 									</button>
@@ -95,7 +101,7 @@ export function TaskCardInner({
 						)}
 					</div>
 					{task.description && (
-						<p className="mt-1 text-xs text-gray-500 line-clamp-2 leading-relaxed">
+						<p className="mt-1 line-clamp-2 text-xs leading-relaxed text-fog/50">
 							{task.description}
 						</p>
 					)}
@@ -111,11 +117,9 @@ export function TaskCardInner({
 						)}
 					</div>
 					{task.assignee && (
-						<div className="mt-2.5 flex items-center gap-1.5">
+						<div className="mt-2.5 flex items-center gap-1.5 border-t border-white/[0.06] pt-2.5">
 							<Avatar initials={task.assignee.initials} color={task.assignee.color} />
-							<span className="text-2xs text-gray-500 dark:text-gray-400">
-								{task.assignee.name}
-							</span>
+							<span className="truncate text-2xs text-fog/60">{task.assignee.name}</span>
 						</div>
 					)}
 				</div>

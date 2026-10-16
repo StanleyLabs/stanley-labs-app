@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { formatHM, parseDuration } from "../lib/time"
-import { cn } from "../ui/styles"
+import { cn } from "../../../components/ui/styles"
 
 /** Editable h:mm duration ("1:30", "90m", "1.5h"). Commits on blur/Enter. */
 export function DurationInput({

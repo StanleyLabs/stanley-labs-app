@@ -7,10 +7,18 @@ import { loadProfile, saveProfile, type BillingProfile } from "../lib/profile"
 import { formatMoney } from "../lib/rates"
 import { formatShortDate, dayKey } from "../lib/time"
 import type { Invoice, InvoiceStatus } from "../types"
-import { IconDownload, IconInvoice, IconPlus, IconTrash } from "../ui/icons"
-import { ConfirmDialog, Modal } from "../ui/Modal"
-import { Select, type SelectOption } from "../ui/Select"
-import { btnGhost, btnPrimary, card, cn, iconBtn, input, label } from "../ui/styles"
+import { IconDownload, IconInvoice, IconPlus, IconTrash } from "../../../components/ui/icons"
+import { ConfirmDialog, Modal } from "../../../components/ui/Modal"
+import { Select, type SelectOption } from "../../../components/ui/Select"
+import {
+	btnGhost,
+	btnPrimary,
+	card,
+	cn,
+	iconBtn,
+	input,
+	label,
+} from "../../../components/ui/styles"
 import { InvoiceBuilder } from "./InvoiceBuilder"
 
 const STATUS_STYLES: Record<InvoiceStatus, string> = {

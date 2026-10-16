@@ -15,9 +15,9 @@ import {
 	startOfWeek,
 } from "../lib/time"
 import type { TimeEntry } from "../types"
-import { DatePicker } from "../ui/DatePicker"
-import { Select } from "../ui/Select"
-import { card, cn } from "../ui/styles"
+import { DatePicker } from "../../../components/ui/DatePicker"
+import { Select } from "../../../components/ui/Select"
+import { card, cn } from "../../../components/ui/styles"
 
 type Preset = "week" | "lastWeek" | "month" | "lastMonth" | "year" | "custom"
 type Grouping = "day" | "week" | "month"

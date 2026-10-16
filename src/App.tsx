@@ -1,7 +1,6 @@
 import { lazy, Suspense } from "react"
 import { Routes, Route, Navigate } from "react-router-dom"
 import { Shell } from "./components/Shell"
-import { ThemeProvider } from "./features/tasks/theme"
 import { AuthProvider } from "./lib/AuthContext"
 import { RunningTimerProvider } from "./lib/RunningTimerContext"
 import { usePageMeta } from "./hooks/usePageMeta"
@@ -28,22 +27,20 @@ export default function App() {
 	return (
 		<AuthProvider>
 			<RunningTimerProvider>
-				<ThemeProvider>
-					<Shell>
-						<Suspense fallback={<Loading />}>
-							<Routes>
-								<Route path="/login" element={<Login />} />
-								<Route path="/privacy" element={<Privacy />} />
-								<Route path="/" element={<Home />} />
-								<Route path="/tasks/*" element={<TasksApp />} />
-								<Route path="/boards/*" element={<BoardsApp />} />
-								<Route path="/chat/*" element={<ChatApp />} />
-								<Route path="/time/*" element={<TimeApp />} />
-								<Route path="*" element={<Navigate to="/" replace />} />
-							</Routes>
-						</Suspense>
-					</Shell>
-				</ThemeProvider>
+				<Shell>
+					<Suspense fallback={<Loading />}>
+						<Routes>
+							<Route path="/login" element={<Login />} />
+							<Route path="/privacy" element={<Privacy />} />
+							<Route path="/" element={<Home />} />
+							<Route path="/tasks/*" element={<TasksApp />} />
+							<Route path="/boards/*" element={<BoardsApp />} />
+							<Route path="/chat/*" element={<ChatApp />} />
+							<Route path="/time/*" element={<TimeApp />} />
+							<Route path="*" element={<Navigate to="/" replace />} />
+						</Routes>
+					</Suspense>
+				</Shell>
 			</RunningTimerProvider>
 		</AuthProvider>
 	)

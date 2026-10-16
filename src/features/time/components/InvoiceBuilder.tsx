@@ -11,9 +11,9 @@ import type { BillingProfile } from "../lib/profile"
 import { formatMoney, resolveCurrency } from "../lib/rates"
 import { addDays, dayKey, fromDayKey, startOfMonth } from "../lib/time"
 import type { Invoice, InvoiceItem } from "../types"
-import { DatePicker } from "../ui/DatePicker"
-import { Select } from "../ui/Select"
-import { btnGhost, btnPrimary, cn, input, label } from "../ui/styles"
+import { DatePicker } from "../../../components/ui/DatePicker"
+import { Select } from "../../../components/ui/Select"
+import { btnGhost, btnPrimary, cn, input, label } from "../../../components/ui/styles"
 
 const TERMS = [0, 7, 14, 30, 45, 60]
 

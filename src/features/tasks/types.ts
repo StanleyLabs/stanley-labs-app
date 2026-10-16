@@ -38,36 +38,37 @@ export type Task = {
 
 export type ViewMode = "kanban" | "list"
 
-export const STATUS_COLUMNS: { key: TaskStatus; label: string; icon: string }[] = [
-	{ key: "backlog", label: "Backlog", icon: "○" },
-	{ key: "todo", label: "To Do", icon: "◎" },
-	{ key: "in_progress", label: "In Progress", icon: "◉" },
-	{ key: "done", label: "Done", icon: "●" },
+export const STATUS_COLUMNS: { key: TaskStatus; label: string; color: string }[] = [
+	{ key: "backlog", label: "Backlog", color: "#8A94A6" },
+	{ key: "todo", label: "To Do", color: "#60A5FA" },
+	{ key: "in_progress", label: "In Progress", color: "#FBBF24" },
+	{ key: "done", label: "Done", color: "#34D399" },
 ]
 
 export const PRIORITY_CONFIG: Record<
 	TaskPriority,
-	{ label: string; color: string; bg: string; dot: string }
+	{ label: string; className: string; dot: string }
 > = {
 	urgent: {
 		label: "Urgent",
-		color: "text-red-700",
-		bg: "bg-red-50 border-red-200",
-		dot: "#ff6b6b",
+		className: "border-signal/30 bg-signal/10 text-red-300",
+		dot: "#FF3B3B",
 	},
 	high: {
 		label: "High",
-		color: "text-orange-700",
-		bg: "bg-orange-50 border-orange-200",
-		dot: "#f4a261",
+		className: "border-amber-400/30 bg-amber-400/10 text-amber-200",
+		dot: "#FBBF24",
 	},
 	medium: {
 		label: "Medium",
-		color: "text-yellow-700",
-		bg: "bg-yellow-50 border-yellow-200",
-		dot: "#ffd166",
+		className: "border-electric/30 bg-electric/10 text-blue-300",
+		dot: "#2D6BFF",
 	},
-	low: { label: "Low", color: "text-gray-500", bg: "bg-gray-50 border-gray-200", dot: "#8888a4" },
+	low: {
+		label: "Low",
+		className: "border-white/10 bg-white/[0.04] text-fog/60",
+		dot: "#8A94A6",
+	},
 }
 
 export const PROJECT_COLORS = [

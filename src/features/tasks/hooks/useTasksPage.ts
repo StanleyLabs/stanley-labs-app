@@ -22,12 +22,15 @@ export interface ConfirmDialogState {
 	title: string
 	message: string
 	confirmLabel?: string
+	tone?: "danger" | "info"
 	onConfirm: () => void
 }
 
 export interface ProjectModalState {
 	mode: "create" | "edit"
 	project?: Project
+	/** Pre-selected client when creating from a client group or the Clients panel. */
+	clientId?: string
 }
 
 export interface TaskModalState {
@@ -242,6 +245,7 @@ export function useTasksPage() {
 					title: "Import failed",
 					message: err instanceof Error ? err.message : "Could not parse the file.",
 					confirmLabel: "OK",
+					tone: "info",
 					onConfirm: () => setConfirmDialog(null),
 				})
 			}

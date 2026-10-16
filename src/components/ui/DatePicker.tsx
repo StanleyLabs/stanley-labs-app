@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
-import { addDays, dayKey, fromDayKey, startOfMonth, startOfWeek } from "../lib/time"
+import { addDays, dayKey, fromDayKey, startOfMonth, startOfWeek } from "../../lib/dates"
 import { FloatingPanel } from "./FloatingPanel"
 import { IconCalendar, IconChevronLeft, IconChevronRight } from "./icons"
 import { cn } from "./styles"

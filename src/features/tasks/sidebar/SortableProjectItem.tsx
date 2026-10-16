@@ -1,9 +1,11 @@
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
+import { cn } from "../../../components/ui/styles"
 import type { Project } from "../types"
-import { IconFolder, IconEdit, IconTrash, IconGrip } from "../icons"
+import { IconEdit, IconTrash, IconGrip } from "../icons"
 import { stopProp } from "../utils"
-import { cn } from "../utils"
+
+const actionBtn = "rounded-md p-1 text-fog/40 transition-colors hover:bg-white/10 hover:text-paper"
 
 export function SortableProjectItem({
 	project,
@@ -34,46 +36,44 @@ export function SortableProjectItem({
 			ref={setNodeRef}
 			style={style}
 			className={cn(
-				"group flex items-center gap-1.5 rounded-lg px-1 py-2 text-sm transition-colors cursor-pointer",
+				"group relative flex cursor-pointer items-center gap-1.5 rounded-lg py-1.5 pl-1.5 pr-1 text-sm transition-colors",
 				isActive
-					? "bg-sidebar-active text-white"
-					: "text-sidebar-muted hover:bg-sidebar-hover hover:text-white",
+					? "bg-white/[0.08] text-paper"
+					: "text-fog/60 hover:bg-white/[0.04] hover:text-paper",
 			)}
 			onClick={onSelect}
 		>
+			{isActive && (
+				<span className="absolute bottom-2 left-0 top-2 w-[2px] rounded-full bg-electric shadow-glow-electric" />
+			)}
 			<button
-				className="shrink-0 cursor-grab rounded p-0.5 text-sidebar-muted/50 hover:text-sidebar-muted active:cursor-grabbing"
+				className="shrink-0 cursor-grab rounded p-0.5 text-fog/20 transition-colors hover:text-fog/60 active:cursor-grabbing"
 				{...attributes}
 				{...listeners}
 				onClick={stopProp}
+				aria-label="Drag to reorder"
 			>
 				<IconGrip className="h-3 w-3" />
 			</button>
 			<span
-				className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
-				style={{ backgroundColor: project.color + "30", color: project.color }}
-			>
-				<IconFolder className="h-3.5 w-3.5" />
-			</span>
-			<span className="flex-1 truncate">{project.name}</span>
+				className="h-2.5 w-2.5 shrink-0 rounded-[4px]"
+				style={{ backgroundColor: project.color, boxShadow: `0 0 8px ${project.color}55` }}
+			/>
+			<span className="ml-1 flex-1 truncate">{project.name}</span>
 			{(onEdit || onDelete || onLeave) && (
 				<div
-					className="mr-1 flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+					className="flex items-center gap-0.5 sm:hidden sm:group-focus-within:flex sm:group-hover:flex"
 					onClick={stopProp}
 				>
 					{onEdit && (
-						<button
-							onClick={onEdit}
-							className="rounded p-1 text-sidebar-muted hover:bg-sidebar-hover hover:text-white"
-							title="Edit project"
-						>
+						<button onClick={onEdit} className={actionBtn} title="Edit project">
 							<IconEdit className="h-3 w-3" />
 						</button>
 					)}
 					{onLeave && (
 						<button
 							onClick={onLeave}
-							className="rounded p-1 text-sidebar-muted hover:bg-orange-500/20 hover:text-orange-400"
+							className={cn(actionBtn, "hover:bg-amber-400/15 hover:text-amber-300")}
 							title="Leave project"
 						>
 							<svg
@@ -94,7 +94,7 @@ export function SortableProjectItem({
 					{onDelete && (
 						<button
 							onClick={onDelete}
-							className="rounded p-1 text-sidebar-muted hover:bg-red-500/20 hover:text-red-400"
+							className={cn(actionBtn, "hover:bg-signal/15 hover:text-signal")}
 							title="Delete project"
 						>
 							<IconTrash className="h-3 w-3" />
