@@ -77,6 +77,11 @@ export function loadTasks(projectIds: Set<string>): Task[] {
 	)
 }
 
+export function clearDashboardData(): void {
+	localStorage.removeItem(STORAGE_KEY_PROJECTS)
+	localStorage.removeItem(STORAGE_KEY_TASKS)
+}
+
 export function saveDashboardData(projects: Project[], tasks: Task[]): void {
 	try {
 		localStorage.setItem(

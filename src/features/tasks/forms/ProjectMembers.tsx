@@ -167,6 +167,12 @@ export function ProjectMembers({
 					)}
 				</div>
 
+				{!isOwner && !loading && members.length > 0 && (
+					<div className="border-t border-white/[0.06] px-3 py-2.5 text-2xs text-fog/40">
+						Only owners can add people or change roles.
+					</div>
+				)}
+
 				{isOwner && (
 					<div className="border-t border-white/[0.06] px-3 py-3">
 						<div className="mb-1.5 text-2xs font-semibold text-fog/60">Add member</div>

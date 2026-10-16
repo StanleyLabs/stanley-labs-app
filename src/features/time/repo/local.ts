@@ -69,6 +69,18 @@ function deleteRow(key: Key, id: string): void {
 	)
 }
 
+export function readLocalTimeData() {
+	return {
+		clients: read<Client>(KEYS.clients),
+		entries: read<TimeEntry>(KEYS.entries),
+		invoices: read<Invoice>(KEYS.invoices),
+	}
+}
+
+export function clearLocalTimeData(): void {
+	for (const key of Object.values(KEYS)) localStorage.removeItem(key)
+}
+
 export function createLocalTimeRepo(): TimeRepo {
 	return {
 		isGuest: true,

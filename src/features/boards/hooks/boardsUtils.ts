@@ -47,6 +47,11 @@ export function lsSave(json: string): void {
 	}
 }
 
+export function lsClear(): void {
+	localStorage.removeItem(LS_KEY)
+	localStorage.removeItem(LS_LAST_PAGE)
+}
+
 export function lsGetLastPage(): string | null {
 	try {
 		return localStorage.getItem(LS_LAST_PAGE)

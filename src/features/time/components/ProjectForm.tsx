@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react"
+import { useState } from "react"
 import { PROJECT_COLORS } from "../../tasks/types"
 import { parseRate, resolveCurrency } from "../lib/rates"
 import type { Client, ClientInput, ProjectFields } from "../types"
@@ -19,7 +19,6 @@ export function ProjectForm({
 	onSubmit,
 	onCancel,
 	submitLabel,
-	children,
 }: {
 	initial?: Partial<ProjectFields>
 	defaultColor?: string
@@ -30,8 +29,6 @@ export function ProjectForm({
 	onSubmit: (v: ProjectFields) => Promise<unknown>
 	onCancel: () => void
 	submitLabel: string
-	/** Extra sections shown above the buttons (e.g. project members). */
-	children?: ReactNode
 }) {
 	const showBilling = !!clients
 	const [name, setName] = useState(initial?.name ?? "")
@@ -126,7 +123,6 @@ export function ProjectForm({
 					</div>
 				)}
 				<ColorField value={color} onChange={setColor} />
-				{children}
 				{error && <p className="text-xs text-signal">{error}</p>}
 				<div className="flex justify-end gap-2 pt-2">
 					<button type="button" onClick={onCancel} className={btnGhost}>

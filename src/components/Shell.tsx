@@ -1,6 +1,7 @@
 import { type ReactNode, useState, useRef, useEffect } from "react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useRunningTimer } from "../lib/runningTimer"
+import { GuestDataDialog } from "./GuestDataDialog"
 import { RunningTimerPill } from "./RunningTimerPill"
 import { IconClock, IconGrid, IconHome, IconPenTool, IconVideo } from "./ui/icons"
 
@@ -59,6 +60,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
 	return (
 		<div className="flex h-full flex-col bg-ink">
+			<GuestDataDialog />
 			{/* Floating nav */}
 			{!isHome && !isLogin && (
 				<div

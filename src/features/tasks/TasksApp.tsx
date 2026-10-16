@@ -1,6 +1,8 @@
 import { useCallback, useState } from "react"
+import { Link } from "react-router-dom"
+import { IconUsers } from "../../components/ui/icons"
 import { ConfirmDialog, Modal } from "../../components/ui/Modal"
-import { btnPrimary, cn, iconBtn, tabBar, tabItem } from "../../components/ui/styles"
+import { btnGhost, btnPrimary, cn, iconBtn, tabBar, tabItem } from "../../components/ui/styles"
 import { ClientForm } from "../time/components/ClientForm"
 import { ProjectForm } from "../time/components/ProjectForm"
 import { deleteClientMessage, useClients } from "../time/hooks/useClients"
@@ -72,6 +74,7 @@ export default function App() {
 
 	const [clientsPanelOpen, setClientsPanelOpen] = useState(false)
 	const [clientModal, setClientModal] = useState<{ client?: Client } | null>(null)
+	const [membersOpen, setMembersOpen] = useState(false)
 
 	const selectProject = useCallback(
 		(id: string) => {
@@ -195,6 +198,17 @@ export default function App() {
 										</button>
 									</div>
 
+									{!useMockData && activeProject && (
+										<button
+											onClick={() => setMembersOpen(true)}
+											className={cn(btnGhost, "h-8 px-2.5 py-0 text-xs sm:px-3")}
+											title="Share project"
+										>
+											<IconUsers className="h-3.5 w-3.5" />
+											<span className="hidden sm:inline">Share</span>
+										</button>
+									)}
+
 									{canEdit && activeProject && (
 										<button
 											onClick={() => setTaskModal({ mode: "create", defaultStatus: "todo" })}
@@ -312,15 +326,30 @@ export default function App() {
 							onSubmit={projectModal.mode === "create" ? handleCreateProject : handleUpdateProject}
 							onCancel={() => setProjectModal(null)}
 							submitLabel={projectModal.mode === "create" ? "Create Project" : "Save Changes"}
-						>
-							{user && !useMockData && projectModal.project && (
-								<ProjectMembers
-									projectId={projectModal.project.id}
-									projectOwnerId={projectModal.project.ownerId}
-								/>
-							)}
-						</ProjectForm>
+						/>
 					)}
+				</Modal>
+
+				<Modal
+					open={membersOpen && !!activeProject}
+					title={`Share ${activeProject?.name ?? "project"}`}
+					onClose={() => setMembersOpen(false)}
+				>
+					{activeProject &&
+						(user ? (
+							<ProjectMembers projectId={activeProject.id} projectOwnerId={activeProject.ownerId} />
+						) : (
+							<div className="space-y-4">
+								<p className="text-sm leading-relaxed text-fog/70">
+									Sign in to share this project and invite people.
+								</p>
+								<div className="flex justify-end">
+									<Link to="/login" className={btnPrimary}>
+										Sign in
+									</Link>
+								</div>
+							</div>
+						))}
 				</Modal>
 
 				<Modal

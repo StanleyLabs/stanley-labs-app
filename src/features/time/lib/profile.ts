@@ -30,6 +30,22 @@ export function loadProfile(userId?: string | null): BillingProfile {
 	}
 }
 
+/** Gives the signed-out profile to `userId` unless they already have one, then removes it. */
+export function adoptGuestProfile(userId: string): void {
+	try {
+		const guest = localStorage.getItem(KEY)
+		if (guest && !localStorage.getItem(storageKey(userId)))
+			localStorage.setItem(storageKey(userId), guest)
+		localStorage.removeItem(KEY)
+	} catch {
+		// Ignore quota/security errors
+	}
+}
+
+export function clearGuestProfile(): void {
+	localStorage.removeItem(KEY)
+}
+
 export function saveProfile(profile: BillingProfile, userId?: string | null): void {
 	try {
 		localStorage.setItem(storageKey(userId), JSON.stringify(profile))
