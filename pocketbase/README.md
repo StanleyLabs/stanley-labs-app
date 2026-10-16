@@ -23,7 +23,7 @@ Put it behind your existing reverse proxy on a public hostname (the value of `VI
 
 1. Create the first superuser when prompted.
 2. Create a second superuser for the sync server and put its credentials in the sync server's `.env` (`POCKETBASE_SUPERUSER_EMAIL` / `POCKETBASE_SUPERUSER_PASSWORD`).
-3. **Settings → Application**: set the app URL. Under CORS / trusted origins, allow `https://app.stanleylabs.com` and `http://localhost:5173`.
+3. **Settings → Application**: set the app URL to the public PocketBase URL. CORS allows all origins by default; to restrict it, start PocketBase with `--origins=https://app.stanleylabs.com,http://localhost:5173`.
 4. **Settings → Mail settings**: configure SMTP so verification and password-reset emails go out.
 5. **Collections → users → Options → OAuth2**: enable Google (and Apple if wanted). In each provider's console, set the redirect URL to `https://<pocketbase-host>/api/oauth2-redirect`.
 
