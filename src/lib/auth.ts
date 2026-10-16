@@ -4,6 +4,8 @@ export interface AppUser {
 	id: string
 	email: string
 	name?: string
+	/** Name shown in video chat; falls back to `name` when unset. */
+	chatName?: string
 	avatarUrl?: string
 }
 

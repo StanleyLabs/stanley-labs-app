@@ -216,26 +216,31 @@ export default function VideoChat({ roomId, onLeave }: VideoChatProps) {
 		prevModeRef.current = currentMode
 	}, [currentMode])
 
-	// Display name: persisted to the user record when signed in, localStorage for guests
+	// Display name: users.chat_name when signed in (falling back to the profile name),
+	// localStorage for guests. Changing it never touches the profile name.
 	const { user } = useAuth()
+	const profileName = user?.name ?? ""
 	const [displayName, setDisplayName] = useState("")
-	const [savedName, setSavedName] = useState(() => user?.name || loadGuestName())
+	const [savedName, setSavedName] = useState(() =>
+		user ? user.chatName || profileName : loadGuestName(),
+	)
 	const handleNameSave = useCallback(() => {
 		const trimmed = displayName.trim()
-		sendName(trimmed)
-		setSavedName(trimmed)
+		const name = trimmed || profileName
+		sendName(name)
+		setSavedName(name)
 		setDisplayName("")
-		if (!trimmed) return
-		if (user) {
-			if (trimmed !== user.name) {
-				pb.collection("users")
-					.update(user.id, { name: trimmed })
-					.catch((err) => console.warn("[chat] failed to save name:", errorMessage(err)))
-			}
-		} else {
-			saveGuestName(trimmed)
+		if (!user) {
+			if (trimmed) saveGuestName(trimmed)
+			return
 		}
-	}, [sendName, displayName, user])
+		const chatName = trimmed === profileName ? "" : trimmed
+		if (chatName !== (user.chatName ?? "")) {
+			pb.collection("users")
+				.update(user.id, { chat_name: chatName })
+				.catch((err) => console.warn("[chat] failed to save name:", errorMessage(err)))
+		}
+	}, [sendName, displayName, profileName, user])
 
 	useEffect(() => {
 		if (isConnected && savedName) sendName(savedName)

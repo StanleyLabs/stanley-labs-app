@@ -10,6 +10,7 @@ function toAppUser(record: RecordModel | null): AppUser | null {
 		id: record.id,
 		email: record.email ?? "",
 		name: record.name || undefined,
+		chatName: record.chat_name || undefined,
 		avatarUrl: record.avatar_url || avatarFile || undefined,
 	}
 }
