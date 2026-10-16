@@ -5,6 +5,7 @@ import { IconGrip, IconEdit, IconTrash } from "../icons"
 import { PriorityBadge, Avatar, Tag } from "../ui"
 import { stopProp } from "../utils"
 import { cn } from "../utils"
+import { TaskTimerButton } from "../../time/taskTime/TaskTimerButton"
 
 export function SortableTaskCard({
 	task,
@@ -103,6 +104,11 @@ export function TaskCardInner({
 						{task.tags?.slice(0, 3).map((t) => (
 							<Tag key={t}>{t}</Tag>
 						))}
+						{!overlay && (
+							<span className="ml-auto">
+								<TaskTimerButton task={task} />
+							</span>
+						)}
 					</div>
 					{task.assignee && (
 						<div className="mt-2.5 flex items-center gap-1.5">

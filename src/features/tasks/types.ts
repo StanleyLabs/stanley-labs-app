@@ -9,6 +9,8 @@ export type Project = {
 	createdAt: string
 	updatedAt: string
 	ownerId?: string // user_id of the project creator
+	clientId?: string
+	hourlyRate?: number // overrides the client's rate when set
 }
 
 export type TaskStatus = "backlog" | "todo" | "in_progress" | "done"

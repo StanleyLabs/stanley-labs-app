@@ -1,9 +1,12 @@
 import { type ReactNode, useState, useRef, useEffect } from "react"
 import { NavLink, useLocation } from "react-router-dom"
+import { useRunningTimer } from "../lib/runningTimer"
+import { RunningTimerPill } from "./RunningTimerPill"
 
 const navItems = [
 	{ to: "/", label: "Home", icon: HomeIcon },
 	{ to: "/tasks", label: "Tasks", icon: TasksIcon },
+	{ to: "/time", label: "Time", icon: TimeIcon },
 	{ to: "/boards", label: "Boards", icon: BoardsIcon },
 	{ to: "/chat", label: "Chat", icon: ChatIcon },
 ]
@@ -14,6 +17,9 @@ export function Shell({ children }: { children: ReactNode }) {
 	const isLogin = pathname === "/login"
 	const isChat = pathname.startsWith("/chat")
 	const isBoards = pathname.startsWith("/boards")
+	const isTime = pathname.startsWith("/time")
+	const { running } = useRunningTimer()
+	const showPill = !!running && !isHome && !isLogin && !isTime
 	const [open, setOpen] = useState(false)
 	const containerRef = useRef<HTMLDivElement>(null)
 
@@ -105,6 +111,16 @@ export function Shell({ children }: { children: ReactNode }) {
 				</div>
 			)}
 
+			{showPill && (
+				<div
+					className={`pointer-events-none fixed right-16 z-[9999] flex${isChat ? " landscape-hide" : ""} ${
+						isBoards ? "top-4 sm:top-auto sm:bottom-12" : "bottom-4"
+					}`}
+				>
+					<RunningTimerPill />
+				</div>
+			)}
+
 			{/* Main content */}
 			<main className="flex-1 min-h-0 relative h-full">{children}</main>
 		</div>
@@ -164,6 +180,23 @@ function BoardsIcon({ className }: { className?: string }) {
 			<path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
 			<path d="M2 2l7.586 7.586" />
 			<circle cx="11" cy="11" r="2" />
+		</svg>
+	)
+}
+
+function TimeIcon({ className }: { className?: string }) {
+	return (
+		<svg
+			className={className}
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<circle cx="12" cy="12" r="9" />
+			<path d="M12 7v5l3 2" />
 		</svg>
 	)
 }

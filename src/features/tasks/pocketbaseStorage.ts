@@ -16,6 +16,8 @@ function mapProjectRecord(r: RecordModel): Project {
 		createdAt: r.created_at,
 		updatedAt: r.updated_at,
 		ownerId: r.user_id,
+		clientId: r.client_id || undefined,
+		hourlyRate: r.hourly_rate || undefined,
 	}
 }
 
@@ -87,6 +89,8 @@ export function createPocketBaseRepo(userId: string): DashboardRepo {
 					description: data.description ?? "",
 					color: data.color,
 					order: maxOrder + 1,
+					client_id: data.clientId ?? "",
+					hourly_rate: data.hourlyRate ?? 0,
 				})
 
 				await pb.collection("project_members").create({
@@ -108,6 +112,8 @@ export function createPocketBaseRepo(userId: string): DashboardRepo {
 				if (patch.description !== undefined) update.description = patch.description ?? ""
 				if (patch.color !== undefined) update.color = patch.color
 				if (patch.order !== undefined) update.order = patch.order
+				if ("clientId" in patch) update.client_id = patch.clientId ?? ""
+				if ("hourlyRate" in patch) update.hourly_rate = patch.hourlyRate ?? 0
 				return mapProjectRecord(await projects().update(id, update))
 			} catch (e) {
 				logAndThrow("updateProject failed", e)

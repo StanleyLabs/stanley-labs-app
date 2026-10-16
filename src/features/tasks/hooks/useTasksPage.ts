@@ -14,6 +14,7 @@ import { useDashboardRepo, useProjects, useTasks } from "../store"
 import { useAuth } from "../../../lib/auth"
 import { nameToInitials } from "../utils"
 import type { KnownAssignee } from "../index"
+import type { ProjectFormValues } from "../forms/ProjectForm"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -173,7 +174,7 @@ export function useTasksPage() {
 	// ── Project handlers ───────────────────────────────────────────────────────
 
 	const handleCreateProject = useCallback(
-		async (data: { name: string; description: string; color: string }) => {
+		async (data: ProjectFormValues) => {
 			const p = await projectsApi.create(data)
 			setActiveProjectId(p.id)
 			setProjectModal(null)
@@ -182,7 +183,7 @@ export function useTasksPage() {
 	)
 
 	const handleUpdateProject = useCallback(
-		async (data: { name: string; description: string; color: string }) => {
+		async (data: ProjectFormValues) => {
 			if (!projectModal?.project) return
 			await projectsApi.update(projectModal.project.id, data)
 			setProjectModal(null)

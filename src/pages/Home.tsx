@@ -26,6 +26,27 @@ const apps = [
 		borderColor: "border-accent/20 hover:border-accent/40",
 	},
 	{
+		to: "/time",
+		title: "Time Tracker",
+		description: "Track time on projects and tasks, report hours, and invoice clients.",
+		icon: (
+			<svg
+				className="h-6 w-6"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.5"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			>
+				<circle cx="12" cy="12" r="9" />
+				<path d="M12 7v5l3 2" />
+			</svg>
+		),
+		color: "from-amber-400 to-orange-500",
+		borderColor: "border-amber-400/20 hover:border-amber-400/40",
+	},
+	{
 		to: "/boards",
 		title: "Whiteboard",
 		description: "Infinite canvas for sketching, diagramming, and collaboration.",
@@ -125,13 +146,13 @@ export default function Home() {
 
 			{/* Main content */}
 			<div className="flex flex-1 items-center justify-center p-6">
-				<div className="w-full max-w-3xl">
+				<div className="w-full max-w-5xl">
 					<div className="mb-10 text-center">
 						<h1 className="font-display text-3xl font-bold text-paper sm:text-4xl">Stanley Labs</h1>
 						<p className="mt-3 text-fog/60">Your workspace. Pick a tool to get started.</p>
 					</div>
 
-					<div className="grid gap-4 sm:grid-cols-3">
+					<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 						{apps.map(({ to, title, description, icon, color, borderColor }) => (
 							<Link
 								key={to}

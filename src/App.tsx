@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom"
 import { Shell } from "./components/Shell"
 import { ThemeProvider } from "./features/tasks/theme"
 import { AuthProvider } from "./lib/AuthContext"
+import { RunningTimerProvider } from "./lib/RunningTimerContext"
 import { usePageMeta } from "./hooks/usePageMeta"
 import Home from "./pages/Home"
 import Login from "./pages/Login"
@@ -11,6 +12,7 @@ import Privacy from "./pages/Privacy"
 const TasksApp = lazy(() => import("./features/tasks/TasksApp"))
 const BoardsApp = lazy(() => import("./features/boards/BoardsApp"))
 const ChatApp = lazy(() => import("./features/chat/ChatApp"))
+const TimeApp = lazy(() => import("./features/time/TimeApp"))
 
 function Loading() {
 	return (
@@ -25,21 +27,24 @@ export default function App() {
 
 	return (
 		<AuthProvider>
-			<ThemeProvider>
-				<Shell>
-					<Suspense fallback={<Loading />}>
-						<Routes>
-							<Route path="/login" element={<Login />} />
-							<Route path="/privacy" element={<Privacy />} />
-							<Route path="/" element={<Home />} />
-							<Route path="/tasks/*" element={<TasksApp />} />
-							<Route path="/boards/*" element={<BoardsApp />} />
-							<Route path="/chat/*" element={<ChatApp />} />
-							<Route path="*" element={<Navigate to="/" replace />} />
-						</Routes>
-					</Suspense>
-				</Shell>
-			</ThemeProvider>
+			<RunningTimerProvider>
+				<ThemeProvider>
+					<Shell>
+						<Suspense fallback={<Loading />}>
+							<Routes>
+								<Route path="/login" element={<Login />} />
+								<Route path="/privacy" element={<Privacy />} />
+								<Route path="/" element={<Home />} />
+								<Route path="/tasks/*" element={<TasksApp />} />
+								<Route path="/boards/*" element={<BoardsApp />} />
+								<Route path="/chat/*" element={<ChatApp />} />
+								<Route path="/time/*" element={<TimeApp />} />
+								<Route path="*" element={<Navigate to="/" replace />} />
+							</Routes>
+						</Suspense>
+					</Shell>
+				</ThemeProvider>
+			</RunningTimerProvider>
 		</AuthProvider>
 	)
 }

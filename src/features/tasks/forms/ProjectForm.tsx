@@ -10,6 +10,8 @@ import {
 } from "../memberStorage"
 import { CustomSelect } from "../ui/CustomSelect"
 import { cn } from "../utils"
+import { useRunningTimer } from "../../../lib/runningTimer"
+import type { Client } from "../../time/types"
 
 const ROLE_OPTIONS: { value: MemberRole; label: string }[] = [
 	{ value: "viewer", label: "Viewer" },
@@ -57,6 +59,14 @@ function rolePill(role: MemberRole) {
 	}
 }
 
+export type ProjectFormValues = {
+	name: string
+	description: string
+	color: string
+	clientId?: string
+	hourlyRate?: number
+}
+
 export function ProjectForm({
 	initial,
 	onSubmit,
@@ -65,20 +75,39 @@ export function ProjectForm({
 	projectId,
 	isLoggedIn,
 	projectOwnerId,
+	showBilling,
 }: {
-	initial: { name: string; description: string; color: string }
-	onSubmit: (v: { name: string; description: string; color: string }) => void
+	initial: ProjectFormValues
+	onSubmit: (v: ProjectFormValues) => void
 	onCancel: () => void
 	submitLabel: string
 	projectId?: string
 	isLoggedIn?: boolean
 	projectOwnerId?: string
+	/** Show the time-tracking client and hourly rate fields. */
+	showBilling?: boolean
 }) {
 	const { user } = useAuth()
+	const { repo } = useRunningTimer()
 
 	const [name, setName] = useState(initial.name)
 	const [description, setDescription] = useState(initial.description)
 	const [color, setColor] = useState(initial.color)
+	const [clientId, setClientId] = useState(initial.clientId ?? "")
+	const [rate, setRate] = useState(initial.hourlyRate ? String(initial.hourlyRate) : "")
+	const [clients, setClients] = useState<Client[]>([])
+
+	useEffect(() => {
+		if (!showBilling) return
+		let cancelled = false
+		repo
+			.listClients()
+			.then((c) => !cancelled && setClients(c))
+			.catch(() => {})
+		return () => {
+			cancelled = true
+		}
+	}, [repo, showBilling])
 
 	const [members, setMembers] = useState<ProjectMember[]>([])
 	const [membersLoading, setMembersLoading] = useState(false)
@@ -124,7 +153,17 @@ export function ProjectForm({
 			className="space-y-4"
 			onSubmit={(e) => {
 				e.preventDefault()
-				onSubmit({ name: name.trim(), description: description.trim(), color })
+				const values: ProjectFormValues = {
+					name: name.trim(),
+					description: description.trim(),
+					color,
+				}
+				if (showBilling) {
+					const n = Number(rate)
+					values.clientId = clientId || undefined
+					values.hourlyRate = rate.trim() && Number.isFinite(n) && n > 0 ? n : undefined
+				}
+				onSubmit(values)
 			}}
 		>
 			<label className="block">
@@ -174,6 +213,40 @@ export function ProjectForm({
 					))}
 				</div>
 			</div>
+
+			{showBilling && (
+				<div className="grid grid-cols-2 gap-3">
+					<div className="block">
+						<span className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">
+							Client
+						</span>
+						<CustomSelect
+							value={clientId}
+							onChange={setClientId}
+							options={[
+								{ value: "", label: "No client" },
+								...clients.map((c) => ({ value: c.id, label: c.name })),
+							]}
+						/>
+					</div>
+					<label className="block">
+						<span className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">
+							Hourly rate
+						</span>
+						<input
+							inputMode="decimal"
+							value={rate}
+							onChange={(e) => setRate(e.target.value)}
+							className="block w-full rounded-lg border border-gray-200 dark:border-dark-border bg-raised dark:bg-dark-raised px-3 py-2 text-base sm:text-sm font-mono text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+							placeholder={
+								clients.find((c) => c.id === clientId)?.hourlyRate
+									? `${clients.find((c) => c.id === clientId)!.hourlyRate} (client default)`
+									: "Optional"
+							}
+						/>
+					</label>
+				</div>
+			)}
 
 			{showMembers && (
 				<div className="pt-2">

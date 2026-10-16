@@ -1,6 +1,6 @@
 # PocketBase
 
-Backend for auth and data (tasks, boards). Targets PocketBase v0.23 or newer.
+Backend for auth and data (tasks, boards, time tracking). Targets PocketBase v0.23 or newer.
 
 ## Layout
 
@@ -31,3 +31,4 @@ Put it behind your existing reverse proxy on a public hostname (the value of `VI
 
 - The OAuth2 sign-in opens a popup window.
 - `page_snapshots` records use the page id as their own id, so there is exactly one snapshot per page.
+- Time tracking (`1760659200_time_tracker.js`) adds `clients`, `time_entries` and `invoices`, plus optional `client_id` / `hourly_rate` on `projects`. A time entry with an empty `end` is the running timer. Deleting a client, project, task or invoice keeps tracked time and just clears the reference.

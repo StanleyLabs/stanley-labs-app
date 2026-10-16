@@ -21,6 +21,8 @@
 		"@xstate/react": "^6.0.0",
 		"dotenv": "^17.3.1",
 		"express": "^5.2.1",
+		"jspdf": "^4.2.1",
+		"jspdf-autotable": "^5.0.9",
 		"pocketbase": "^0.28.1",
 		"react": "^19.2.1",
 		"react-dom": "^19.2.1",

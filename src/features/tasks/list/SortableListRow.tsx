@@ -3,6 +3,7 @@ import { CSS } from "@dnd-kit/utilities"
 import type { Task } from "../types"
 import { IconGrip, IconEdit, IconTrash } from "../icons"
 import { PriorityBadge, Avatar, Tag } from "../ui"
+import { TaskTimerButton } from "../../time/taskTime/TaskTimerButton"
 
 export function SortableListRow({
 	task,
@@ -30,7 +31,7 @@ export function SortableListRow({
 			data-task-id={task.id}
 			className="group border-b border-gray-100 dark:border-dark-border bg-white dark:bg-dark-surface px-4 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-dark-raised"
 		>
-			<div className="hidden sm:grid sm:grid-cols-[20px_1fr_100px_140px_80px] sm:items-center sm:gap-3">
+			<div className="hidden sm:grid sm:grid-cols-[20px_1fr_100px_140px_170px] sm:items-center sm:gap-3">
 				<button
 					className="cursor-grab rounded p-0.5 text-gray-300 hover:text-gray-500 active:cursor-grabbing"
 					{...attributes}
@@ -70,28 +71,31 @@ export function SortableListRow({
 						<span className="text-xs text-gray-400">Unassigned</span>
 					)}
 				</div>
-				{(onEdit || onDelete) && (
-					<div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-						{onEdit && (
-							<button
-								onClick={onEdit}
-								className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-border hover:text-gray-600 dark:hover:text-gray-200"
-								title="Edit"
-							>
-								<IconEdit className="h-3.5 w-3.5" />
-							</button>
-						)}
-						{onDelete && (
-							<button
-								onClick={onDelete}
-								className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 dark:hover:bg-red-500/20 hover:text-red-500 dark:hover:text-red-400"
-								title="Delete"
-							>
-								<IconTrash className="h-3.5 w-3.5" />
-							</button>
-						)}
-					</div>
-				)}
+				<div className="flex items-center justify-end gap-1">
+					<TaskTimerButton task={task} />
+					{(onEdit || onDelete) && (
+						<div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+							{onEdit && (
+								<button
+									onClick={onEdit}
+									className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-border hover:text-gray-600 dark:hover:text-gray-200"
+									title="Edit"
+								>
+									<IconEdit className="h-3.5 w-3.5" />
+								</button>
+							)}
+							{onDelete && (
+								<button
+									onClick={onDelete}
+									className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 dark:hover:bg-red-500/20 hover:text-red-500 dark:hover:text-red-400"
+									title="Delete"
+								>
+									<IconTrash className="h-3.5 w-3.5" />
+								</button>
+							)}
+						</div>
+					)}
+				</div>
 			</div>
 			<div className="flex items-start gap-2 sm:hidden">
 				<button
@@ -143,6 +147,9 @@ export function SortableListRow({
 								<span className="text-2xs text-gray-500">{task.assignee.name}</span>
 							</div>
 						)}
+						<span className={task.assignee ? "" : "ml-auto"}>
+							<TaskTimerButton task={task} alwaysVisible />
+						</span>
 					</div>
 				</div>
 			</div>
