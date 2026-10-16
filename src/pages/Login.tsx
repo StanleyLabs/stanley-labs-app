@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useAuth } from "../lib/AuthContext";
-import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../lib/auth";
+import { useNavigate } from "react-router-dom";
 
 export default function Login() {
-  const { user, loading, signInWithEmail, signUpWithEmail, signInWithGoogle, signOut } = useAuth();
+  const { user, loading, signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
@@ -36,7 +36,8 @@ export default function Login() {
       if (error) {
         setError(error);
       } else {
-        setMessage("Check your email for a confirmation link.");
+        navigate("/");
+        return;
       }
     } else {
       const { error } = await signInWithEmail(email, password);
@@ -130,7 +131,7 @@ export default function Login() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={6}
+            minLength={8}
             className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-paper placeholder:text-fog/30 outline-none focus:border-electric/50 transition-colors"
           />
 

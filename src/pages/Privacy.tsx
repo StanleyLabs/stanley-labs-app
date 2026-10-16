@@ -19,7 +19,7 @@ export default function Privacy() {
         </p>
 
         <p className="mt-4 text-sm leading-relaxed text-fog/80">
-          If you sign in, we use Supabase (database and authentication) to store and sync your data across devices.
+          If you sign in, we use our own self-hosted PocketBase server (database and authentication) to store and sync your data across devices.
           If you do not sign in, your data stays in your browser's local storage.
         </p>
 

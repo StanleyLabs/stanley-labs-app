@@ -9,7 +9,6 @@ import {
 	TldrawUiButtonLabel,
 	TldrawUiDialogBody,
 	TldrawUiDialogCloseButton,
-	TldrawUiDialogFooter,
 	TldrawUiDialogHeader,
 	TldrawUiDialogTitle,
 } from 'tldraw'

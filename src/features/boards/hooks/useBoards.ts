@@ -4,7 +4,7 @@
  * Thin orchestrator that wires together focused sub-hooks:
  *   - useGuestPersistence: localStorage hydration, auto-save, cross-tab sync
  *   - useSharedLink: shared URL resolution, removal, broadcast listeners
- *   - useAuthedPages: Supabase page loading, page tracking, rename sync
+ *   - useAuthedPages: PocketBase page loading, page tracking, rename sync
  *   - useSnapshotPersistence: throttled snapshot saves for authed + guest
  *
  * The UI layer consumes the returned state and callbacks.
@@ -24,7 +24,8 @@ import {
 	type MachineState,
 	type PageEntry,
 } from '../machine'
-import { useAuth } from '../../../lib/AuthContext'
+import { useAuth } from '../../../lib/auth'
+import { pocketbaseUrl } from '../../../lib/pocketbase'
 import { buildSyncUri, isSyncServerConfigured } from '../sharePage'
 import { getSlugFromUrl } from './boardsUtils'
 
@@ -107,12 +108,10 @@ export function useBoards(): BoardsOrchestration {
 		}
 	}, [userId, send])
 
-	// ── Supabase init ──────────────────────────────────────────────────────────
+	// ── Backend init ───────────────────────────────────────────────────────────
 
 	useEffect(() => {
-		const url = import.meta.env.VITE_SUPABASE_URL ?? ''
-		const key = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
-		send(url && key ? { type: 'SUPABASE_READY' } : { type: 'SUPABASE_UNAVAILABLE' })
+		send(pocketbaseUrl ? { type: 'BACKEND_READY' } : { type: 'BACKEND_UNAVAILABLE' })
 	}, [send])
 
 	// ── Derived values for sub-hooks ───────────────────────────────────────────

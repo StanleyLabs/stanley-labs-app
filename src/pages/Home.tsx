@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useAuth } from "../lib/AuthContext";
+import { useAuth } from "../lib/auth";
 
 const apps = [
   {
@@ -59,9 +59,9 @@ export default function Home() {
         ) : user ? (
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              {user.user_metadata?.avatar_url ? (
+              {user.avatarUrl ? (
                 <img
-                  src={user.user_metadata.avatar_url}
+                  src={user.avatarUrl}
                   alt=""
                   className="h-8 w-8 rounded-full"
                 />
@@ -71,7 +71,7 @@ export default function Home() {
                 </div>
               )}
               <span className="hidden text-sm text-fog/60 sm:inline">
-                {user.user_metadata?.full_name ?? user.email}
+                {user.name ?? user.email}
               </span>
             </div>
             <button

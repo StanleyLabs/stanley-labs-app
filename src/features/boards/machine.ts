@@ -13,10 +13,10 @@
  *     guest.idle       - default local editing state
  *     guest.viewing    - viewing a shared link (read-only or edit based on access)
  *
- *   authed             - logged-in user, Supabase persistence
- *     authed.loading   - fetching page list from Supabase
+ *   authed             - logged-in user, PocketBase persistence
+ *     authed.loading   - fetching page list from PocketBase
  *     authed.ready     - page list loaded, active page selected
- *       ready.local        - active page loaded, persisting to Supabase (no realtime sync)
+ *       ready.local        - active page loaded, persisting to PocketBase (no realtime sync)
  *       ready.connecting   - connecting to sync server for shared page
  *       ready.serverSync   - synced via WebSocket sync server
  *       ready.offline      - shared page but connection failed
@@ -32,7 +32,7 @@ import { setup, assign, type SnapshotFrom } from 'xstate'
 export type PageRole = 'owner' | 'editor' | 'viewer'
 
 export interface PageEntry {
-	/** DB page uuid */
+	/** DB page id */
 	dbId: string
 	/** tldraw page id (page:xxx) */
 	tldrawId: string
@@ -59,8 +59,8 @@ export interface BoardsContext {
 	/** Public slug when viewing a shared link. */
 	activeSlug: string | null
 
-	/** Whether Supabase client is ready. */
-	supabaseReady: boolean
+	/** Whether the PocketBase backend is configured. */
+	backendReady: boolean
 
 	/** Error message for loading failures. */
 	error: string | null
@@ -71,9 +71,9 @@ export type BoardsEvent =
 	| { type: 'LOGIN'; userId: string }
 	| { type: 'LOGOUT' }
 
-	// Supabase init
-	| { type: 'SUPABASE_READY' }
-	| { type: 'SUPABASE_UNAVAILABLE' }
+	// Backend init
+	| { type: 'BACKEND_READY' }
+	| { type: 'BACKEND_UNAVAILABLE' }
 
 	// Page list (authed)
 	| { type: 'PAGES_LOADED'; pages: PageEntry[] }
@@ -103,7 +103,7 @@ const initialContext: BoardsContext = {
 	activePageTldrawId: null,
 	activeRole: null,
 	activeSlug: null,
-	supabaseReady: false,
+	backendReady: false,
 	error: null,
 }
 
@@ -158,7 +158,7 @@ export const boardsMachine = setup({
 			const e = event as Extract<BoardsEvent, { type: 'UPDATE_ROLE' }>
 			return { activeRole: e.role }
 		}),
-		markSupabaseReady: assign({ supabaseReady: true }),
+		markBackendReady: assign({ backendReady: true }),
 	},
 	guards: {
 		isPageShared: ({ context }) => {
@@ -173,8 +173,8 @@ export const boardsMachine = setup({
 	context: initialContext,
 
 	on: {
-		SUPABASE_READY: { actions: 'markSupabaseReady' },
-		SUPABASE_UNAVAILABLE: {},
+		BACKEND_READY: { actions: 'markBackendReady' },
+		BACKEND_UNAVAILABLE: {},
 	},
 
 	states: {

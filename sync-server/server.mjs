@@ -1,6 +1,6 @@
 /**
- * tldraw sync server with Supabase persistence.
- * Deploy to Render (or similar) for real-time collaboration.
+ * tldraw sync server with PocketBase persistence.
+ * Runs alongside PocketBase on the VPS for real-time collaboration.
  * Frontend connects via WebSocket; room ID = share ID (from ?p=ID).
  * Loads .env from project root so it shares config with the client app.
  * Uses native ws library (no @fastify/websocket) for reliable upgrade handling.
@@ -20,7 +20,7 @@ dotenv.config({ path: join(__dirname, '..', '.env') })
 import { WebSocketServer } from 'ws'
 import cors from '@fastify/cors'
 import fastify from 'fastify'
-import { createClient } from '@supabase/supabase-js'
+import PocketBase from 'pocketbase'
 import { InMemorySyncStorage, TLSocketRoom, loadSnapshotIntoStorage } from '@tldraw/sync-core'
 import {
 	createTLSchema,
@@ -29,25 +29,36 @@ import {
 } from '@tldraw/tlschema'
 
 const PORT = Number(process.env.PORT) || 5858
-// v2 schema: page_snapshots for document content, pages for metadata.
-const SNAPSHOTS_TABLE = 'page_snapshots'
-const PAGES_TABLE = 'pages'
+// page_snapshots record id == pages.id (one snapshot per page).
+const SNAPSHOTS_COLLECTION = 'page_snapshots'
 
-const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
+const pocketbaseUrl = process.env.POCKETBASE_URL ?? process.env.VITE_POCKETBASE_URL ?? ''
+const superuserEmail = process.env.POCKETBASE_SUPERUSER_EMAIL ?? ''
+const superuserPassword = process.env.POCKETBASE_SUPERUSER_PASSWORD ?? ''
+const persistenceConfigured = Boolean(pocketbaseUrl && superuserEmail && superuserPassword)
 
-// Prefer service role on the server so private saved pages can persist from the sync server.
-// Falls back to anon key if service role is not provided.
-const supabaseKey =
-	process.env.SUPABASE_SECRET_KEY ??
-	process.env.SUPABASE_SERVICE_ROLE_KEY ??
-	process.env.SUPABASE_SERVICE_KEY ??
-	process.env.SUPABASE_ANON_KEY ??
-	process.env.VITE_SUPABASE_ANON_KEY ??
-	''
+let pbClientPromise = null
 
-function getSupabase() {
-	if (!supabaseUrl || !supabaseKey) return null
-	return createClient(supabaseUrl, supabaseKey)
+/**
+ * Superuser client so the sync server can persist any page regardless of API rules.
+ * autoRefreshThreshold re-authenticates automatically before the token expires.
+ */
+function getPocketBase() {
+	if (!persistenceConfigured) return Promise.resolve(null)
+	if (!pbClientPromise) {
+		const pb = new PocketBase(pocketbaseUrl)
+		pb.autoCancellation(false)
+		pbClientPromise = pb
+			.collection('_superusers')
+			.authWithPassword(superuserEmail, superuserPassword, { autoRefreshThreshold: 30 * 60 })
+			.then(() => pb)
+			.catch((err) => {
+				console.warn('[sync] PocketBase superuser auth failed:', err?.message)
+				pbClientPromise = null
+				return null
+			})
+	}
+	return pbClientPromise
 }
 
 function sanitizeRoomId(roomId) {
@@ -86,7 +97,7 @@ function toWebSocketMinimal(ws) {
 	}
 }
 
-function roomSnapshotToSupabaseFormat(snapshot) {
+function roomSnapshotToDbFormat(snapshot) {
 	const store = Object.create(null)
 	for (const doc of snapshot.documents ?? []) {
 		const state = doc.state
@@ -97,52 +108,48 @@ function roomSnapshotToSupabaseFormat(snapshot) {
 	}
 }
 
-async function loadFromSupabase(roomId) {
+async function loadSnapshot(roomId) {
 	if (!roomId || String(roomId).trim() === '') return undefined
-	const supabase = getSupabase()
-	if (!supabase) return undefined
+	const pb = await getPocketBase()
+	if (!pb) return undefined
 
-	// v2: roomId is always pages.id (uuid).
-	// Load snapshot from page_snapshots.
-	const { data, error } = await supabase
-		.from(SNAPSHOTS_TABLE)
-		.select('document')
-		.eq('page_id', roomId)
-		.maybeSingle()
-	if (!error && data?.document) {
-		const s = data.document
+	// roomId is always pages.id, which is also the snapshot record id.
+	try {
+		const record = await pb.collection(SNAPSHOTS_COLLECTION).getOne(roomId, { fields: 'document' })
+		const s = record?.document
 		const doc = s?.document ?? s
 		if (doc?.store && doc?.schema) return { store: doc.store, schema: doc.schema }
+	} catch (err) {
+		if (err?.status !== 404) console.warn('[sync] Failed to load snapshot room=%s error=%s', roomId, err?.message)
 	}
 
 	return undefined
 }
 
-async function saveToSupabase(roomId, snapshot) {
-	const supabase = getSupabase()
-	if (!supabase) return
+async function saveSnapshot(roomId, snapshot) {
+	const pb = await getPocketBase()
+	if (!pb) return
 	const now = Date.now()
 	const last = lastSaveLog.get(roomId) ?? 0
 	if (now - last > 5000) {
-		console.log('[sync] Saving to Supabase room:', roomId)
+		console.log('[sync] Saving to PocketBase room:', roomId)
 		lastSaveLog.set(roomId, now)
 	}
-	const payload = roomSnapshotToSupabaseFormat(snapshot)
+	const payload = roomSnapshotToDbFormat(snapshot)
+	const snapshots = pb.collection(SNAPSHOTS_COLLECTION)
 
-	// v2: roomId is pages.id (uuid). Upsert into page_snapshots.
-	// Requires service role key to bypass RLS for server-side writes.
-	const { error } = await supabase
-		.from(SNAPSHOTS_TABLE)
-		.upsert(
-			{
-				page_id: roomId,
-				document: payload,
-				updated_at: new Date().toISOString(),
-			},
-			{ onConflict: 'page_id' }
-		)
-	if (error) {
-		console.warn('[sync] Failed to persist snapshot room=%s error=%s', roomId, error.message)
+	try {
+		await snapshots.update(roomId, { document: payload })
+	} catch (err) {
+		if (err?.status !== 404) {
+			console.warn('[sync] Failed to persist snapshot room=%s error=%s', roomId, err?.message)
+			return
+		}
+		try {
+			await snapshots.create({ id: roomId, page_id: roomId, document: payload })
+		} catch (createErr) {
+			console.warn('[sync] Failed to persist snapshot room=%s error=%s', roomId, createErr?.message)
+		}
 	}
 }
 
@@ -159,7 +166,7 @@ const lastSaveLog = new Map()
  * (delaying it causes useSync on the client to timeout waiting for the
  * tldraw sync protocol handshake).
  *
- * Supabase data is loaded in the background.  A `clientDataReceived` flag
+ * PocketBase data is loaded in the background.  A `clientDataReceived` flag
  * prevents the DB snapshot from overwriting fresher data that a client
  * has already pushed.
  */
@@ -179,7 +186,7 @@ function getOrCreateRoom(roomId) {
 			if (arg?.documentClock === undefined) return
 			clientDataReceived = true
 			const snap = storage.getSnapshot()
-			if (snap) void saveToSupabase(roomId, snap)
+			if (snap) void saveSnapshot(roomId, snap)
 		},
 	})
 
@@ -198,8 +205,8 @@ function getOrCreateRoom(roomId) {
 
 	rooms.set(roomId, room)
 
-	// Load from Supabase in background — only apply if no client has pushed yet
-	loadFromSupabase(roomId).then((fromDb) => {
+	// Load from PocketBase in background — only apply if no client has pushed yet
+	loadSnapshot(roomId).then((fromDb) => {
 		if (!fromDb) {
 			console.log('[sync] No snapshot in DB for room:', roomId)
 			return
@@ -292,7 +299,9 @@ app.listen({ port: PORT, host: '0.0.0.0' }, (err) => {
 		process.exit(1)
 	}
 	console.log(`Sync server listening on port ${PORT}`)
-	if (!supabaseUrl || !supabaseKey) {
-		console.warn('Supabase not configured (SUPABASE_URL / SUPABASE_ANON_KEY). Persistence disabled.')
+	if (!persistenceConfigured) {
+		console.warn(
+			'PocketBase not configured (POCKETBASE_URL / POCKETBASE_SUPERUSER_EMAIL / POCKETBASE_SUPERUSER_PASSWORD). Persistence disabled.'
+		)
 	}
 })

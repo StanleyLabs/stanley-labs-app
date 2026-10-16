@@ -1,13 +1,15 @@
 /**
- * Boards API layer — all Supabase operations for the v3 pages schema.
+ * Boards API layer — all PocketBase operations for the pages schema.
  *
- * Tables:
+ * Collections:
  *   pages           — canonical page records (owner, title, visibility, slug)
  *   page_members    — user-page relationships (owner/editor/viewer)
- *   page_snapshots  — tldraw document snapshots (one per page)
+ *   page_snapshots  — tldraw document snapshots (one per page, record id = page id)
  */
 
-import { supabase } from '../../lib/supabase'
+import type { RecordModel } from 'pocketbase'
+import { currentUserId, errorMessage, isUniqueViolation, pb, upsertById } from '../../lib/pocketbase'
+import { lookupUserIdByEmail } from '../tasks/memberStorage'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -47,40 +49,77 @@ export interface MyPageEntry {
 	page: PageRow
 }
 
+export interface PageMemberWithEmail {
+	pageId: string
+	userId: string
+	email: string
+	role: PageRole
+}
+
+const pages = () => pb.collection('pages')
+const pageMembers = () => pb.collection('page_members')
+const pageSnapshots = () => pb.collection('page_snapshots')
+
+/** PocketBase stores empty optional values as ''; the app expects null. */
+function toPageRow(r: RecordModel): PageRow {
+	return {
+		id: r.id,
+		owner_id: r.owner_id,
+		title: r.title ?? '',
+		tldraw_page_id: r.tldraw_page_id,
+		visibility: r.visibility,
+		public_slug: r.public_slug || null,
+		public_access: r.public_access || null,
+		sort_index: r.sort_index || null,
+		created_at: r.created_at,
+		updated_at: r.updated_at,
+	}
+}
+
+/** Insert or update a membership row keyed by (page_id, user_id). */
+async function upsertPageMember(pageId: string, userId: string, role: PageRole): Promise<void> {
+	const filter = pb.filter('page_id = {:p} && user_id = {:u}', { p: pageId, u: userId })
+	const existing = await pageMembers()
+		.getFirstListItem(filter)
+		.catch(() => null)
+	if (existing) {
+		await pageMembers().update(existing.id, { role })
+		return
+	}
+	await pageMembers().create({ page_id: pageId, user_id: userId, role })
+}
+
 // ── Pages ──────────────────────────────────────────────────────────────────────
 
 /** Create a new page. Returns the full row including generated tldraw_page_id. */
 export async function createPage(
 	opts: { title?: string; visibility?: PageVisibility; tldrawPageId?: string; sortIndex?: string } = {}
 ): Promise<PageRow | null> {
-	const user = (await supabase.auth.getUser()).data.user
-	if (!user?.id) return null
+	const userId = currentUserId()
+	if (!userId) return null
 
 	const tldrawPageId = opts.tldrawPageId ?? `page:${crypto.randomUUID().replace(/-/g, '').slice(0, 21)}`
 
-	const { data, error } = await supabase
-		.from('pages')
-		.insert({
-			owner_id: user.id,
+	let created: RecordModel
+	try {
+		created = await pages().create({
+			owner_id: userId,
 			title: opts.title ?? 'Untitled',
 			visibility: opts.visibility ?? 'private',
 			tldraw_page_id: tldrawPageId,
 			...(opts.sortIndex ? { sort_index: opts.sortIndex } : {}),
 		})
-		.select('*')
-		.single()
-
-	if (error || !data) {
-		console.warn('[api] createPage failed:', error?.message)
+	} catch (err) {
+		console.warn('[api] createPage failed:', errorMessage(err))
 		return null
 	}
 
 	// Add creator as owner in page_members
-	await supabase
-		.from('page_members')
-		.upsert({ page_id: data.id, user_id: user.id, role: 'owner' }, { onConflict: 'page_id,user_id' })
+	await upsertPageMember(created.id, userId, 'owner').catch((err) =>
+		console.warn('[api] createPage membership failed:', errorMessage(err))
+	)
 
-	return data as PageRow
+	return toPageRow(created)
 }
 
 /** Update page metadata (title, visibility, slug, access, sort_index). */
@@ -89,19 +128,27 @@ export async function updatePage(
 	patch: Partial<Pick<PageRow, 'title' | 'visibility' | 'public_slug' | 'public_access'>> & { sort_index?: string }
 ): Promise<boolean> {
 	if (!pageId) return false
-	const { error } = await supabase.from('pages').update(patch).eq('id', pageId)
-	return !error
+	const data: Record<string, unknown> = {}
+	for (const [key, value] of Object.entries(patch)) data[key] = value ?? ''
+	try {
+		await pages().update(pageId, data)
+		return true
+	} catch {
+		return false
+	}
 }
 
 /** Permanently delete a page and its related data (only owner should call this). */
 export async function deletePage(pageId: string): Promise<boolean> {
 	if (!pageId) return false
-	// Delete in dependency order (or rely on ON DELETE CASCADE if configured)
-	await supabase.from('page_snapshots').delete().eq('page_id', pageId)
-	await supabase.from('page_members').delete().eq('page_id', pageId)
-	const { error } = await supabase.from('pages').delete().eq('id', pageId)
-	if (error) console.warn('[api] deletePage failed:', error.message)
-	return !error
+	try {
+		// Members and snapshot are removed by relation cascade.
+		await pages().delete(pageId)
+		return true
+	} catch (err) {
+		console.warn('[api] deletePage failed:', errorMessage(err))
+		return false
+	}
 }
 
 /** Resolve a public slug to page info. Returns null if not found or not public. */
@@ -109,14 +156,14 @@ export async function resolveSlug(
 	slug: string
 ): Promise<(PageRow & { tldraw_page_id: string }) | null> {
 	if (!slug.trim()) return null
-	const { data, error } = await supabase
-		.from('pages')
-		.select('*')
-		.eq('public_slug', slug)
-		.eq('visibility', 'public')
-		.maybeSingle()
-	if (error || !data) return null
-	return data as PageRow
+	try {
+		const r = await pages().getFirstListItem(
+			pb.filter('public_slug = {:s} && visibility = "public"', { s: slug })
+		)
+		return toPageRow(r)
+	} catch {
+		return null
+	}
 }
 
 /** Make a page shared: set visibility to public, generate slug if needed. */
@@ -125,11 +172,9 @@ export async function sharePage(
 	access: PublicAccess = 'view'
 ): Promise<string | null> {
 	// Check if already has a slug.
-	const { data: existing } = await supabase
-		.from('pages')
-		.select('public_slug')
-		.eq('id', pageId)
-		.single()
+	const existing = await pages()
+		.getOne(pageId, { fields: 'public_slug' })
+		.catch(() => null)
 
 	const slug = existing?.public_slug || crypto.randomUUID().replace(/-/g, '').slice(0, 12)
 
@@ -153,64 +198,124 @@ export async function setMembersOnly(pageId: string): Promise<boolean> {
 
 // ── Page Members ───────────────────────────────────────────────────────────────
 
-/** List all pages the current user has access to (via page_members join). */
+/** List all pages the current user has access to (via page_members). */
 export async function listMyPages(): Promise<MyPageEntry[]> {
-	const { data, error } = await supabase
-		.from('page_members')
-		.select('page_id,role,pages(*)')
-	if (error || !data) return []
-	return (data as any[])
-		.filter((r) => r.pages?.id)
-		.map((r) => ({ page_id: r.page_id, role: r.role, page: r.pages }))
-		.sort((a, b) => {
-			const ai = a.page.sort_index ?? ''
-			const bi = b.page.sort_index ?? ''
-			if (ai && bi) return ai < bi ? -1 : ai > bi ? 1 : 0
-			// Pages without sort_index: fall back to created_at
-			return (a.page.created_at ?? '').localeCompare(b.page.created_at ?? '')
+	const userId = currentUserId()
+	if (!userId) return []
+	try {
+		const rows = await pageMembers().getFullList({
+			filter: pb.filter('user_id = {:u}', { u: userId }),
+			expand: 'page_id',
 		})
+		return rows
+			.filter((r) => r.expand?.page_id?.id)
+			.map((r) => ({ page_id: r.page_id, role: r.role as PageRole, page: toPageRow(r.expand!.page_id) }))
+			.sort((a, b) => {
+				const ai = a.page.sort_index ?? ''
+				const bi = b.page.sort_index ?? ''
+				if (ai && bi) return ai < bi ? -1 : ai > bi ? 1 : 0
+				// Pages without sort_index: fall back to created_at
+				return (a.page.created_at ?? '').localeCompare(b.page.created_at ?? '')
+			})
+	} catch {
+		return []
+	}
 }
 
 /** Add the current user as a viewer of a page. */
 export async function addSelfAsViewer(pageId: string): Promise<boolean> {
-	const user = (await supabase.auth.getUser()).data.user
-	if (!user?.id) return false
-	const { error } = await supabase
-		.from('page_members')
-		.upsert({ page_id: pageId, user_id: user.id, role: 'viewer' }, { onConflict: 'page_id,user_id' })
-	return !error
+	const userId = currentUserId()
+	if (!userId) return false
+	try {
+		await upsertPageMember(pageId, userId, 'viewer')
+		return true
+	} catch {
+		return false
+	}
 }
 
-/** Add a user by email as editor or viewer. Returns false if user not found. */
+/** List members of a page with their emails. Falls back to truncated ids if the lookup fails. */
+export async function listPageMembers(pageId: string): Promise<PageMemberWithEmail[]> {
+	try {
+		const rows = await pb.send<{ page_id: string; user_id: string; role: PageRole; email: string }[]>(
+			`/api/app/page-members/${encodeURIComponent(pageId)}`,
+			{ method: 'GET' }
+		)
+		return (rows ?? []).map((r) => ({
+			pageId: r.page_id ?? pageId,
+			userId: r.user_id,
+			email: r.email || r.user_id.slice(0, 8) + '...',
+			role: r.role,
+		}))
+	} catch {
+		const raw = await pageMembers()
+			.getFullList({ filter: pb.filter('page_id = {:p}', { p: pageId }) })
+			.catch(() => [] as RecordModel[])
+		return raw.map((r) => ({
+			pageId: r.page_id,
+			userId: r.user_id,
+			email: r.user_id.slice(0, 8) + '...',
+			role: r.role as PageRole,
+		}))
+	}
+}
+
+/** Add a user by email with the given role. Throws with a user-facing message on failure. */
 export async function addMemberByEmail(
 	pageId: string,
 	email: string,
-	role: 'editor' | 'viewer' = 'viewer'
-): Promise<boolean> {
-	// Look up user by email in auth.users via a server function or profiles table.
-	// For now, try profiles table (assumes email is stored there).
-	const { data: profile } = await supabase
-		.from('profiles')
-		.select('id')
-		.eq('email', email)
-		.maybeSingle()
-	if (!profile?.id) return false
-	const { error } = await supabase
-		.from('page_members')
-		.upsert({ page_id: pageId, user_id: profile.id, role }, { onConflict: 'page_id,user_id' })
-	return !error
+	role: PageRole = 'viewer'
+): Promise<PageMemberWithEmail> {
+	let userId: string | null
+	try {
+		userId = await lookupUserIdByEmail(email)
+	} catch (err) {
+		throw new Error(errorMessage(err))
+	}
+	if (!userId) throw new Error('No user found with that email.')
+	try {
+		await upsertPageMember(pageId, userId, role)
+	} catch (err) {
+		if (isUniqueViolation(err)) throw new Error('That user is already a member.')
+		throw new Error(errorMessage(err))
+	}
+	return { pageId, userId, email, role }
+}
+
+/** Change a member's role on a page. */
+export async function updateMemberRole(pageId: string, userId: string, role: PageRole): Promise<void> {
+	try {
+		const row = await pageMembers().getFirstListItem(
+			pb.filter('page_id = {:p} && user_id = {:u}', { p: pageId, u: userId })
+		)
+		await pageMembers().update(row.id, { role })
+	} catch (err) {
+		throw new Error(errorMessage(err))
+	}
+}
+
+/** Remove a member from a page. */
+export async function removeMember(pageId: string, userId: string): Promise<void> {
+	try {
+		const row = await pageMembers().getFirstListItem(
+			pb.filter('page_id = {:p} && user_id = {:u}', { p: pageId, u: userId })
+		)
+		await pageMembers().delete(row.id)
+	} catch (err) {
+		throw new Error(errorMessage(err))
+	}
 }
 
 /** Remove the current user's membership from a page. */
 export async function removeSelfFromPage(pageId: string): Promise<boolean> {
-	const user = (await supabase.auth.getUser()).data.user
-	if (!user?.id) return false
-	const { error } = await supabase
-		.from('page_members')
-		.delete()
-		.eq('page_id', pageId)
-		.eq('user_id', user.id)
-	return !error
+	const userId = currentUserId()
+	if (!userId) return false
+	try {
+		await removeMember(pageId, userId)
+		return true
+	} catch {
+		return false
+	}
 }
 
 // ── Snapshots ──────────────────────────────────────────────────────────────────
@@ -218,24 +323,23 @@ export async function removeSelfFromPage(pageId: string): Promise<boolean> {
 /** Load the latest snapshot for a page. */
 export async function loadSnapshot(pageId: string): Promise<PageSnapshotRow | null> {
 	if (!pageId) return null
-	const { data, error } = await supabase
-		.from('page_snapshots')
-		.select('page_id,document,updated_at')
-		.eq('page_id', pageId)
-		.maybeSingle()
-	if (error || !data?.document) return null
-	return data as PageSnapshotRow
+	try {
+		const r = await pageSnapshots().getOne(pageId)
+		if (!r.document) return null
+		return { page_id: r.page_id, document: r.document, updated_at: r.updated_at }
+	} catch {
+		return null
+	}
 }
 
 /** Save a snapshot for a page (upsert). */
 export async function saveSnapshot(pageId: string, document: unknown): Promise<boolean> {
 	if (!pageId) return false
-	const { error } = await supabase
-		.from('page_snapshots')
-		.upsert(
-			{ page_id: pageId, document, updated_at: new Date().toISOString() },
-			{ onConflict: 'page_id' }
-		)
-	if (error) console.warn('[api] saveSnapshot failed:', error.message)
-	return !error
+	try {
+		await upsertById('page_snapshots', pageId, { page_id: pageId, document })
+		return true
+	} catch (err) {
+		console.warn('[api] saveSnapshot failed:', errorMessage(err))
+		return false
+	}
 }

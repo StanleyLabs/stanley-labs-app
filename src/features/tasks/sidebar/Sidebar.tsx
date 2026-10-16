@@ -111,7 +111,7 @@ export function Sidebar({
                     onSelect={() => onSelect(p.id)}
                     onEdit={onEdit && (!canManageProject || canManageProject(p.id)) ? () => onEdit(p) : undefined}
                     onDelete={onDelete && (!canManageProject || canManageProject(p.id)) ? () => onDelete(p.id) : undefined}
-                    onLeave={onLeaveProject && currentUserId && (p as any).ownerId && (p as any).ownerId !== currentUserId ? () => onLeaveProject(p.id) : undefined}
+                    onLeave={onLeaveProject && currentUserId && p.ownerId && p.ownerId !== currentUserId ? () => onLeaveProject(p.id) : undefined}
                   />
                 ))}
                 {projects.length === 0 && (

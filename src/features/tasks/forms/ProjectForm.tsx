@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useAuth } from "../../../lib/AuthContext";
+import { useAuth } from "../../../lib/auth";
 import type { MemberRole, ProjectMember } from "../types";
 import { PROJECT_COLORS } from "../types";
 import { addProjectMember, listProjectMembers, removeProjectMember, updateMemberRole } from "../memberStorage";

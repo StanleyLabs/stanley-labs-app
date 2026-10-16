@@ -22,7 +22,7 @@ interface MachineCtxValue {
 	registerPage?: (page: NewPageInfo) => void
 }
 
-export const MachineCtx = createContext<MachineCtxValue>(null as any)
+export const MachineCtx = createContext<MachineCtxValue>(null!)
 
 export function useBoardsMachine() {
 	return useContext(MachineCtx)

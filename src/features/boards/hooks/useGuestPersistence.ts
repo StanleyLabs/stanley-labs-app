@@ -9,7 +9,18 @@ import { useEffect, useLayoutEffect } from 'react'
 import type { Editor as TldrawEditor } from '@tldraw/editor'
 import { TLINSTANCE_ID, type TLStore } from 'tldraw'
 import type { MachineState } from '../machine'
-import { LS_KEY, lsLoad, lsSave, getSlugFromUrl, setUrlToSlug, setUrlToBoards, throttle } from './boardsUtils'
+import {
+	LS_KEY,
+	lsLoad,
+	lsSave,
+	getSlugFromUrl,
+	parentIdOf,
+	setUrlToSlug,
+	setUrlToBoards,
+	throttle,
+	unwrapDocument,
+	type StoreRecords,
+} from './boardsUtils'
 
 interface UseGuestPersistenceParams {
 	store: TLStore
@@ -37,11 +48,11 @@ export function useGuestPersistence({
 		if (!raw) return
 		try {
 			const parsed = JSON.parse(raw)
-			const doc = parsed.document ?? parsed
-			if (doc?.store) {
+			const doc = unwrapDocument(parsed)
+			if (doc) {
 				store.mergeRemoteChanges(() => {
-					const records = Object.values(doc.store as Record<string, any>)
-					if (records.length) store.put(records as any[])
+					const records = Object.values(doc.store)
+					if (records.length) store.put(records)
 				})
 			}
 			// Restore session (current page)
@@ -66,16 +77,16 @@ export function useGuestPersistence({
 			// Don't persist while viewing a shared page
 			if (stateRef.current.context.activeSlug || getSlugFromUrl()) return
 			try {
-				const snap = store.getStoreSnapshot('all') as { store: Record<string, unknown>; schema: unknown }
+				const snap = store.getStoreSnapshot('all')
 				// Filter out cameras and shared page records
 				const sharedTldrawIds = new Set<string>()
 				for (const [tid] of tldrawToDb.current) sharedTldrawIds.add(tid)
 
-				const filtered: Record<string, unknown> = {}
+				const filtered: StoreRecords = {}
 				for (const [id, rec] of Object.entries(snap.store)) {
-					const r = rec as any
-					if (r?.typeName === 'camera') continue
-					if (sharedTldrawIds.has(id) || sharedTldrawIds.has(r?.parentId)) continue
+					if (rec.typeName === 'camera') continue
+					const parentId = parentIdOf(rec)
+					if (sharedTldrawIds.has(id) || (parentId && sharedTldrawIds.has(parentId))) continue
 					filtered[id] = rec
 				}
 				const inst = store.get(TLINSTANCE_ID) as { currentPageId?: string } | undefined
@@ -113,11 +124,10 @@ export function useGuestPersistence({
 			const raw = lsLoad()
 			if (!raw) return
 			try {
-				const parsed = JSON.parse(raw)
-				const doc = parsed.document ?? parsed
-				if (doc?.store) {
+				const doc = unwrapDocument(JSON.parse(raw))
+				if (doc) {
 					store.mergeRemoteChanges(() => {
-						store.put(Object.values(doc.store) as any[])
+						store.put(Object.values(doc.store))
 					})
 				}
 			} catch { /* ignore */ }

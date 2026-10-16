@@ -1,7 +1,7 @@
 /**
  * Authed page management hook.
  *
- * Handles loading pages from Supabase, tracking page switches,
+ * Handles loading pages from PocketBase, tracking page switches,
  * syncing renames/reorders to the DB, and listening for external
  * page-change events.
  */
@@ -9,6 +9,7 @@
 import { useEffect } from 'react'
 import type { Editor as TldrawEditor } from '@tldraw/editor'
 import type { TLPageId } from '@tldraw/tlschema'
+import type { IndexKey } from '@tldraw/utils'
 import type { MachineState, BoardsEvent, PageEntry } from '../machine'
 import * as api from '../api'
 import { lsGetLastPage, lsSetLastPage, setUrlToSlug, setUrlToBoards, hydrateFromDb } from './boardsUtils'
@@ -37,7 +38,7 @@ export function useAuthedPages({
 
 	const isInLoadingState = state.matches({ authed: 'loading' })
 
-	// ── Load pages from Supabase ───────────────────────────────────────────────
+	// ── Load pages from PocketBase ─────────────────────────────────────────────
 
 	useEffect(() => {
 		if (!userId) return
@@ -89,12 +90,12 @@ export function useAuthedPages({
 					editor.createPage({
 						id: entry.tldrawId as TLPageId,
 						name: entry.title,
-						...(entry.sortIndex ? { index: entry.sortIndex as any } : {}),
+						...(entry.sortIndex ? { index: entry.sortIndex as IndexKey } : {}),
 					})
 				} else if (entry.sortIndex) {
 					const page = editor.getPage(entry.tldrawId as TLPageId)
 					if (page && page.index !== entry.sortIndex) {
-						editor.updatePage({ id: entry.tldrawId as TLPageId, index: entry.sortIndex as any })
+						editor.updatePage({ id: entry.tldrawId as TLPageId, index: entry.sortIndex as IndexKey })
 					}
 				}
 			}
@@ -223,13 +224,12 @@ export function useAuthedPages({
 		const unlisten = editor.store.listen((entry) => {
 			if (hydratingRef.current || !loadedRef.current) return
 			for (const [, to] of Object.values(entry.changes.updated)) {
-				if ((to as any)?.typeName === 'page') {
-					const tldrawId = (to as any).id as string
-					const dbId = tldrawToDb.current.get(tldrawId)
+				if (to.typeName === 'page') {
+					const dbId = tldrawToDb.current.get(to.id)
 					if (!dbId) continue
 					const patch: Record<string, string> = {}
-					if ((to as any).name) patch.title = (to as any).name
-					if ((to as any).index) patch.sort_index = (to as any).index
+					if (to.name) patch.title = to.name
+					if (to.index) patch.sort_index = to.index
 					if (Object.keys(patch).length) void api.updatePage(dbId, patch)
 				}
 			}

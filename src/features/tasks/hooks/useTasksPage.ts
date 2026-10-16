@@ -11,7 +11,7 @@ import type { MemberRole, Project, Task, TaskPriority, TaskStatus, ViewMode } fr
 import { PROJECT_COLORS } from "../types";
 import { getUserRoles, leaveProject } from "../memberStorage";
 import { useDashboardRepo, useProjects, useTasks } from "../store";
-import { useAuth } from "../../../lib/AuthContext";
+import { useAuth } from "../../../lib/auth";
 import { nameToInitials } from "../utils";
 import type { KnownAssignee } from "../index";
 
@@ -79,19 +79,23 @@ export function useTasksPage() {
 
 	// ── Data loading ───────────────────────────────────────────────────────────
 
-	useEffect(() => {
-		projectsApi.refresh();
-		setActiveProjectId(null);
-	}, [pathname]);
+	const refreshProjects = projectsApi.refresh;
+	const refreshTasks = tasksApi.refresh;
 
 	useEffect(() => {
-		if (!projectsApi.projects?.length || activeProjectId) return;
-		setActiveProjectId(projectsApi.projects[0].id);
+		void refreshProjects();
+		setActiveProjectId(null);
+	}, [pathname, refreshProjects]);
+
+	useEffect(() => {
+		const firstId = projectsApi.projects?.[0]?.id;
+		if (!firstId) return;
+		setActiveProjectId((current) => current ?? firstId);
 	}, [projectsApi.projects]);
 
 	useEffect(() => {
-		tasksApi.refresh();
-	}, [activeProjectId]);
+		void refreshTasks();
+	}, [refreshTasks]);
 
 	// ── Search & derived data ──────────────────────────────────────────────────
 

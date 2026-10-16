@@ -1,7 +1,7 @@
 /**
  * Snapshot persistence hook.
  *
- * Throttled auto-save of tldraw document snapshots to Supabase,
+ * Throttled auto-save of tldraw document snapshots to PocketBase,
  * for both authed users and guests editing shared pages.
  */
 
@@ -47,7 +47,7 @@ export function useSnapshotPersistence({
 			const dbId = tldrawToDb.current.get(tldrawId)
 			if (!dbId) return
 
-			void getContentAsJsonDocForPage(editor as any, tldrawId as TLPageId).then((doc) => {
+			void getContentAsJsonDocForPage(editor, tldrawId as TLPageId).then((doc) => {
 				if (doc) void api.saveSnapshot(dbId, doc)
 			})
 		}
@@ -61,7 +61,7 @@ export function useSnapshotPersistence({
 		}
 	}, [editorInstance, userId, hydratingRef, loadedRef, tldrawToDb])
 
-	// ── Guest: persist shared page snapshots to Supabase ───────────────────────
+	// ── Guest: persist shared page snapshots to PocketBase ─────────────────────
 
 	useEffect(() => {
 		if (userId) return
@@ -75,7 +75,7 @@ export function useSnapshotPersistence({
 
 		const persist = () => {
 			if (hydratingRef.current) return
-			void getContentAsJsonDocForPage(editor as any, activeTldrawId as TLPageId).then((doc) => {
+			void getContentAsJsonDocForPage(editor, activeTldrawId as TLPageId).then((doc) => {
 				if (doc) void api.saveSnapshot(activeDbId, doc)
 			})
 		}

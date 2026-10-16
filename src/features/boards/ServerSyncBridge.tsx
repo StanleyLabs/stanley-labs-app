@@ -1,6 +1,6 @@
 /**
  * Server sync bridge — bidirectional sync between persist store and WebSocket sync store.
- * Uses useSync from @tldraw/sync. Mounted when machine is in connecting, supabaseSync,
+ * Uses useSync from @tldraw/sync. Mounted when machine is in connecting
  * or serverSync and a shareId is present.
  */
 

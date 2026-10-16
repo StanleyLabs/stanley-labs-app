@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useTheme, type ThemeOption } from "../theme";
+import { useTheme, type ThemeOption } from "../themeContext";
 import { cn } from "../utils";
 
 export function ThemeToggle() {

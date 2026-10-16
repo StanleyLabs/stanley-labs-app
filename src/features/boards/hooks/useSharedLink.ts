@@ -2,7 +2,7 @@
  * Shared link hook.
  *
  * Handles resolving shared URLs on mount, the two-phase shared page
- * removal mechanism, and Supabase broadcast listeners for visibility changes.
+ * removal mechanism, and PocketBase realtime listeners for visibility changes.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
@@ -11,8 +11,16 @@ import type { TLPageId } from '@tldraw/tlschema'
 import { PageRecordType, TLINSTANCE_ID, type TLStore } from 'tldraw'
 import type { MachineState, BoardsEvent } from '../machine'
 import * as api from '../api'
-import { supabase } from '../../../lib/supabase'
-import { getSlugFromUrl, setUrlToBoards, lsLoad, lsSave } from './boardsUtils'
+import { pb } from '../../../lib/pocketbase'
+import {
+	getSlugFromUrl,
+	setUrlToBoards,
+	lsLoad,
+	lsSave,
+	parentIdOf,
+	unwrapDocument,
+	type StoreRecords,
+} from './boardsUtils'
 
 interface UseSharedLinkParams {
 	store: TLStore
@@ -78,16 +86,16 @@ export function useSharedLink({
 			const snap = await api.loadSnapshot(page.id)
 			if (cancelled) return
 
-			const snapDoc = (snap?.document as any)?.document ?? snap?.document
-			if (snapDoc?.store) {
-				const pageRecords = Object.values(snapDoc.store as Record<string, any>)
+			const snapDoc = unwrapDocument(snap?.document)
+			if (snapDoc) {
+				const pageRecords = Object.values(snapDoc.store)
 				store.mergeRemoteChanges(() => {
-					if (pageRecords.length) store.put(pageRecords as any[])
+					if (pageRecords.length) store.put(pageRecords)
 				})
 			}
 
 			try {
-				store.update(TLINSTANCE_ID, (i) => ({ ...i, currentPageId: page.tldraw_page_id as any }))
+				store.update(TLINSTANCE_ID, (i) => ({ ...i, currentPageId: page.tldraw_page_id as TLPageId }))
 			} catch { /* ignore */ }
 
 			tldrawToDb.current.set(page.tldraw_page_id, page.id)
@@ -116,10 +124,11 @@ export function useSharedLink({
 	}, [send, stateRef])
 
 	// Phase 2: after machine transitions back to guest.idle, clean up tldraw + localStorage
+	const isGuestIdle = state.matches({ guest: 'idle' })
 	useEffect(() => {
 		const tldrawId = pendingRemovalRef.current
 		if (!tldrawId) return
-		if (!state.matches({ guest: 'idle' })) return
+		if (!isGuestIdle) return
 		pendingRemovalRef.current = null
 
 		const editor = editorRef.current
@@ -141,9 +150,9 @@ export function useSharedLink({
 			if (raw) {
 				const doc = JSON.parse(raw)
 				if (doc?.document?.store) {
-					const s = doc.document.store as Record<string, any>
+					const s = doc.document.store as StoreRecords
 					for (const [id, rec] of Object.entries(s)) {
-						if (id === tldrawId || (rec as any)?.parentId === tldrawId) delete s[id]
+						if (id === tldrawId || parentIdOf(rec) === tldrawId) delete s[id]
 					}
 					if (doc.session?.currentPageId === tldrawId) delete doc.session.currentPageId
 					lsSave(JSON.stringify(doc))
@@ -152,7 +161,7 @@ export function useSharedLink({
 		} catch { /* ignore */ }
 
 		window.dispatchEvent(new CustomEvent('boards:shared-page-unavailable'))
-	}, [state.value, editorRef, tldrawToDb]) // re-runs when machine state changes
+	}, [isGuestIdle, editorRef, tldrawToDb])
 
 	// ── Broadcast listener for visibility/access changes ───────────────────────
 
@@ -162,16 +171,26 @@ export function useSharedLink({
 	useEffect(() => {
 		if (userId || !activeDbId || !activeSlug) return
 
-		const channel = supabase
-			.channel(`page-broadcast:${activeDbId}`)
-			.on('broadcast', { event: 'visibility-changed' }, () => removeSharedPage())
-			.on('broadcast', { event: 'access-changed' }, (payload) => {
-				const role = (payload.payload as any)?.role
-				if (role === 'editor' || role === 'viewer') {
-					send({ type: 'UPDATE_ROLE', role })
+		let cancelled = false
+		let unsubscribe: (() => Promise<void>) | null = null
+		let lastAccess: string | null = null
+
+		pb.realtime
+			.subscribe(`page-broadcast/${activeDbId}`, (msg: { deleted?: boolean; visibility?: string; public_access?: string }) => {
+				if (msg.deleted || msg.visibility !== 'public') {
+					removeSharedPage()
+					return
 				}
+				if (msg.public_access === lastAccess) return
+				lastAccess = msg.public_access ?? null
+				if (msg.public_access === 'edit') send({ type: 'UPDATE_ROLE', role: 'editor' })
+				else if (msg.public_access === 'view') send({ type: 'UPDATE_ROLE', role: 'viewer' })
 			})
-			.subscribe()
+			.then((unsub) => {
+				if (cancelled) void unsub()
+				else unsubscribe = unsub
+			})
+			.catch((err) => console.warn('[boards] realtime subscribe failed:', err))
 
 		const onFocus = () => {
 			void api.resolveSlug(activeSlug).then((page) => { if (!page) removeSharedPage() })
@@ -179,8 +198,9 @@ export function useSharedLink({
 		window.addEventListener('focus', onFocus)
 
 		return () => {
+			cancelled = true
 			window.removeEventListener('focus', onFocus)
-			void supabase.removeChannel(channel)
+			if (unsubscribe) void unsubscribe()
 		}
 	}, [userId, activeDbId, activeSlug, removeSharedPage, send])
 

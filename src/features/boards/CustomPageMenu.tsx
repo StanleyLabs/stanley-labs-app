@@ -8,7 +8,7 @@
 import type { TLPageId } from '@tldraw/tlschema'
 import { stopEventPropagation, tlenv, useEditor, useValue } from '@tldraw/editor'
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
-import { useAuth } from '../../lib/AuthContext'
+import { useAuth } from '../../lib/auth'
 import {
 	PageItemInput,
 	PageRecordType,
@@ -140,8 +140,8 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 
 				editor.run(() => {
 					editor.markHistoryStoppingPoint('creating page')
-					editor.createPage({ name: pageName, id: newPage.tldraw_page_id as any })
-					editor.setCurrentPage(newPage.tldraw_page_id as any)
+					editor.createPage({ name: pageName, id: newPage.tldraw_page_id as TLPageId })
+					editor.setCurrentPage(newPage.tldraw_page_id as TLPageId)
 					setIsEditing(true)
 				})
 
@@ -151,7 +151,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 				})
 
 				// Sync auto-renamed title and sort_index to DB
-				const createdPage = editor.getPage(newPage.tldraw_page_id as any)
+				const createdPage = editor.getPage(newPage.tldraw_page_id as TLPageId)
 				if (createdPage) {
 					const patch: Record<string, string> = {}
 					if (createdPage.name !== pageName) patch.title = createdPage.name
@@ -183,7 +183,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 		})
 		editor.menus.clearOpenMenus()
 		trackEvent('new-page', { source: 'page-menu' })
-	}, [editor, msg, isReadonlyMode, trackEvent, user])
+	}, [editor, msg, isReadonlyMode, trackEvent, user, registerPage])
 
 	const changePage = useCallback(
 		(id: TLPageId) => {

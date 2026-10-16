@@ -1,97 +1,90 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
-import type { User, Session } from "@supabase/supabase-js";
-import { supabase } from "./supabase";
+import { useEffect, useState, type ReactNode } from "react";
+import type { RecordModel } from "pocketbase";
+import { AuthContext, type AppUser } from "./auth";
+import { errorMessage, pb } from "./pocketbase";
 
-interface AuthState {
-  user: User | null;
-  session: Session | null;
-  loading: boolean;
-  signInWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUpWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
-  signInWithGoogle: () => Promise<void>;
-  signInWithApple: () => Promise<void>;
-  signOut: () => Promise<void>;
+function toAppUser(record: RecordModel | null): AppUser | null {
+  if (!record?.id) return null;
+  const avatarFile = record.avatar ? pb.files.getURL(record, record.avatar) : "";
+  return {
+    id: record.id,
+    email: record.email ?? "",
+    name: record.name || undefined,
+    avatarUrl: record.avatar_url || avatarFile || undefined,
+  };
 }
 
-const AuthContext = createContext<AuthState>({
-  user: null,
-  session: null,
-  loading: true,
-  signInWithEmail: async () => ({ error: null }),
-  signUpWithEmail: async () => ({ error: null }),
-  signInWithGoogle: async () => {},
-  signInWithApple: async () => {},
-  signOut: async () => {},
-});
-
-export function useAuth() {
-  return useContext(AuthContext);
+function currentUser(): AppUser | null {
+  return pb.authStore.isValid ? toAppUser(pb.authStore.record) : null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<AppUser | null>(currentUser);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    const unsubscribe = pb.authStore.onChange(() => setUser(currentUser()));
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    if (pb.authStore.isValid) {
+      pb.collection("users")
+        .authRefresh()
+        .catch(() => pb.authStore.clear())
+        .finally(() => setLoading(false));
+    } else {
       setLoading(false);
-    });
+    }
 
-    return () => subscription.unsubscribe();
+    return () => unsubscribe();
   }, []);
 
   const signInWithEmail = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error?.message ?? null };
+    try {
+      await pb.collection("users").authWithPassword(email, password);
+      return { error: null };
+    } catch (err) {
+      return { error: errorMessage(err) };
+    }
   };
 
   const signUpWithEmail = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
-    return { error: error?.message ?? null };
+    try {
+      await pb.collection("users").create({ email, password, passwordConfirm: password });
+      void pb.collection("users").requestVerification(email).catch(() => {});
+      await pb.collection("users").authWithPassword(email, password);
+      return { error: null };
+    } catch (err) {
+      return { error: errorMessage(err) };
+    }
   };
 
-  const signInWithGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
-    });
+  const signInWithOAuth = async (provider: "google" | "apple") => {
+    try {
+      const auth = await pb.collection("users").authWithOAuth2({ provider });
+      const meta = auth.meta ?? {};
+      const patch: Record<string, string> = {};
+      if (meta.avatarURL && !auth.record.avatar_url) patch.avatar_url = meta.avatarURL;
+      if (meta.name && !auth.record.name) patch.name = meta.name;
+      if (Object.keys(patch).length) {
+        await pb.collection("users").update(auth.record.id, patch);
+        await pb.collection("users").authRefresh();
+      }
+    } catch (err) {
+      console.warn(`[auth] ${provider} sign-in failed:`, errorMessage(err));
+    }
   };
 
-  const signInWithApple = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "apple",
-      options: { redirectTo: window.location.origin },
-    });
-  };
+  const signInWithGoogle = () => signInWithOAuth("google");
+  const signInWithApple = () => signInWithOAuth("apple");
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    pb.realtime.unsubscribe().catch(() => {});
+    pb.authStore.clear();
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        session,
         loading,
         signInWithEmail,
         signUpWithEmail,

@@ -7,7 +7,7 @@
  *   - Public: anyone with the link can open (view or edit option)
  */
 
-import { useCallback, useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
 	TldrawUiButton,
 	TldrawUiButtonIcon,
@@ -22,8 +22,7 @@ import type { TLUiDialogProps } from 'tldraw'
 import type { PageEntry } from '../machine'
 import type { PageRole } from '../api'
 import * as api from '../api'
-import { useAuth } from '../../../lib/AuthContext'
-import { supabase } from '../../../lib/supabase'
+import { useAuth } from '../../../lib/auth'
 import { InlineSelect } from './InlineSelect'
 import type { InlineSelectOption } from './InlineSelect'
 
@@ -31,76 +30,7 @@ import type { InlineSelectOption } from './InlineSelect'
 
 type Visibility = 'private' | 'shared' | 'public'
 
-interface MemberRow {
-	pageId: string
-	userId: string
-	email: string
-	role: PageRole
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
-async function listPageMembers(pageId: string): Promise<MemberRow[]> {
-	const { data, error } = await supabase.rpc('get_page_members_with_email', {
-		p_page_id: pageId,
-	})
-	if (error) {
-		// Fallback: query page_members directly (no email)
-		const { data: raw } = await supabase
-			.from('page_members')
-			.select('page_id,user_id,role')
-			.eq('page_id', pageId)
-		return (raw ?? []).map((r: any) => ({
-			pageId: r.page_id,
-			userId: r.user_id,
-			email: r.user_id.slice(0, 8) + '...',
-			role: r.role,
-		}))
-	}
-	return (data ?? []).map((r: any) => ({
-		pageId: r.page_id ?? pageId,
-		userId: r.user_id,
-		email: r.email ?? r.user_id.slice(0, 8) + '...',
-		role: r.role,
-	}))
-}
-
-async function addMemberByEmail(pageId: string, email: string, role: PageRole): Promise<MemberRow> {
-	const { data: userId, error: lookupErr } = await supabase.rpc('get_user_id_by_email', {
-		email_input: email,
-	})
-	if (lookupErr) throw new Error(lookupErr.message)
-	if (!userId) throw new Error('No user found with that email.')
-
-	const { error: insertErr } = await supabase
-		.from('page_members')
-		.upsert({ page_id: pageId, user_id: userId, role }, { onConflict: 'page_id,user_id' })
-	if (insertErr) {
-		if (insertErr.message?.toLowerCase().includes('duplicate') || (insertErr as any).code === '23505') {
-			throw new Error('That user is already a member.')
-		}
-		throw new Error(insertErr.message)
-	}
-	return { pageId, userId, email, role }
-}
-
-async function updateMemberRole(pageId: string, userId: string, role: PageRole): Promise<void> {
-	const { error } = await supabase
-		.from('page_members')
-		.update({ role })
-		.eq('page_id', pageId)
-		.eq('user_id', userId)
-	if (error) throw new Error(error.message)
-}
-
-async function removeMember(pageId: string, userId: string): Promise<void> {
-	const { error } = await supabase
-		.from('page_members')
-		.delete()
-		.eq('page_id', pageId)
-		.eq('user_id', userId)
-	if (error) throw new Error(error.message)
-}
+type MemberRow = api.PageMemberWithEmail
 
 // ── Role pill ──────────────────────────────────────────────────────────────────
 
@@ -143,7 +73,7 @@ const PUBLIC_ACCESS_OPTIONS: { value: 'view' | 'edit'; label: string }[] = [
 ]
 
 export function PageSettingsDialog(props: PageSettingsDialogProps) {
-	const { entry, onUpdated, onClose } = props
+	const { entry, onUpdated } = props
 	const { user } = useAuth()
 	const toasts = useToasts()
 	const isOwner = entry.role === 'owner'
@@ -163,19 +93,6 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 	const [membersLoading, setMembersLoading] = useState(false)
 	const [membersError, setMembersError] = useState<string | null>(null)
 
-	// Broadcast channel for realtime updates
-	const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
-
-	useEffect(() => {
-		const ch = supabase.channel(`page-broadcast:${entry.dbId}`)
-		ch.subscribe()
-		channelRef.current = ch
-		return () => {
-			void supabase.removeChannel(ch)
-			channelRef.current = null
-		}
-	}, [entry.dbId])
-
 	// Add member form
 	const [addEmail, setAddEmail] = useState('')
 	const [addRole, setAddRole] = useState<PageRole>('viewer')
@@ -192,7 +109,7 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 		setMembersLoading(true)
 		setMembersError(null)
 		try {
-			const list = await listPageMembers(entry.dbId)
+			const list = await api.listPageMembers(entry.dbId)
 			list.sort((a, b) => a.email.localeCompare(b.email))
 			setMembers(list)
 			// If there are non-owner members and visibility is private, upgrade to shared
@@ -232,14 +149,6 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 				window.history.replaceState({}, '', '/boards')
 				toasts.addToast({ title: 'Page is now private.', severity: 'success' })
 			}
-			// Broadcast visibility change so guests get kicked instantly
-			if (newVis !== 'public' && channelRef.current) {
-				await channelRef.current.send({
-					type: 'broadcast',
-					event: 'visibility-changed',
-					payload: { visibility: newVis }
-				})
-			}
 			onUpdated()
 		} catch {
 			toasts.addToast({ title: 'Failed to update visibility.', severity: 'error' })
@@ -252,14 +161,6 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 		setPublicAccess(access)
 		if (visibility === 'public') {
 			await api.sharePage(entry.dbId, access)
-			if (channelRef.current) {
-				const role: PageRole = access === 'edit' ? 'editor' : 'viewer'
-				await channelRef.current.send({
-					type: 'broadcast',
-					event: 'access-changed',
-					payload: { role }
-				})
-			}
 			onUpdated()
 		}
 	}, [visibility, entry.dbId, onUpdated])
@@ -276,7 +177,7 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 		setAddError(null)
 		setAddBusy(true)
 		try {
-			const member = await addMemberByEmail(entry.dbId, addEmail.trim(), addRole)
+			const member = await api.addMemberByEmail(entry.dbId, addEmail.trim(), addRole)
 			setMembers((prev) => {
 				const next = [...prev, member]
 				next.sort((a, b) => a.email.localeCompare(b.email))
@@ -294,7 +195,7 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 
 	const handleRemoveMember = useCallback(async (userId: string) => {
 		try {
-			await removeMember(entry.dbId, userId)
+			await api.removeMember(entry.dbId, userId)
 			setMembers((prev) => prev.filter((m) => m.userId !== userId))
 			onUpdated()
 		} catch (e) {
@@ -304,15 +205,13 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 
 	const handleRoleChange = useCallback(async (userId: string, role: PageRole) => {
 		try {
-			await updateMemberRole(entry.dbId, userId, role)
+			await api.updateMemberRole(entry.dbId, userId, role)
 			setMembers((prev) => prev.map((m) => m.userId === userId ? { ...m, role } : m))
 			onUpdated()
 		} catch (e) {
 			setMembersError(e instanceof Error ? e.message : String(e))
 		}
 	}, [entry.dbId, onUpdated])
-
-	const close = () => onClose()
 
 	const sectionStyle: React.CSSProperties = {
 		padding: '12px 16px',

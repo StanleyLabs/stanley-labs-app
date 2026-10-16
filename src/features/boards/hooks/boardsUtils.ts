@@ -6,8 +6,24 @@
  */
 
 import type { Editor as TldrawEditor } from '@tldraw/editor'
-import type { TLPageId } from '@tldraw/tlschema'
+import type { TLRecord } from '@tldraw/tlschema'
 import * as api from '../api'
+
+// ── Stored document helpers ────────────────────────────────────────────────────
+
+export type StoreRecords = Record<string, TLRecord>
+
+/** Unwrap a stored snapshot, which may be `{ document: { store, schema } }` or `{ store, schema }`. */
+export function unwrapDocument(raw: unknown): { store: StoreRecords; schema?: unknown } | null {
+	const outer = raw as { document?: unknown } | null | undefined
+	const doc = (outer?.document ?? outer) as { store?: StoreRecords; schema?: unknown } | null | undefined
+	return doc?.store ? { store: doc.store, schema: doc.schema } : null
+}
+
+/** parentId of a record, for record types that have one (shapes). */
+export function parentIdOf(rec: TLRecord | undefined): string | undefined {
+	return rec && 'parentId' in rec ? rec.parentId : undefined
+}
 
 // ── localStorage helpers ───────────────────────────────────────────────────────
 
@@ -89,17 +105,17 @@ export async function hydrateFromDb(
 	const snap = await api.loadSnapshot(dbPageId)
 	if (!snap?.document) return
 
-	const doc = (snap.document as any)?.document ?? snap.document
-	if (!doc?.store || !doc?.schema) return
+	const doc = unwrapDocument(snap.document)
+	if (!doc?.schema) return
 
 	hydratingRef.current = true
 	try {
-		const storeEntries = doc.store as Record<string, any>
+		const storeEntries = doc.store
 
 		// BFS: collect shapes that belong to this page (walking groups/frames)
 		const childrenOf = new Map<string, string[]>()
 		for (const [id, rec] of Object.entries(storeEntries)) {
-			const pid = rec?.parentId as string | undefined
+			const pid = parentIdOf(rec)
 			if (pid) {
 				const list = childrenOf.get(pid)
 				if (list) list.push(id)
@@ -121,7 +137,7 @@ export async function hydrateFromDb(
 
 		// Include assets and bindings
 		for (const [id, rec] of Object.entries(storeEntries)) {
-			const tn = rec?.typeName as string | undefined
+			const tn = rec?.typeName
 			if (tn === 'asset' || tn === 'binding') belongsToPage.add(id)
 		}
 
@@ -134,7 +150,7 @@ export async function hydrateFromDb(
 
 		if (records.length) {
 			editor.store.mergeRemoteChanges(() => {
-				editor.store.put(records as any[])
+				editor.store.put(records)
 			})
 		}
 	} catch { /* ignore */ }

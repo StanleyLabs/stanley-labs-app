@@ -18,10 +18,6 @@ import {
 	PreferencesGroup,
 	ReorderMenuSubmenu,
 	SelectAllMenuItem,
-	TldrawUiButton,
-	TldrawUiButtonIcon,
-	TldrawUiButtonLabel,
-	TldrawUiDropdownMenuItem,
 	TldrawUiMenuActionItem,
 	UndoRedoGroup,
 	TldrawUiMenuGroup,
@@ -116,14 +112,6 @@ function CustomCopyAsMenuGroup() {
 			</TldrawUiMenuGroup>
 		</TldrawUiMenuSubmenu>
 	)
-}
-
-/** Share page: v2 placeholder - will be rebuilt with the new Share modal. */
-function CreateLinkMenuItem() {
-	// v2: Share functionality will be implemented via a dedicated Share modal
-	// that supports private/collaborators/public with roles.
-	// Hidden for now to avoid referencing dropped tables.
-	return null
 }
 
 /** Import JSON menu item - opens file picker, merges content onto current page. */

@@ -1,22 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-
-export type ThemeOption = "light" | "dark" | "system";
-
-type ThemeCtx = {
-  theme: ThemeOption;
-  resolved: "light" | "dark";
-  setTheme: (t: ThemeOption) => void;
-};
-
-const ThemeContext = createContext<ThemeCtx>({
-  theme: "system",
-  resolved: "light",
-  setTheme: () => {},
-});
-
-export function useTheme() {
-  return useContext(ThemeContext);
-}
+import { useEffect, useState, type ReactNode } from "react";
+import { ThemeContext, type ThemeOption } from "./themeContext";
 
 function getSystemTheme(): "light" | "dark" {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";

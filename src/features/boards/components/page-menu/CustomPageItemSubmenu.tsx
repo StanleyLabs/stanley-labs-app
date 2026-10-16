@@ -26,7 +26,7 @@ import {
 } from 'tldraw'
 import { ConfirmDeleteDialog } from '../../ConfirmDeleteDialog'
 import { PageSettingsDialog } from '../PageSettingsDialog'
-import { useAuth } from '../../../../lib/AuthContext'
+import { useAuth } from '../../../../lib/auth'
 import { useBoardsMachine } from '../../MachineContext'
 import * as api from '../../api'
 import type { PageEntry } from '../../machine'
@@ -168,7 +168,7 @@ export function CustomPageItemSubmenu({
 						<TldrawUiMenuGroup id="settings">
 							<TldrawUiMenuItem
 								id="page-settings"
-								label={'Settings' as any}
+								label="Settings"
 								onSelect={onOpenSettings}
 							/>
 						</TldrawUiMenuGroup>
@@ -179,7 +179,7 @@ export function CustomPageItemSubmenu({
 						<TldrawUiMenuGroup id="share-hint">
 							<TldrawUiMenuItem
 								id="login-to-share"
-								label={'Login to share' as any}
+								label="Login to share"
 								onSelect={() => { window.location.href = '/login' }}
 							/>
 						</TldrawUiMenuGroup>
@@ -190,7 +190,7 @@ export function CustomPageItemSubmenu({
 							<TldrawUiMenuItem
 								id="delete"
 								onSelect={onDelete}
-								label={(isLoggedIn && !isOwner ? 'Remove from my pages' : 'Delete') as any}
+								label={isLoggedIn && !isOwner ? 'Remove from my pages' : 'Delete'}
 							/>
 						</TldrawUiMenuGroup>
 					)}

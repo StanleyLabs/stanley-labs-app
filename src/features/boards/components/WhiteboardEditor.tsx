@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useMemo } from 'react'
-import { Tldraw, DefaultMenuPanel, useEditor, useToasts } from 'tldraw'
+import { Tldraw, DefaultMenuPanel, useEditor, useToasts, type Editor } from 'tldraw'
 import { HandTool } from '../handToolCursor'
 import { createPasteActionOverride } from '../pasteJson'
 import { ConnectionIndicator } from '../ConnectionIndicator'
@@ -197,7 +197,7 @@ export function WhiteboardEditor({ boards }: { boards: BoardsOrchestration }) {
 	const overrides = useMemo(() => [createPasteActionOverride()], [])
 
 	const onMount = useMemo(
-		() => (editor: any) => {
+		() => (editor: Editor) => {
 			const cleanupSetup = createEditorOnMount({ editor, store, editorRef })
 			const cleanupRegister = onEditorMount(editor)
 			return () => {

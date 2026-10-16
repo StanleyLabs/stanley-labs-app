@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { Project, Task, TaskStatus } from "./types";
 import { MOCK_PROJECTS, MOCK_TASKS } from "./mockData";
 import { loadProjects, loadTasks, saveDashboardData } from "./storage";
-import { createSupabaseRepo } from "./supabaseStorage";
+import { createPocketBaseRepo } from "./pocketbaseStorage";
 
 export type TaskCreate = Omit<Task, "id" | "createdAt" | "updatedAt">;
 export type TaskUpdate = Partial<Omit<Task, "id" | "createdAt" | "projectId">>;
@@ -10,7 +10,7 @@ type ProjectUpdate = Partial<Omit<Project, "id" | "createdAt">>;
 
 export type DashboardRepo = {
   listProjects(): Promise<Project[]>;
-  createProject(data: Omit<Project, "id" | "createdAt" | "updatedAt">): Promise<Project>;
+  createProject(data: Omit<Project, "id" | "createdAt" | "updatedAt" | "order">): Promise<Project>;
   updateProject(id: string, patch: ProjectUpdate): Promise<Project>;
   deleteProject(id: string): Promise<void>;
   listAllTasks(): Promise<Task[]>;
@@ -175,7 +175,7 @@ function createLocalStorageRepo(): DashboardRepo {
 export function useDashboardRepo(useMockData = false, userId?: string | null) {
   return useMemo(() => {
     if (useMockData) return createMockRepo();
-    if (userId) return createSupabaseRepo(userId);
+    if (userId) return createPocketBaseRepo(userId);
     return createLocalStorageRepo();
   }, [useMockData, userId]);
 }
@@ -185,7 +185,7 @@ export function useProjects(repo: DashboardRepo) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -195,10 +195,10 @@ export function useProjects(repo: DashboardRepo) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [repo]);
 
   async function create(data: Omit<Project, "id" | "createdAt" | "updatedAt" | "order">) {
-    const p = await repo.createProject(data as any);
+    const p = await repo.createProject(data);
     setProjects((prev) => (prev ? [...prev, p] : [p]));
     return p;
   }
@@ -232,7 +232,7 @@ export function useTasks(repo: DashboardRepo, projectId: string | null) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     if (!projectId) return;
     try {
       setLoading(true);
@@ -243,7 +243,7 @@ export function useTasks(repo: DashboardRepo, projectId: string | null) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [repo, projectId]);
 
   async function create(input: TaskCreate) {
     const t = await repo.createTask(input);

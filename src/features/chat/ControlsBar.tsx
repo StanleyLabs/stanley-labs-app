@@ -99,7 +99,7 @@ export default function ControlsBar({
               const el = document.activeElement as HTMLElement | null
               if (!el) return
               const tag = el.tagName
-              if (tag === 'INPUT' || tag === 'TEXTAREA' || (el as any).isContentEditable) {
+              if (tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable) {
                 el.blur()
               }
             }}

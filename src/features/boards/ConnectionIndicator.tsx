@@ -8,7 +8,7 @@ import { useEditor, useValue } from '@tldraw/editor'
 import { TldrawUiIcon } from 'tldraw'
 import { getSyncStatus } from './machine'
 import { useBoardsMachine } from './MachineContext'
-import { useAuth } from '../../lib/AuthContext'
+import { useAuth } from '../../lib/auth'
 
 type SyncStatusValue = ReturnType<typeof getSyncStatus>
 
