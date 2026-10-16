@@ -203,7 +203,7 @@ export default function Home() {
 
 						{timer.running && <RunningTimerCard now={now} />}
 
-						<div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+						<div className="grid gap-3 min-[340px]:grid-cols-2 sm:gap-4 lg:grid-cols-4">
 							{APPS.map((app, i) => (
 								<AppTile key={app.to} {...app} stat={stats[app.to]} index={i} />
 							))}
@@ -236,7 +236,7 @@ function AppTile({
 	return (
 		<Link
 			to={to}
-			className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-xl sm:min-h-[13rem] sm:flex-col sm:items-stretch sm:gap-0 sm:p-5 transition-all duration-300 animate-slide-up hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric/40"
+			className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-xl min-[340px]:flex-col min-[340px]:items-stretch min-[340px]:gap-0 min-[340px]:p-3.5 sm:min-h-[13rem] sm:p-5 transition-all duration-300 animate-slide-up hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric/40"
 			style={{
 				animationDelay: `${index * 60}ms`,
 				animationFillMode: "backwards",
@@ -248,7 +248,7 @@ function AppTile({
 			/>
 			<div
 				className={cn(
-					"relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white transition-transform duration-300 group-hover:scale-105 sm:mb-5 sm:h-12 sm:w-12",
+					"relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white transition-transform duration-300 group-hover:scale-105 min-[340px]:mb-3 min-[340px]:h-10 min-[340px]:w-10 sm:mb-5 sm:h-12 sm:w-12",
 					gradient,
 				)}
 				style={{ boxShadow: `0 8px 24px -6px ${glow}80` }}
@@ -256,18 +256,18 @@ function AppTile({
 				{icon}
 			</div>
 			<div className="relative flex min-w-0 flex-1 flex-col">
-				<h2 className="font-display text-base font-semibold text-paper">{title}</h2>
-				<p className="mt-0.5 line-clamp-1 text-xs leading-relaxed text-fog/50 sm:mt-1.5 sm:line-clamp-none sm:text-sm">
+				<h2 className="font-display text-base font-semibold leading-snug text-paper">{title}</h2>
+				<p className="mt-0.5 line-clamp-1 text-xs leading-relaxed text-fog/50 min-[340px]:mt-1 min-[340px]:line-clamp-3 sm:mt-1.5 sm:line-clamp-none sm:text-sm">
 					{description}
 				</p>
-				<div className="mt-1.5 flex items-center justify-between sm:mt-auto sm:pt-5">
-					<span className="truncate text-2xs font-medium text-fog/45">
+				<div className="mt-1.5 flex items-center justify-between min-[340px]:mt-auto min-[340px]:pt-3 sm:pt-5">
+					<span className="truncate text-2xs font-medium text-fog/45 min-[340px]:line-clamp-2 min-[340px]:whitespace-normal">
 						{stat ?? <span className="text-fog/30">Open app</span>}
 					</span>
 					<OpenArrow className="hidden sm:flex" />
 				</div>
 			</div>
-			<OpenArrow className="relative flex sm:hidden" />
+			<OpenArrow className="relative flex min-[340px]:hidden" />
 		</Link>
 	)
 }
