@@ -1,6 +1,5 @@
 /**
- * Simple confirmation dialog for deleting a non-shared page.
- * Uses the same delete-page-dialog CSS classes for visual consistency.
+ * Confirmation dialog for deleting a page (authed users only; guests delete instantly).
  */
 
 import {
@@ -11,17 +10,16 @@ import {
 	TldrawUiDialogCloseButton,
 	TldrawUiDialogHeader,
 	TldrawUiDialogTitle,
+	type TLUiDialogProps,
 } from "tldraw"
-import type { TLUiDialogProps } from "tldraw"
 
-export interface ConfirmDeleteDialogProps extends TLUiDialogProps {
+interface ConfirmDeleteDialogProps extends TLUiDialogProps {
 	pageName: string
-	isLoggedIn?: boolean
 	onConfirm: () => void
 }
 
 export function ConfirmDeleteDialog(props: ConfirmDeleteDialogProps) {
-	const { pageName, isLoggedIn = false, onConfirm } = props
+	const { pageName, onConfirm } = props
 	const close = (): void => props.onClose()
 
 	return (
@@ -32,19 +30,9 @@ export function ConfirmDeleteDialog(props: ConfirmDeleteDialogProps) {
 			</TldrawUiDialogHeader>
 			<TldrawUiDialogBody className="delete-page-dialog__body">
 				<p className="delete-page-dialog__subtitle">
-					{isLoggedIn ? (
-						<>
-							Are you sure you want to delete &quot;{pageName}&quot;?
-							<br />
-							This will permanently remove it from your account.
-						</>
-					) : (
-						<>
-							Are you sure you want to delete &quot;{pageName}&quot;?
-							<br />
-							This will remove it from this browser.
-						</>
-					)}
+					Are you sure you want to delete &quot;{pageName}&quot;?
+					<br />
+					This will permanently remove it from your account.
 				</p>
 				<div className="delete-page-dialog__actions">
 					<TldrawUiButton type="normal" onClick={close}>

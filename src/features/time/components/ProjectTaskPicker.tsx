@@ -43,7 +43,6 @@ export function ProjectTaskPicker({
 	variant = "pill",
 	align = "left",
 	placeholder = "Project or task",
-	disabled,
 }: {
 	value: PickerValue
 	onChange: (v: PickerValue) => void
@@ -55,7 +54,6 @@ export function ProjectTaskPicker({
 	variant?: "pill" | "inline"
 	align?: "left" | "right"
 	placeholder?: string
-	disabled?: boolean
 }) {
 	const [open, setOpen] = useState(false)
 	const [query, setQuery] = useState("")
@@ -258,7 +256,6 @@ export function ProjectTaskPicker({
 		<div ref={rootRef} className="relative min-w-0">
 			<button
 				type="button"
-				disabled={disabled}
 				onClick={() => {
 					if (!open) setExpanded(new Set(value.projectId ? [value.projectId] : []))
 					setOpen((v) => !v)

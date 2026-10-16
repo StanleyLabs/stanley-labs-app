@@ -46,7 +46,8 @@ function downloadJson(json: string): void {
 	URL.revokeObjectURL(a.href)
 }
 
-function JsonMenuItem({ id, mode }: { id: string; mode: "export" | "copy" | "export-selection" }) {
+/** Exports/copies the selection, or the whole page when nothing is selected. */
+function JsonMenuItem({ id, mode }: { id: string; mode: "export" | "copy" }) {
 	const editor = useEditor()
 	const toasts = useToasts()
 	const onSelect = useCallback(
@@ -82,22 +83,10 @@ function JsonMenuItem({ id, mode }: { id: string; mode: "export" | "copy" | "exp
 	return <TldrawUiMenuItem id={id} label="JSON" icon="external-link" onSelect={onSelect} />
 }
 
-/** Copy as submenu with SVG, PNG, and JSON options. */
+/** Copy as submenu with SVG, PNG, and JSON options. Only rendered when the page has shapes. */
 function CustomCopyAsMenuGroup() {
-	const editor = useEditor()
-	const atLeastOneShapeOnPage = useValue(
-		"atLeastOneShapeOnPage",
-		() => editor.getCurrentPageShapeIds().size > 0,
-		[editor],
-	)
-
 	return (
-		<TldrawUiMenuSubmenu
-			id="copy-as"
-			label="context-menu.copy-as"
-			size="small"
-			disabled={!atLeastOneShapeOnPage}
-		>
+		<TldrawUiMenuSubmenu id="copy-as" label="context-menu.copy-as" size="small">
 			<TldrawUiMenuGroup id="copy-as-group">
 				<TldrawUiMenuActionItem actionId="copy-as-svg" />
 				{typeof window.navigator?.clipboard?.write === "function" && (
@@ -222,7 +211,7 @@ function CustomConversionsMenuGroup() {
 				<TldrawUiMenuGroup id="export-as-group">
 					<TldrawUiMenuActionItem actionId="export-as-svg" />
 					<TldrawUiMenuActionItem actionId="export-as-png" />
-					<JsonMenuItem id="export-json-selection" mode="export-selection" />
+					<JsonMenuItem id="export-json-selection" mode="export" />
 				</TldrawUiMenuGroup>
 				<TldrawUiMenuGroup id="export-as-bg">
 					<ToggleTransparentBgMenuItem />

@@ -7,9 +7,7 @@
  */
 
 import { useEffect } from "react"
-import type { Editor as TldrawEditor } from "@tldraw/editor"
-import type { TLPageId } from "@tldraw/tlschema"
-import type { IndexKey } from "@tldraw/utils"
+import type { Editor as TldrawEditor, IndexKey, TLPageId } from "tldraw"
 import type { MachineState, BoardsEvent, PageEntry } from "../machine"
 import * as api from "../api"
 import {
@@ -77,10 +75,10 @@ export function useAuthedPages({
 				dbId: r.page.id,
 				tldrawId: r.page.tldraw_page_id,
 				title: r.page.title,
-				visibility: r.page.visibility as "private" | "public",
+				visibility: r.page.visibility,
 				publicSlug: r.page.public_slug,
-				publicAccess: r.page.public_access as "view" | "edit" | null,
-				sortIndex: r.page.sort_index ?? null,
+				publicAccess: r.page.public_access,
+				sortIndex: r.page.sort_index,
 				role: r.role,
 			}))
 
@@ -202,13 +200,12 @@ export function useAuthedPages({
 			prevPageId = cur
 
 			const dbId = tldrawToDb.current.get(cur)
-
-			if (dbId) lsSetLastPage(cur)
 			if (!dbId) {
 				send({ type: "DESELECT_PAGE" })
 				setUrlToBoards()
 				return
 			}
+			lsSetLastPage(cur)
 
 			const entry = stateRef.current.context.pages.find((p) => p.dbId === dbId)
 			const slug = entry?.publicSlug ?? stateRef.current.context.activeSlug
@@ -220,7 +217,7 @@ export function useAuthedPages({
 				slug: entry?.publicSlug,
 			})
 
-			if (slug && (entry?.visibility === "public" || !userId)) {
+			if (slug && entry?.visibility === "public") {
 				setUrlToSlug(slug)
 			} else {
 				setUrlToBoards()

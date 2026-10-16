@@ -9,7 +9,7 @@ const APPS: Record<AppId, { icon: ComponentType<{ className?: string }>; gradien
 	chat: { icon: IconVideo, gradient: "from-electric to-sky-400" },
 }
 
-export type AppId = "tasks" | "time" | "chat"
+type AppId = "tasks" | "time" | "chat"
 
 /** App icon (links home) with title and an optional one-line subtitle. */
 export function AppTitle({
@@ -37,7 +37,9 @@ export function AppTitle({
 				<Icon className="h-5 w-5" />
 			</Link>
 			<div className="min-w-0">
-				<h1 className="truncate font-display text-xl font-bold leading-tight text-paper">{title}</h1>
+				<h1 className="truncate font-display text-xl font-bold leading-tight text-paper">
+					{title}
+				</h1>
 				{subtitle && <p className="truncate text-xs text-fog/50">{subtitle}</p>}
 			</div>
 		</div>

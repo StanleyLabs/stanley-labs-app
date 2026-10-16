@@ -6,8 +6,7 @@
  */
 
 import { useEffect } from "react"
-import type { Editor as TldrawEditor } from "@tldraw/editor"
-import type { TLPageId } from "@tldraw/tlschema"
+import type { Editor as TldrawEditor, TLPageId } from "tldraw"
 import type { MachineState } from "../machine"
 import * as api from "../api"
 import { getContentAsJsonDocForPage } from "../sharePage"
@@ -25,6 +24,22 @@ interface UseSnapshotPersistenceParams {
 	isGuestViewingShared: boolean
 }
 
+function savePageSnapshot(editor: TldrawEditor, tldrawId: string, dbId: string): void {
+	void getContentAsJsonDocForPage(editor, tldrawId as TLPageId).then((doc) => {
+		if (doc) void api.saveSnapshot(dbId, doc)
+	})
+}
+
+/** Run `persist` (throttled) on document changes; flushes on cleanup. */
+function listenThrottled(editor: TldrawEditor, persist: () => void): () => void {
+	const t = throttle(persist, SAVE_THROTTLE_MS)
+	const unlisten = editor.store.listen(t.run, { scope: "document" })
+	return () => {
+		unlisten()
+		t.flush()
+	}
+}
+
 export function useSnapshotPersistence({
 	editorInstance,
 	userId,
@@ -40,24 +55,12 @@ export function useSnapshotPersistence({
 		const editor = editorInstance
 		if (!editor || !userId) return
 
-		const persist = () => {
+		return listenThrottled(editor, () => {
 			if (hydratingRef.current || !loadedRef.current) return
 			const tldrawId = editor.getCurrentPageId() as string
 			const dbId = tldrawToDb.current.get(tldrawId)
-			if (!dbId) return
-
-			void getContentAsJsonDocForPage(editor, tldrawId as TLPageId).then((doc) => {
-				if (doc) void api.saveSnapshot(dbId, doc)
-			})
-		}
-
-		const t = throttle(persist, SAVE_THROTTLE_MS)
-		const unlisten = editor.store.listen(t.run, { scope: "document" })
-
-		return () => {
-			unlisten()
-			t.flush()
-		}
+			if (dbId) savePageSnapshot(editor, tldrawId, dbId)
+		})
 	}, [editorInstance, userId, hydratingRef, loadedRef, tldrawToDb])
 
 	// ── Guest: persist shared page snapshots to PocketBase ─────────────────────
@@ -72,19 +75,9 @@ export function useSnapshotPersistence({
 		const activeTldrawId = stateRef.current.context.activePageTldrawId
 		if (!activeDbId || !activeTldrawId) return
 
-		const persist = () => {
+		return listenThrottled(editor, () => {
 			if (hydratingRef.current) return
-			void getContentAsJsonDocForPage(editor, activeTldrawId as TLPageId).then((doc) => {
-				if (doc) void api.saveSnapshot(activeDbId, doc)
-			})
-		}
-
-		const t = throttle(persist, SAVE_THROTTLE_MS)
-		const unlisten = editor.store.listen(t.run, { scope: "document" })
-
-		return () => {
-			unlisten()
-			t.flush()
-		}
+			savePageSnapshot(editor, activeTldrawId, activeDbId)
+		})
 	}, [editorInstance, userId, isGuestViewingShared, stateRef, hydratingRef])
 }

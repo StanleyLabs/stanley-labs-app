@@ -6,8 +6,7 @@
  */
 
 import { useEffect, useLayoutEffect } from "react"
-import type { Editor as TldrawEditor } from "@tldraw/editor"
-import { TLINSTANCE_ID, type TLStore } from "tldraw"
+import { TLINSTANCE_ID, type Editor as TldrawEditor, type TLStore } from "tldraw"
 import type { MachineState } from "../machine"
 import {
 	LS_KEY,
@@ -82,9 +81,7 @@ export function useGuestPersistence({
 			try {
 				const snap = store.getStoreSnapshot("all")
 				// Filter out cameras and shared page records
-				const sharedTldrawIds = new Set<string>()
-				for (const [tid] of tldrawToDb.current) sharedTldrawIds.add(tid)
-
+				const sharedTldrawIds = tldrawToDb.current
 				const filtered: StoreRecords = {}
 				for (const [id, rec] of Object.entries(snap.store)) {
 					if (rec.typeName === "camera") continue
@@ -92,10 +89,9 @@ export function useGuestPersistence({
 					if (sharedTldrawIds.has(id) || (parentId && sharedTldrawIds.has(parentId))) continue
 					filtered[id] = rec
 				}
-				const inst = store.get(TLINSTANCE_ID) as { currentPageId?: string } | undefined
 				const json = JSON.stringify({
 					document: { store: filtered, schema: snap.schema },
-					session: { currentPageId: inst?.currentPageId },
+					session: { currentPageId: store.get(TLINSTANCE_ID)?.currentPageId },
 				})
 				lsSave(json)
 			} catch {

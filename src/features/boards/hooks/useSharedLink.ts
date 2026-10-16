@@ -6,11 +6,16 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react"
-import type { Editor as TldrawEditor } from "@tldraw/editor"
-import type { TLPageId } from "@tldraw/tlschema"
-import { PageRecordType, TLINSTANCE_ID, type TLStore } from "tldraw"
+import {
+	PageRecordType,
+	TLINSTANCE_ID,
+	type Editor as TldrawEditor,
+	type TLPageId,
+	type TLStore,
+} from "tldraw"
 import type { MachineState, BoardsEvent } from "../machine"
 import * as api from "../api"
+import type { PageRole } from "../api"
 import { pb } from "../../../lib/pocketbase"
 import {
 	getSlugFromUrl,
@@ -70,13 +75,13 @@ export function useSharedLink({
 				return
 			}
 
-			let role: "owner" | "editor" | "viewer" = page.public_access === "edit" ? "editor" : "viewer"
+			let role: PageRole = page.public_access === "edit" ? "editor" : "viewer"
 
 			if (userId) {
 				const myPages = await api.listMyPages()
 				const existing = myPages.find((p) => p.page.id === page.id)
 				if (existing) {
-					role = existing.role as "owner" | "editor" | "viewer"
+					role = existing.role
 				} else {
 					void api.addSelfAsViewer(page.id)
 				}

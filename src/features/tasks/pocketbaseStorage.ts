@@ -1,6 +1,6 @@
 import type { RecordModel } from "pocketbase"
 import { pb } from "../../lib/pocketbase"
-import type { DashboardRepo, TaskCreate, TaskUpdate } from "./store"
+import type { DashboardRepo } from "./store"
 import type { Project, Task, TaskStatus } from "./types"
 
 const projects = () => pb.collection("projects")
@@ -38,232 +38,194 @@ function mapTaskRecord(r: RecordModel): Task {
 	}
 }
 
-function logAndThrow(context: string, error: unknown): never {
-	console.error(`[pocketbaseStorage] ${context}`, error)
-	throw error instanceof Error ? error : new Error(String(error))
+/** Logs failures as `[pocketbaseStorage] <method> failed` and rethrows them as Errors. */
+function withErrorLogging(repo: DashboardRepo): DashboardRepo {
+	const wrapped: Record<string, unknown> = {}
+	for (const [name, fn] of Object.entries(repo) as [string, (...args: unknown[]) => unknown][]) {
+		wrapped[name] = async (...args: unknown[]) => {
+			try {
+				return await fn(...args)
+			} catch (error) {
+				console.error(`[pocketbaseStorage] ${name} failed`, error)
+				throw error instanceof Error ? error : new Error(String(error))
+			}
+		}
+	}
+	return wrapped as DashboardRepo
 }
 
 export function createPocketBaseRepo(userId: string): DashboardRepo {
-	return {
+	return withErrorLogging({
 		async listProjects() {
+			// API rules limit results to projects the user owns or is a member of.
+			const rows = await projects().getFullList({ sort: "order" })
+			const owned = rows.filter((r) => r.user_id === userId)
+			const shared = rows.filter((r) => r.user_id !== userId)
+			const all = [...owned, ...shared].map(mapProjectRecord)
+
+			// Apply saved order (includes shared projects) if available
 			try {
-				// API rules limit results to projects the user owns or is a member of.
-				const rows = await projects().getFullList({ sort: "order" })
-				const owned = rows.filter((r) => r.user_id === userId)
-				const shared = rows.filter((r) => r.user_id !== userId)
-				const all = [...owned, ...shared].map(mapProjectRecord)
-
-				// Apply saved order (includes shared projects) if available
-				try {
-					const savedOrder = localStorage.getItem(`project-order:${userId}`)
-					if (savedOrder) {
-						const orderIds: string[] = JSON.parse(savedOrder)
-						const orderMap = new Map(orderIds.map((id, i) => [id, i]))
-						all.sort((a, b) => {
-							const ai = orderMap.get(a.id) ?? 9999
-							const bi = orderMap.get(b.id) ?? 9999
-							return ai - bi
-						})
-					}
-				} catch {
-					/* ignore */
+				const savedOrder = localStorage.getItem(`project-order:${userId}`)
+				if (savedOrder) {
+					const orderIds: string[] = JSON.parse(savedOrder)
+					const orderMap = new Map(orderIds.map((id, i) => [id, i]))
+					all.sort((a, b) => (orderMap.get(a.id) ?? 9999) - (orderMap.get(b.id) ?? 9999))
 				}
-
-				return all
-			} catch (e) {
-				logAndThrow("listProjects failed", e)
+			} catch {
+				/* ignore */
 			}
+
+			return all
 		},
 
 		async createProject(data) {
-			try {
-				const existing = await projects().getList(1, 1, {
-					filter: pb.filter("user_id = {:u}", { u: userId }),
-					sort: "-order",
-				})
-				const maxOrder = existing.items[0]?.order ?? -1
+			const existing = await projects().getList(1, 1, {
+				filter: pb.filter("user_id = {:u}", { u: userId }),
+				sort: "-order",
+			})
+			const maxOrder = existing.items[0]?.order ?? -1
 
-				const created = await projects().create({
-					user_id: userId,
-					name: data.name,
-					description: data.description ?? "",
-					color: data.color,
-					order: maxOrder + 1,
-					client_id: data.clientId ?? "",
-					hourly_rate: data.hourlyRate ?? 0,
-				})
+			const created = await projects().create({
+				user_id: userId,
+				name: data.name,
+				description: data.description ?? "",
+				color: data.color,
+				order: maxOrder + 1,
+				client_id: data.clientId ?? "",
+				hourly_rate: data.hourlyRate ?? 0,
+			})
 
-				await pb.collection("project_members").create({
-					project_id: created.id,
-					user_id: userId,
-					role: "owner",
-				})
+			await pb.collection("project_members").create({
+				project_id: created.id,
+				user_id: userId,
+				role: "owner",
+			})
 
-				return mapProjectRecord(created)
-			} catch (e) {
-				logAndThrow("createProject failed", e)
-			}
+			return mapProjectRecord(created)
 		},
 
 		async updateProject(id, patch) {
-			try {
-				const update: Record<string, unknown> = {}
-				if (patch.name !== undefined) update.name = patch.name
-				if (patch.description !== undefined) update.description = patch.description ?? ""
-				if (patch.color !== undefined) update.color = patch.color
-				if (patch.order !== undefined) update.order = patch.order
-				if ("clientId" in patch) update.client_id = patch.clientId ?? ""
-				if ("hourlyRate" in patch) update.hourly_rate = patch.hourlyRate ?? 0
-				return mapProjectRecord(await projects().update(id, update))
-			} catch (e) {
-				logAndThrow("updateProject failed", e)
-			}
+			const update: Record<string, unknown> = {}
+			if (patch.name !== undefined) update.name = patch.name
+			if (patch.description !== undefined) update.description = patch.description
+			if (patch.color !== undefined) update.color = patch.color
+			if (patch.order !== undefined) update.order = patch.order
+			if ("clientId" in patch) update.client_id = patch.clientId ?? ""
+			if ("hourlyRate" in patch) update.hourly_rate = patch.hourlyRate ?? 0
+			return mapProjectRecord(await projects().update(id, update))
 		},
 
 		async deleteProject(id) {
-			try {
-				// Tasks and memberships are removed by relation cascade.
-				await projects().delete(id)
-			} catch (e) {
-				logAndThrow("deleteProject failed", e)
-			}
+			// Tasks and memberships are removed by relation cascade.
+			await projects().delete(id)
 		},
 
 		async listAllTasks() {
-			try {
-				// API rules limit results to tasks in accessible projects.
-				const rows = await tasks().getFullList()
-				return rows.map(mapTaskRecord)
-			} catch (e) {
-				logAndThrow("listAllTasks failed", e)
-			}
+			// API rules limit results to tasks in accessible projects.
+			const rows = await tasks().getFullList()
+			return rows.map(mapTaskRecord)
 		},
 
 		async listTasks(projectId) {
-			try {
-				const rows = await tasks().getFullList({
-					filter: pb.filter("project_id = {:p}", { p: projectId }),
-					sort: "order",
-				})
-				return rows.map(mapTaskRecord)
-			} catch (e) {
-				logAndThrow("listTasks failed", e)
-			}
+			const rows = await tasks().getFullList({
+				filter: pb.filter("project_id = {:p}", { p: projectId }),
+				sort: "order",
+			})
+			return rows.map(mapTaskRecord)
 		},
 
-		async createTask(input: TaskCreate) {
-			try {
-				const created = await tasks().create({
-					user_id: userId,
-					project_id: input.projectId,
-					title: input.title,
-					description: input.description ?? "",
-					status: input.status,
-					priority: input.priority,
-					assignee: input.assignee ?? null,
-					due: input.due ?? "",
-					tags: input.tags ?? null,
-					order: input.order,
-				})
-				return mapTaskRecord(created)
-			} catch (e) {
-				logAndThrow("createTask failed", e)
-			}
+		async createTask(input) {
+			const created = await tasks().create({
+				user_id: userId,
+				project_id: input.projectId,
+				title: input.title,
+				description: input.description ?? "",
+				status: input.status,
+				priority: input.priority,
+				assignee: input.assignee ?? null,
+				due: input.due ?? "",
+				tags: input.tags ?? null,
+				order: input.order,
+			})
+			return mapTaskRecord(created)
 		},
 
-		async updateTask(id: string, patch: TaskUpdate) {
-			try {
-				const update: Record<string, unknown> = {}
-				if (patch.title !== undefined) update.title = patch.title
-				if (patch.description !== undefined) update.description = patch.description ?? ""
-				if (patch.status !== undefined) update.status = patch.status
-				if (patch.priority !== undefined) update.priority = patch.priority
-				if (patch.assignee !== undefined) update.assignee = patch.assignee ?? null
-				if (patch.due !== undefined) update.due = patch.due ?? ""
-				if (patch.tags !== undefined) update.tags = patch.tags ?? null
-				if (patch.order !== undefined) update.order = patch.order
-				return mapTaskRecord(await tasks().update(id, update))
-			} catch (e) {
-				logAndThrow("updateTask failed", e)
-			}
+		async updateTask(id, patch) {
+			const update: Record<string, unknown> = {}
+			if (patch.title !== undefined) update.title = patch.title
+			if (patch.description !== undefined) update.description = patch.description
+			if (patch.status !== undefined) update.status = patch.status
+			if (patch.priority !== undefined) update.priority = patch.priority
+			if (patch.assignee !== undefined) update.assignee = patch.assignee
+			if (patch.due !== undefined) update.due = patch.due
+			if (patch.tags !== undefined) update.tags = patch.tags
+			if (patch.order !== undefined) update.order = patch.order
+			return mapTaskRecord(await tasks().update(id, update))
 		},
 
-		async deleteTask(id: string) {
-			try {
-				await tasks().delete(id)
-			} catch (e) {
-				logAndThrow("deleteTask failed", e)
-			}
+		async deleteTask(id) {
+			await tasks().delete(id)
 		},
 
-		async reorderTask(id: string, newStatus: TaskStatus, newOrder: number) {
-			try {
-				const task = mapTaskRecord(await tasks().getOne(id))
-				const oldStatus = task.status
+		async reorderTask(id, newStatus, newOrder) {
+			const task = mapTaskRecord(await tasks().getOne(id))
+			const oldStatus = task.status
 
-				// Tasks in target column (excluding the moved task).
-				const targetRows = await tasks().getFullList({
-					filter: pb.filter("project_id = {:p} && status = {:s} && id != {:id}", {
+			// Tasks in target column (excluding the moved task).
+			const targetRows = await tasks().getFullList({
+				filter: pb.filter("project_id = {:p} && status = {:s} && id != {:id}", {
+					p: task.projectId,
+					s: newStatus,
+					id,
+				}),
+				sort: "order",
+				fields: "id",
+			})
+
+			const targetIds = targetRows.map((r) => r.id)
+			targetIds.splice(Math.max(0, Math.min(newOrder, targetIds.length)), 0, id)
+
+			await Promise.all(
+				targetIds.map((tid, i) => tasks().update(tid, { order: i, status: newStatus })),
+			)
+
+			// If moved across columns, reorder the old column.
+			if (oldStatus !== newStatus) {
+				const oldRows = await tasks().getFullList({
+					filter: pb.filter("project_id = {:p} && status = {:s}", {
 						p: task.projectId,
-						s: newStatus,
-						id,
+						s: oldStatus,
 					}),
 					sort: "order",
 					fields: "id",
 				})
-
-				const target = targetRows.map((r) => ({ id: r.id }))
-				const insertAt = Math.max(0, Math.min(newOrder, target.length))
-				target.splice(insertAt, 0, { id })
-
-				await Promise.all(
-					target.map((t, i) => tasks().update(t.id, { order: i, status: newStatus })),
-				)
-
-				// If moved across columns, reorder the old column.
-				if (oldStatus !== newStatus) {
-					const oldRows = await tasks().getFullList({
-						filter: pb.filter("project_id = {:p} && status = {:s}", {
-							p: task.projectId,
-							s: oldStatus,
-						}),
-						sort: "order",
-						fields: "id",
-					})
-					await Promise.all(oldRows.map((r, i) => tasks().update(r.id, { order: i })))
-				}
-
-				return mapTaskRecord(await tasks().getOne(id))
-			} catch (e) {
-				logAndThrow("reorderTask failed", e)
+				await Promise.all(oldRows.map((r, i) => tasks().update(r.id, { order: i })))
 			}
+
+			return mapTaskRecord(await tasks().getOne(id))
 		},
 
-		async reorderProjects(ids: string[]) {
+		async reorderProjects(ids) {
+			// Only update order on projects the user owns; shared projects
+			// get their visual order from the ids array (client-side).
+			const owned = await projects().getFullList({
+				filter: pb.filter("user_id = {:u}", { u: userId }),
+				fields: "id",
+			})
+			const ownedIds = new Set(owned.map((r) => r.id))
+
+			await Promise.all(
+				ids
+					.filter((id) => ownedIds.has(id))
+					.map((id) => projects().update(id, { order: ids.indexOf(id) })),
+			)
+
+			// Persist full ordering (including shared) in localStorage
 			try {
-				// Only update order on projects the user owns; shared projects
-				// get their visual order from the ids array (client-side).
-				const owned = await projects().getFullList({
-					filter: pb.filter("user_id = {:u}", { u: userId }),
-					fields: "id",
-				})
-				const ownedIds = new Set(owned.map((r) => r.id))
-
-				await Promise.all(
-					ids
-						.filter((id) => ownedIds.has(id))
-						.map((id) => projects().update(id, { order: ids.indexOf(id) })),
-				)
-
-				// Persist full ordering (including shared) in localStorage
-				try {
-					localStorage.setItem(`project-order:${userId}`, JSON.stringify(ids))
-				} catch {
-					/* ignore */
-				}
-			} catch (e) {
-				logAndThrow("reorderProjects failed", e)
+				localStorage.setItem(`project-order:${userId}`, JSON.stringify(ids))
+			} catch {
+				/* ignore */
 			}
 		},
-	}
+	})
 }

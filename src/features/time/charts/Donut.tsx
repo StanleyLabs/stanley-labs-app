@@ -1,6 +1,6 @@
 import { formatHours } from "../lib/time"
 
-export type DonutSlice = { key: string; label: string; color: string; ms: number }
+type DonutSlice = { key: string; label: string; color: string; ms: number }
 
 const SIZE = 160
 const STROKE = 18

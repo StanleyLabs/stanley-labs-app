@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from "react"
 
 interface DeviceSelectProps {
+	/** Also used for unlabeled devices ("Camera 1") and the empty state. */
 	label: string
 	icon: React.ReactNode
 	devices: MediaDeviceInfo[]
 	selectedDeviceId: string
 	onSelect: (deviceId: string) => void
-	fallbackLabel: string
 }
 
 export default function DeviceSelect({
@@ -15,15 +15,13 @@ export default function DeviceSelect({
 	devices,
 	selectedDeviceId,
 	onSelect,
-	fallbackLabel,
 }: DeviceSelectProps) {
 	const [isOpen, setIsOpen] = useState(false)
 	const containerRef = useRef<HTMLDivElement>(null)
 
 	const selectedDevice = devices.find((d) => d.deviceId === selectedDeviceId)
 	const selectedLabel =
-		selectedDevice?.label ||
-		(devices.length > 0 ? `${fallbackLabel} 1` : `No ${fallbackLabel.toLowerCase()} found`)
+		selectedDevice?.label || (devices.length > 0 ? `${label} 1` : `No ${label.toLowerCase()} found`)
 
 	// Close on click outside
 	useEffect(() => {
@@ -71,7 +69,7 @@ export default function DeviceSelect({
 					<div className="absolute bottom-full left-0 right-0 mb-1.5 bg-graphite border border-white/10 rounded-lg shadow-2xl overflow-hidden z-50">
 						<div className="max-h-48 overflow-y-auto py-1 subtle-scroll">
 							{devices.map((device, i) => {
-								const deviceLabel = device.label || `${fallbackLabel} ${i + 1}`
+								const deviceLabel = device.label || `${label} ${i + 1}`
 								const isSelected = device.deviceId === selectedDeviceId
 								return (
 									<button

@@ -1,6 +1,7 @@
 import type { RecordModel } from "pocketbase"
 import { pb } from "../../../lib/pocketbase"
-import type { Client, EntryPatch, Invoice, InvoiceInput, TimeEntry } from "../types"
+import { DEFAULT_CURRENCY } from "../lib/rates"
+import type { Client, ClientInput, EntryPatch, Invoice, InvoiceInput, TimeEntry } from "../types"
 import type { TimeRepo } from "./types"
 
 const clients = () => pb.collection("clients")
@@ -20,7 +21,7 @@ function mapClient(r: RecordModel): Client {
 		email: r.email || undefined,
 		address: r.address || undefined,
 		hourlyRate: r.hourly_rate || undefined,
-		currency: r.currency || "USD",
+		currency: r.currency || DEFAULT_CURRENCY,
 		color: r.color || "#2D6BFF",
 		notes: r.notes || undefined,
 		createdAt: r.created_at,
@@ -55,12 +56,24 @@ function mapInvoice(r: RecordModel): Invoice {
 		client: r.client_snapshot ?? { name: "" },
 		items: Array.isArray(r.items) ? r.items : [],
 		taxRate: r.tax_rate ?? 0,
-		currency: r.currency || "USD",
+		currency: r.currency || DEFAULT_CURRENCY,
 		notes: r.notes || undefined,
 		status: r.status,
 		createdAt: r.created_at,
 		updatedAt: r.updated_at,
 	}
+}
+
+function clientBody(patch: Partial<ClientInput>): Record<string, unknown> {
+	const body: Record<string, unknown> = {}
+	if (patch.name !== undefined) body.name = patch.name
+	if ("email" in patch) body.email = patch.email ?? ""
+	if ("address" in patch) body.address = patch.address ?? ""
+	if ("hourlyRate" in patch) body.hourly_rate = patch.hourlyRate ?? 0
+	if (patch.currency !== undefined) body.currency = patch.currency
+	if (patch.color !== undefined) body.color = patch.color
+	if ("notes" in patch) body.notes = patch.notes ?? ""
+	return body
 }
 
 function entryBody(patch: EntryPatch): Record<string, unknown> {
@@ -115,15 +128,7 @@ export function createPocketBaseTimeRepo(userId: string): TimeRepo {
 			return mapClient(r)
 		},
 		async updateClient(id, patch) {
-			const body: Record<string, unknown> = {}
-			if (patch.name !== undefined) body.name = patch.name
-			if ("email" in patch) body.email = patch.email ?? ""
-			if ("address" in patch) body.address = patch.address ?? ""
-			if ("hourlyRate" in patch) body.hourly_rate = patch.hourlyRate ?? 0
-			if (patch.currency !== undefined) body.currency = patch.currency
-			if (patch.color !== undefined) body.color = patch.color
-			if ("notes" in patch) body.notes = patch.notes ?? ""
-			return mapClient(await clients().update(id, body))
+			return mapClient(await clients().update(id, clientBody(patch)))
 		},
 		async deleteClient(id) {
 			// projects.client_id is optional, so PocketBase unsets it on delete.

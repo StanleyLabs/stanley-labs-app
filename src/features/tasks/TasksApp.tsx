@@ -6,19 +6,12 @@ import type { Client } from "../time/types"
 import { TaskTimeProvider } from "../time/taskTime/TaskTimeProvider"
 import { TaskTimeSection } from "../time/taskTime/TaskTimeSection"
 import { PROJECT_COLORS } from "./types"
-import {
-	Sidebar,
-	KanbanBoard,
-	ListView,
-	TaskForm,
-	ProjectForm,
-	IconPlus,
-	IconKanban,
-	IconList,
-	IconFolder,
-	IconMenu,
-	IconSearch,
-} from "./index"
+import { IconFolder, IconKanban, IconList, IconMenu, IconPlus, IconSearch } from "./icons"
+import { Sidebar } from "./sidebar/Sidebar"
+import { KanbanBoard } from "./kanban/KanbanBoard"
+import { ListView } from "./list/ListView"
+import { TaskForm } from "./forms/TaskForm"
+import { ProjectForm } from "./forms/ProjectForm"
 import { ClientsPanel } from "./clients/ClientsPanel"
 import { useClients } from "./hooks/useClients"
 import { useTasksPage } from "./hooks/useTasksPage"
@@ -378,18 +371,18 @@ export default function App() {
 								onCancel={() => setTaskModal(null)}
 							/>
 							{taskModal.mode === "edit" && taskModal.task && (
-								<TaskTimeSection task={taskModal.task} />
-							)}
-							{taskModal.mode === "edit" && taskModal.task && (
-								<div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-signal/20 bg-signal/[0.06] px-4 py-3">
-									<span className="text-xs text-red-300/80">Delete this task permanently</span>
-									<button
-										onClick={() => handleDeleteTask(taskModal.task!)}
-										className="rounded-lg bg-signal/90 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-signal"
-									>
-										Delete
-									</button>
-								</div>
+								<>
+									<TaskTimeSection task={taskModal.task} />
+									<div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-signal/20 bg-signal/[0.06] px-4 py-3">
+										<span className="text-xs text-red-300/80">Delete this task permanently</span>
+										<button
+											onClick={() => handleDeleteTask(taskModal.task!)}
+											className="rounded-lg bg-signal/90 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-signal"
+										>
+											Delete
+										</button>
+									</div>
+								</>
 							)}
 						</>
 					)}

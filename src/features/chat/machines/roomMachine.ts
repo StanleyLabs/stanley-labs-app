@@ -7,16 +7,10 @@ export interface PeerMediaState {
 	avatarUrl?: string
 }
 
-export interface PeerData extends Partial<PeerMediaState> {
-	id: string
-	stream: MediaStream
-	name: string
-}
-
-export interface RoomContext {
-	roomId: string
+interface RoomContext {
 	localStream: MediaStream | null
-	peerList: PeerData[]
+	/** Connected peers in join order; names and media state are looked up by id. */
+	peerList: { id: string; stream: MediaStream }[]
 	peerNames: Record<string, string>
 	peerMedia: Record<string, PeerMediaState>
 	spotlightPeerId: string | null
@@ -39,74 +33,58 @@ export type RoomEvent =
 	| { type: "TOGGLE_VIDEO" }
 	| { type: "LEAVE" }
 
+type EventOf<T extends RoomEvent["type"]> = Extract<RoomEvent, { type: T }>
+
+function omit<T>(record: Record<string, T>, key: string): Record<string, T> {
+	const { [key]: _removed, ...rest } = record
+	void _removed
+	return rest
+}
+
 /* ---- Machine ---- */
 
 export const roomMachine = setup({
 	types: {
 		context: {} as RoomContext,
 		events: {} as RoomEvent,
-		input: {} as { roomId: string },
 	},
 	actions: {
 		setLocalStream: assign({
-			localStream: ({ event }) => (event as Extract<RoomEvent, { type: "MEDIA_READY" }>).stream,
+			localStream: ({ event }) => (event as EventOf<"MEDIA_READY">).stream,
 		}),
 		setError: assign({
-			error: ({ event }) => (event as Extract<RoomEvent, { type: "MEDIA_ERROR" }>).error,
+			error: ({ event }) => (event as EventOf<"MEDIA_ERROR">).error,
 		}),
 		addPeer: assign({
 			peerList: ({ context, event }) => {
-				const e = event as Extract<RoomEvent, { type: "PEER_ADDED" }>
-				if (context.peerList.some((p) => p.id === e.peerId)) return context.peerList
-				const name = context.peerNames[e.peerId] || ""
-				const media = context.peerMedia[e.peerId]
-				return [...context.peerList, { id: e.peerId, stream: e.stream, name, ...media }]
+				const { peerId, stream } = event as EventOf<"PEER_ADDED">
+				if (context.peerList.some((p) => p.id === peerId)) return context.peerList
+				return [...context.peerList, { id: peerId, stream }]
 			},
 		}),
-		removePeer: assign({
-			peerList: ({ context, event }) => {
-				const e = event as Extract<RoomEvent, { type: "PEER_REMOVED" }>
-				return context.peerList.filter((p) => p.id !== e.peerId)
-			},
-			peerNames: ({ context, event }) => {
-				const e = event as Extract<RoomEvent, { type: "PEER_REMOVED" }>
-				const { [e.peerId]: _removed, ...rest } = context.peerNames
-				void _removed
-				return rest
-			},
-			peerMedia: ({ context, event }) => {
-				const e = event as Extract<RoomEvent, { type: "PEER_REMOVED" }>
-				const { [e.peerId]: _removed, ...rest } = context.peerMedia
-				void _removed
-				return rest
-			},
-			spotlightPeerId: ({ context, event }) => {
-				const e = event as Extract<RoomEvent, { type: "PEER_REMOVED" }>
-				return context.spotlightPeerId === e.peerId ? null : context.spotlightPeerId
-			},
+		removePeer: assign(({ context, event }) => {
+			const { peerId } = event as EventOf<"PEER_REMOVED">
+			return {
+				peerList: context.peerList.filter((p) => p.id !== peerId),
+				peerNames: omit(context.peerNames, peerId),
+				peerMedia: omit(context.peerMedia, peerId),
+				spotlightPeerId: context.spotlightPeerId === peerId ? null : context.spotlightPeerId,
+			}
 		}),
 		setPeerName: assign({
 			peerNames: ({ context, event }) => {
-				const e = event as Extract<RoomEvent, { type: "PEER_NAME" }>
-				return { ...context.peerNames, [e.peerId]: e.name }
-			},
-			peerList: ({ context, event }) => {
-				const e = event as Extract<RoomEvent, { type: "PEER_NAME" }>
-				return context.peerList.map((p) => (p.id === e.peerId ? { ...p, name: e.name } : p))
+				const { peerId, name } = event as EventOf<"PEER_NAME">
+				return { ...context.peerNames, [peerId]: name }
 			},
 		}),
 		setPeerMediaState: assign({
 			peerMedia: ({ context, event }) => {
-				const e = event as Extract<RoomEvent, { type: "PEER_MEDIA_STATE" }>
-				return { ...context.peerMedia, [e.peerId]: e.state }
-			},
-			peerList: ({ context, event }) => {
-				const e = event as Extract<RoomEvent, { type: "PEER_MEDIA_STATE" }>
-				return context.peerList.map((p) => (p.id === e.peerId ? { ...p, ...e.state } : p))
+				const { peerId, state } = event as EventOf<"PEER_MEDIA_STATE">
+				return { ...context.peerMedia, [peerId]: state }
 			},
 		}),
 		setSpotlight: assign({
-			spotlightPeerId: ({ event }) => (event as Extract<RoomEvent, { type: "SPOTLIGHT" }>).peerId,
+			spotlightPeerId: ({ event }) => (event as EventOf<"SPOTLIGHT">).peerId,
 		}),
 		toggleAudio: assign({
 			isAudioMuted: ({ context }) => {
@@ -135,14 +113,12 @@ export const roomMachine = setup({
 			peerNames: () => ({}),
 			peerMedia: () => ({}),
 			spotlightPeerId: () => null,
-			error: () => null,
 		}),
 	},
 }).createMachine({
 	id: "room",
 	initial: "requestingMedia",
-	context: ({ input }) => ({
-		roomId: input.roomId,
+	context: {
 		localStream: null,
 		peerList: [],
 		peerNames: {},
@@ -151,7 +127,7 @@ export const roomMachine = setup({
 		isAudioMuted: false,
 		isVideoMuted: false,
 		error: null,
-	}),
+	},
 	on: {
 		LEAVE: {
 			target: ".left",

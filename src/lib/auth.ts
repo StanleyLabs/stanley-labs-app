@@ -7,7 +7,7 @@ export interface AppUser {
 	avatarUrl?: string
 }
 
-export interface AuthState {
+interface AuthState {
 	user: AppUser | null
 	loading: boolean
 	signInWithEmail: (email: string, password: string) => Promise<{ error: string | null }>

@@ -11,7 +11,6 @@
 
 const AUTH = '@request.auth.id != ""'
 const OWNER = `${AUTH} && user_id = @request.auth.id`
-const OWNER_CREATE = `${AUTH} && user_id = @request.auth.id`
 const KEEP_OWNER = `(@request.body.user_id:isset = false || @request.body.user_id = @request.auth.id)`
 
 const field = (type, options) => ({ type, ...options })
@@ -53,7 +52,7 @@ migrate(
 		})
 		clients.listRule = OWNER
 		clients.viewRule = OWNER
-		clients.createRule = OWNER_CREATE
+		clients.createRule = OWNER
 		clients.updateRule = `${OWNER} && ${KEEP_OWNER}`
 		clients.deleteRule = OWNER
 		app.save(clients)
@@ -110,7 +109,7 @@ migrate(
 		})
 		invoices.listRule = OWNER
 		invoices.viewRule = OWNER
-		invoices.createRule = OWNER_CREATE
+		invoices.createRule = OWNER
 		invoices.updateRule = `${OWNER} && ${KEEP_OWNER}`
 		invoices.deleteRule = OWNER
 		app.save(invoices)
@@ -164,7 +163,7 @@ migrate(
 		const projectReadable = `(project_id = "" || project_id.user_id = @request.auth.id || project_id.project_members_via_project_id.user_id ?= @request.auth.id)`
 		timeEntries.listRule = OWNER
 		timeEntries.viewRule = OWNER
-		timeEntries.createRule = `${OWNER_CREATE} && ${projectReadable}`
+		timeEntries.createRule = `${OWNER} && ${projectReadable}`
 		timeEntries.updateRule = `${OWNER} && ${KEEP_OWNER}`
 		timeEntries.deleteRule = OWNER
 		app.save(timeEntries)

@@ -6,8 +6,7 @@
 
 import { useEffect, useRef } from "react"
 import { useSync } from "@tldraw/sync"
-import { inlineBase64AssetStore } from "tldraw"
-import type { TLStore } from "tldraw"
+import { inlineBase64AssetStore, type TLStore } from "tldraw"
 import type { BoardsEvent } from "./machine"
 import { syncToPersist, persistToSync, type StoreSnapshot } from "./lib/serverSyncHelpers"
 
@@ -94,7 +93,6 @@ export function ServerSyncBridge({
 
 		const doPersistToSync = (): void =>
 			persistToSync({
-				persistStore,
 				syncStore,
 				pageId,
 				persistSnapshot,

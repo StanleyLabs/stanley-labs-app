@@ -1,9 +1,5 @@
 import { pointerWithin, rectIntersection } from "@dnd-kit/core"
 
-export function cn(...classes: (string | false | null | undefined)[]) {
-	return classes.filter(Boolean).join(" ")
-}
-
 export function stopProp(e: React.MouseEvent) {
 	e.stopPropagation()
 }

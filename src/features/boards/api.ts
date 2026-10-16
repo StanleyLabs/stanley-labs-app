@@ -82,12 +82,20 @@ function toPageRow(r: RecordModel): PageRow {
 	}
 }
 
+function randomId(length: number): string {
+	return crypto.randomUUID().replace(/-/g, "").slice(0, length)
+}
+
+/** Fetch the membership row for (page_id, user_id). Throws if not found. */
+function getPageMember(pageId: string, userId: string): Promise<RecordModel> {
+	return pageMembers().getFirstListItem(
+		pb.filter("page_id = {:p} && user_id = {:u}", { p: pageId, u: userId }),
+	)
+}
+
 /** Insert or update a membership row keyed by (page_id, user_id). */
 async function upsertPageMember(pageId: string, userId: string, role: PageRole): Promise<void> {
-	const filter = pb.filter("page_id = {:p} && user_id = {:u}", { p: pageId, u: userId })
-	const existing = await pageMembers()
-		.getFirstListItem(filter)
-		.catch(() => null)
+	const existing = await getPageMember(pageId, userId).catch(() => null)
 	if (existing) {
 		await pageMembers().update(existing.id, { role })
 		return
@@ -109,8 +117,7 @@ export async function createPage(
 	const userId = currentUserId()
 	if (!userId) return null
 
-	const tldrawPageId =
-		opts.tldrawPageId ?? `page:${crypto.randomUUID().replace(/-/g, "").slice(0, 21)}`
+	const tldrawPageId = opts.tldrawPageId ?? `page:${randomId(21)}`
 
 	let created: RecordModel
 	try {
@@ -166,9 +173,7 @@ export async function deletePage(pageId: string): Promise<boolean> {
 }
 
 /** Resolve a public slug to page info. Returns null if not found or not public. */
-export async function resolveSlug(
-	slug: string,
-): Promise<(PageRow & { tldraw_page_id: string }) | null> {
+export async function resolveSlug(slug: string): Promise<PageRow | null> {
 	if (!slug.trim()) return null
 	try {
 		const r = await pages().getFirstListItem(
@@ -190,7 +195,7 @@ export async function sharePage(
 		.getOne(pageId, { fields: "public_slug" })
 		.catch(() => null)
 
-	const slug = existing?.public_slug || crypto.randomUUID().replace(/-/g, "").slice(0, 12)
+	const slug = existing?.public_slug || randomId(12)
 
 	const ok = await updatePage(pageId, {
 		visibility: "public",
@@ -306,9 +311,7 @@ export async function updateMemberRole(
 	role: PageRole,
 ): Promise<void> {
 	try {
-		const row = await pageMembers().getFirstListItem(
-			pb.filter("page_id = {:p} && user_id = {:u}", { p: pageId, u: userId }),
-		)
+		const row = await getPageMember(pageId, userId)
 		await pageMembers().update(row.id, { role })
 	} catch (err) {
 		throw new Error(errorMessage(err))
@@ -318,9 +321,7 @@ export async function updateMemberRole(
 /** Remove a member from a page. */
 export async function removeMember(pageId: string, userId: string): Promise<void> {
 	try {
-		const row = await pageMembers().getFirstListItem(
-			pb.filter("page_id = {:p} && user_id = {:u}", { p: pageId, u: userId }),
-		)
+		const row = await getPageMember(pageId, userId)
 		await pageMembers().delete(row.id)
 	} catch (err) {
 		throw new Error(errorMessage(err))

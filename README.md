@@ -1,12 +1,13 @@
 # Stanley Labs App
 
-A single React app that bundles three tools:
+A single React app that bundles four tools:
 
 - **Tasks** (`/tasks`) — projects with kanban and list views, drag-and-drop ordering, and shared projects with viewer/editor/owner roles. Try it without an account at `/tasks/demo`.
+- **Time** (`/time`) — a time tracker with a global running timer, reports, clients, and PDF invoices.
 - **Whiteboard** (`/boards`) — an infinite canvas built on [tldraw](https://tldraw.dev), with multiple pages, public share links, and real-time collaboration.
 - **Video chat** (`/chat`) — peer-to-peer video rooms over WebRTC.
 
-Guests can use Tasks and the Whiteboard with data kept in the browser. Signing in (email or Google) stores and syncs data through PocketBase.
+Guests can use Tasks, Time, and the Whiteboard with data kept in the browser. Signing in (email or Google) stores and syncs data through PocketBase.
 
 ## Tech stack
 
@@ -18,10 +19,12 @@ React 19, TypeScript, Vite, Tailwind CSS, React Router, XState, and tldraw. The 
 src/
   features/
     tasks/        Tasks app
+    time/         Time tracker
     boards/       Whiteboard app
     chat/         Video chat app
   pages/          Home, Login, Privacy
-  lib/            PocketBase client and auth
+  components/     App shell and shared UI (modal, select, date picker, icons)
+  lib/            PocketBase client, auth, and the global running timer
 server/           Express server: video chat signaling (Socket.IO)
 sync-server/      tldraw sync server: real-time whiteboard collaboration
 pocketbase/       PocketBase schema migrations and hooks (see pocketbase/README.md)

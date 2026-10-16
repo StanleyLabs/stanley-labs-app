@@ -1,6 +1,6 @@
 import PocketBase, { ClientResponseError } from "pocketbase"
 
-export const pocketbaseUrl = import.meta.env.VITE_POCKETBASE_URL ?? ""
+const pocketbaseUrl = import.meta.env.VITE_POCKETBASE_URL ?? ""
 
 export const pb = new PocketBase(pocketbaseUrl || undefined)
 
@@ -12,7 +12,7 @@ export function currentUserId(): string | null {
 	return pb.authStore.isValid ? (pb.authStore.record?.id ?? null) : null
 }
 
-export function isNotFound(err: unknown): boolean {
+function isNotFound(err: unknown): boolean {
 	return err instanceof ClientResponseError && err.status === 404
 }
 

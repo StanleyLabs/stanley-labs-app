@@ -4,8 +4,7 @@
  */
 
 import type { MutableRefObject } from "react"
-import type { TLStore } from "tldraw"
-import { loadSnapshot } from "tldraw"
+import { loadSnapshot, type TLStore } from "tldraw"
 import {
 	docContentEqual,
 	docStoreHash,
@@ -14,22 +13,23 @@ import {
 	getPageRecordIds,
 	remapDocumentPageId,
 } from "../sharePage"
-import type { SnapshotParsed } from "./gridSnapshot"
 
-export const MAX_PUSHED_HASHES = 32
+const MAX_PUSHED_HASHES = 32
+
+type SnapshotParsed = Parameters<typeof loadSnapshot>[1]
 
 export interface StoreSnapshot {
 	store: Record<string, unknown>
 	schema?: unknown
 }
 
-export interface RecordDiff {
+interface RecordDiff {
 	toPut: unknown[]
 	toRemoveIds: string[]
 }
 
 /** Compute record-level diff between current page and incoming store. */
-export function computeRecordDiff(
+function computeRecordDiff(
 	persistSnap: StoreSnapshot,
 	pageId: string,
 	incomingStore: Record<string, unknown>,
@@ -55,7 +55,7 @@ export function computeRecordDiff(
 }
 
 /** Apply diff to store via mergeRemoteChanges. */
-export function applyDiffToStore(store: TLStore, toPut: unknown[], toRemoveIds: string[]): void {
+function applyDiffToStore(store: TLStore, toPut: unknown[], toRemoveIds: string[]): void {
 	if (toPut.length === 0 && toRemoveIds.length === 0) return
 
 	store.mergeRemoteChanges(() => {
@@ -132,7 +132,6 @@ export function syncToPersist(params: SyncToPersistParams): void {
 }
 
 export interface PersistToSyncParams {
-	persistStore: TLStore
 	syncStore: TLStore
 	pageId: string
 	persistSnapshot: () => StoreSnapshot

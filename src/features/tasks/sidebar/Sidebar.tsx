@@ -25,6 +25,8 @@ function loadCollapsed(): Set<string> {
 	}
 }
 
+const smallIconBtn =
+	"rounded-md p-1 text-fog/40 transition-colors hover:bg-white/10 hover:text-paper"
 const footerBtn =
 	"flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-2xs font-medium text-fog/60 transition-colors hover:bg-white/[0.08] hover:text-paper"
 
@@ -132,29 +134,24 @@ export function Sidebar({
 			>
 				<SortableContext items={members.map((p) => p.id)} strategy={verticalListSortingStrategy}>
 					<div className="space-y-0.5">
-						{members.map((p) => (
-							<SortableProjectItem
-								key={p.id}
-								project={p}
-								isActive={p.id === activeId}
-								onSelect={() => onSelect(p.id)}
-								onEdit={
-									onEdit && (!canManageProject || canManageProject(p.id))
-										? () => onEdit(p)
-										: undefined
-								}
-								onDelete={
-									onDelete && (!canManageProject || canManageProject(p.id))
-										? () => onDelete(p.id)
-										: undefined
-								}
-								onLeave={
-									onLeaveProject && currentUserId && p.ownerId && p.ownerId !== currentUserId
-										? () => onLeaveProject(p.id)
-										: undefined
-								}
-							/>
-						))}
+						{members.map((p) => {
+							const canManage = !canManageProject || canManageProject(p.id)
+							return (
+								<SortableProjectItem
+									key={p.id}
+									project={p}
+									isActive={p.id === activeId}
+									onSelect={() => onSelect(p.id)}
+									onEdit={onEdit && canManage ? () => onEdit(p) : undefined}
+									onDelete={onDelete && canManage ? () => onDelete(p.id) : undefined}
+									onLeave={
+										onLeaveProject && currentUserId && p.ownerId && p.ownerId !== currentUserId
+											? () => onLeaveProject(p.id)
+											: undefined
+									}
+								/>
+							)
+						})}
 					</div>
 				</SortableContext>
 			</DndContext>
@@ -195,11 +192,7 @@ export function Sidebar({
 						<span className="text-[10px] font-semibold uppercase tracking-wider text-fog/40">
 							Projects
 						</span>
-						<button
-							onClick={onAdd}
-							className="rounded-md p-1 text-fog/40 transition-colors hover:bg-white/10 hover:text-paper"
-							title="New project"
-						>
+						<button onClick={onAdd} className={smallIconBtn} title="New project">
 							<IconPlus className="h-3.5 w-3.5" />
 						</button>
 					</div>
@@ -257,7 +250,7 @@ export function Sidebar({
 													{onAddProjectForClient && (
 														<button
 															onClick={() => onAddProjectForClient(g.client!.id)}
-															className="rounded-md p-1 text-fog/40 transition-colors hover:bg-white/10 hover:text-paper"
+															className={smallIconBtn}
 															title={`New project for ${g.client.name}`}
 														>
 															<IconPlus className="h-3 w-3" />
@@ -266,7 +259,7 @@ export function Sidebar({
 													{onEditClient && (
 														<button
 															onClick={() => onEditClient(g.client!)}
-															className="rounded-md p-1 text-fog/40 transition-colors hover:bg-white/10 hover:text-paper"
+															className={smallIconBtn}
 															title="Edit client"
 														>
 															<IconEdit className="h-3 w-3" />

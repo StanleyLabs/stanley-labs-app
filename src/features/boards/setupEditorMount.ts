@@ -4,26 +4,12 @@
  * and right-click pan.
  */
 
-import type { MutableRefObject } from "react"
-import type { Editor as TldrawEditor } from "@tldraw/editor"
-import type { TLPageId } from "@tldraw/tlschema"
-import { TLINSTANCE_ID } from "tldraw"
-import type { TLStore } from "tldraw"
+import { TLINSTANCE_ID, type Editor, type TLStore } from "tldraw"
 import { getTheme } from "./hooks/boardsUtils"
 import { setupRightClickPan } from "./rightClickPan"
 
-export interface EditorMountParams {
-	editor: TldrawEditor
-	store: TLStore
-	editorRef: MutableRefObject<TldrawEditor | null>
-}
-
-export function createEditorOnMount(params: EditorMountParams): () => void {
-	const { editor, store, editorRef } = params
-	editorRef.current = editor
-
-	const cached = getTheme()
-	editor.user.updateUserPreferences({ colorScheme: cached })
+export function createEditorOnMount(editor: Editor, store: TLStore): () => void {
+	editor.user.updateUserPreferences({ colorScheme: getTheme() })
 
 	const container = editor.getContainer()
 
@@ -36,7 +22,6 @@ export function createEditorOnMount(params: EditorMountParams): () => void {
 	}
 	container.addEventListener("wheel", onWheelDetect, { passive: true, capture: true })
 
-	// Zoom to fit
 	const zoomToFitWithLayout = (): void => {
 		requestAnimationFrame(() => {
 			requestAnimationFrame(() => editor.zoomToFit({ animation: { duration: 200 } }))
@@ -47,8 +32,7 @@ export function createEditorOnMount(params: EditorMountParams): () => void {
 	// Zoom to fit on page change
 	let prevPageId = editor.getCurrentPageId()
 	const unlistenPage = store.listen(() => {
-		const inst = store.get(TLINSTANCE_ID) as { currentPageId?: string } | undefined
-		const pageId = (inst?.currentPageId ?? "") as TLPageId
+		const pageId = store.get(TLINSTANCE_ID)?.currentPageId
 		if (pageId && pageId !== prevPageId) {
 			prevPageId = pageId
 			zoomToFitWithLayout()
@@ -58,7 +42,6 @@ export function createEditorOnMount(params: EditorMountParams): () => void {
 	const rightClickPanCleanup = setupRightClickPan(editor)
 
 	return () => {
-		editorRef.current = null
 		unlistenPage()
 		rightClickPanCleanup()
 		container.removeEventListener("wheel", onWheelDetect)

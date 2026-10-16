@@ -1,11 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react"
 import { Link } from "react-router-dom"
 import { ProfileDialog } from "../components/ProfileDialog"
+import { IconStop } from "../components/ui/icons"
 import { cn } from "../components/ui/styles"
 import { useDashboardRepo } from "../features/tasks/store"
 import { dayKey, entryDurationMs, formatClock, formatHours } from "../features/time/lib/time"
 import { initialsFor, useAuth } from "../lib/auth"
-import { useNow, useRunningTimer } from "../lib/runningTimer"
+import { describeRunning, useNow, useRunningTimer } from "../lib/runningTimer"
 
 type AppCard = {
 	to: string
@@ -299,13 +300,7 @@ function OpenArrow({ className }: { className?: string }) {
 function RunningTimerCard({ now }: { now: number }) {
 	const { running, labels, stop } = useRunningTimer()
 	if (!running) return null
-	const color = labels.projectColor ?? "#2D6BFF"
-	const title = labels.taskTitle ?? labels.projectName ?? (running.description || "Timer running")
-	const sub = labels.taskTitle
-		? labels.projectName
-		: labels.projectName
-			? running.description || undefined
-			: undefined
+	const { color, title, sub } = describeRunning(running, labels)
 
 	return (
 		<div className="mb-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 pl-4 backdrop-blur-xl animate-scale-in sm:gap-4 sm:p-4 sm:pl-5">
@@ -335,9 +330,7 @@ function RunningTimerCard({ now }: { now: number }) {
 				title="Stop timer"
 				aria-label="Stop timer"
 			>
-				<svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-					<rect x="6" y="6" width="12" height="12" rx="2" />
-				</svg>
+				<IconStop />
 			</button>
 		</div>
 	)

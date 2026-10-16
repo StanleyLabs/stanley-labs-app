@@ -2,13 +2,21 @@ import { useEffect, useMemo, useState } from "react"
 import { useAuth } from "../../../lib/auth"
 import type { Project } from "../../tasks/types"
 import type { ProjectFields, TimeData } from "../hooks/useTimeData"
-import { amountFor, formatMoney, projectClient, resolveCurrency, resolveRate } from "../lib/rates"
+import {
+	amountFor,
+	formatMoney,
+	parseRate,
+	projectClient,
+	resolveCurrency,
+	resolveRate,
+} from "../lib/rates"
 import { entryDurationMs, formatHours } from "../lib/time"
 import type { Client } from "../types"
 import { IconEdit, IconFolder, IconPlus } from "../../../components/ui/icons"
 import { Modal } from "../../../components/ui/Modal"
 import { Select } from "../../../components/ui/Select"
 import { btnPrimary, card, cn, iconBtn, input } from "../../../components/ui/styles"
+import { EmptyState } from "./EmptyState"
 import { ProjectForm } from "./ProjectForm"
 
 export function ProjectsView({ data }: { data: TimeData }) {
@@ -63,13 +71,9 @@ export function ProjectsView({ data }: { data: TimeData }) {
 			{error && <p className="text-xs text-signal">{error}</p>}
 
 			{projects.length === 0 ? (
-				<div className={cn(card, "flex flex-col items-center px-6 py-14 text-center")}>
-					<div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-electric/10 text-electric">
-						<IconFolder className="h-6 w-6" />
-					</div>
-					<p className="font-display text-lg font-semibold text-paper">No projects yet</p>
+				<EmptyState icon={IconFolder} title="No projects yet">
 					<p className="mt-1 text-sm text-fog/50">Create one here or in the Tasks app.</p>
-				</div>
+				</EmptyState>
 			) : (
 				<div className={cn(card, "divide-y divide-white/[0.05]")}>
 					<div className="hidden grid-cols-[1fr_12rem_9rem_7rem_7rem] gap-3 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-fog/35 md:grid">
@@ -145,12 +149,12 @@ function ProjectRow({
 	)
 
 	const commitRate = () => {
-		const n = rate.trim() ? Number(rate) : undefined
-		if (n !== undefined && (!Number.isFinite(n) || n < 0)) {
+		const n = parseRate(rate)
+		if (n === null) {
 			setRate(project.hourlyRate ? String(project.hourlyRate) : "")
 			return
 		}
-		if ((n || undefined) !== project.hourlyRate) onSave({ hourlyRate: n || undefined })
+		if (n !== project.hourlyRate) onSave({ hourlyRate: n })
 	}
 
 	return (

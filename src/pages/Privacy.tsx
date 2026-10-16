@@ -16,9 +16,9 @@ const SECTIONS: { title: string; body: ReactNode }[] = [
 		title: "Signed in",
 		body: (
 			<>
-				Your data is stored on our own self-hosted PocketBase server, which handles the database
-				and authentication, so it can sync across your devices. If you sign in with Google, we
-				receive your name, email, and profile picture from Google to set up your account.
+				Your data is stored on our own self-hosted PocketBase server, which handles the database and
+				authentication, so it can sync across your devices. If you sign in with Google, we receive
+				your name, email, and profile picture from Google to set up your account.
 			</>
 		),
 	},
@@ -35,8 +35,8 @@ const SECTIONS: { title: string; body: ReactNode }[] = [
 		title: "Storage",
 		body: (
 			<>
-				We only use essential storage needed for the app to work, such as keeping you signed in
-				and remembering your settings.
+				We only use essential storage needed for the app to work, such as keeping you signed in and
+				remembering your settings.
 			</>
 		),
 	},
@@ -53,9 +53,7 @@ const SECTIONS: { title: string; body: ReactNode }[] = [
 	{
 		title: "Your data, your control",
 		body: (
-			<>
-				You can export projects and whiteboards to JSON at any time and import them again later.
-			</>
+			<>You can export projects and whiteboards to JSON at any time and import them again later.</>
 		),
 	},
 	{

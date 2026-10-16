@@ -9,6 +9,15 @@ import type { Project } from "../types"
 const chip =
 	"inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-fog/80 transition-colors hover:border-white/20 hover:bg-white/[0.08] hover:text-paper"
 
+function ProjectChip({ project, onClick }: { project: Project; onClick: () => void }) {
+	return (
+		<button className={chip} onClick={onClick}>
+			<span className="h-2 w-2 shrink-0 rounded-[3px]" style={{ backgroundColor: project.color }} />
+			<span className="truncate">{project.name}</span>
+		</button>
+	)
+}
+
 /** Lists every client with its linked projects; add/edit/delete open over it. */
 export function ClientsPanel({
 	open,
@@ -107,13 +116,7 @@ export function ClientsPanel({
 								</div>
 								<div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/[0.06] pt-3">
 									{list.map((p) => (
-										<button key={p.id} className={chip} onClick={() => onSelectProject(p.id)}>
-											<span
-												className="h-2 w-2 shrink-0 rounded-[3px]"
-												style={{ backgroundColor: p.color }}
-											/>
-											<span className="truncate">{p.name}</span>
-										</button>
+										<ProjectChip key={p.id} project={p} onClick={() => onSelectProject(p.id)} />
 									))}
 									<button
 										className={cn(chip, "border-dashed text-fog/45")}
@@ -136,13 +139,7 @@ export function ClientsPanel({
 					</div>
 					<div className="flex flex-wrap gap-1.5">
 						{unassigned.map((p) => (
-							<button key={p.id} className={chip} onClick={() => onSelectProject(p.id)}>
-								<span
-									className="h-2 w-2 shrink-0 rounded-[3px]"
-									style={{ backgroundColor: p.color }}
-								/>
-								<span className="truncate">{p.name}</span>
-							</button>
+							<ProjectChip key={p.id} project={p} onClick={() => onSelectProject(p.id)} />
 						))}
 					</div>
 					<p className="mt-2 text-2xs text-fog/35">Edit a project to assign it to a client.</p>

@@ -1,14 +1,6 @@
 import { useState } from "react"
 import DeviceSelect from "./DeviceSelect"
-
-interface DevicesAPI {
-	audioDevices: MediaDeviceInfo[]
-	videoDevices: MediaDeviceInfo[]
-	selectedAudioDevice: string
-	selectedVideoDevice: string
-	enumerate: () => void
-	switchDevice: (kind: "audio" | "video", deviceId: string) => void
-}
+import type { useDevices } from "./hooks/useDevices"
 
 interface ControlsBarProps {
 	isAudioMuted: boolean
@@ -16,7 +8,7 @@ interface ControlsBarProps {
 	onToggleAudio: () => void
 	onToggleVideo: () => void
 	onLeave: () => void
-	devices: DevicesAPI
+	devices: ReturnType<typeof useDevices>
 }
 
 export default function ControlsBar({
@@ -58,7 +50,6 @@ export default function ControlsBar({
 							devices={devices.audioDevices}
 							selectedDeviceId={devices.selectedAudioDevice}
 							onSelect={(id) => devices.switchDevice("audio", id)}
-							fallbackLabel="Microphone"
 						/>
 						<DeviceSelect
 							label="Camera"
@@ -66,7 +57,6 @@ export default function ControlsBar({
 							devices={devices.videoDevices}
 							selectedDeviceId={devices.selectedVideoDevice}
 							onSelect={(id) => devices.switchDevice("video", id)}
-							fallbackLabel="Camera"
 						/>
 					</div>
 				</div>
@@ -139,10 +129,7 @@ function ControlButton({
 	activeColor?: "signal" | "electric"
 	children: React.ReactNode
 }) {
-	const activeClasses =
-		activeColor === "signal"
-			? "bg-signal text-white hover:brightness-110"
-			: "bg-electric text-white hover:brightness-110"
+	const activeClasses = `${activeColor === "signal" ? "bg-signal" : "bg-electric"} text-white hover:brightness-110`
 
 	return (
 		<button

@@ -4,51 +4,18 @@
  */
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react"
-import type { IndexKey } from "@tldraw/utils"
-import { getIndexAbove, getIndexBelow, getIndexBetween } from "@tldraw/utils"
-import type { TLPageId } from "@tldraw/tlschema"
-import { releasePointerCapture, setPointerCapture } from "@tldraw/editor"
-import type { Editor } from "@tldraw/editor"
+import { releasePointerCapture, setPointerCapture, type Editor, type TLPageId } from "tldraw"
+import { onMovePage, type TrackEvent } from "../components/page-menu/onMovePage"
 
-export type SortablePosition = { y: number; offsetY: number; isSelected: boolean }
+type SortablePosition = { y: number; offsetY: number; isSelected: boolean }
 
-type TrackEvent = (name: string, data?: unknown) => void
-
-export function buildSortablePositions(
+function buildSortablePositions(
 	pages: Array<{ id: string }>,
 	itemHeight: number,
-	isSelected = false,
 ): Record<string, SortablePosition> {
 	return Object.fromEntries(
-		pages.map((page, i) => [page.id, { y: i * itemHeight, offsetY: 0, isSelected }]),
+		pages.map((page, i) => [page.id, { y: i * itemHeight, offsetY: 0, isSelected: false }]),
 	)
-}
-
-function onMovePage(
-	editor: Editor,
-	id: TLPageId,
-	from: number,
-	to: number,
-	trackEvent: TrackEvent,
-): void {
-	const pages = editor.getPages()
-	const below = from > to ? pages[to - 1] : pages[to]
-	const above = from > to ? pages[to] : pages[to + 1]
-	let index: IndexKey
-	if (below && !above) {
-		index = getIndexAbove(below.index)
-	} else if (!below && above) {
-		index = getIndexBelow(pages[0].index)
-	} else if (below && above) {
-		index = getIndexBetween(below.index, above.index)
-	} else {
-		index = getIndexAbove(null)
-	}
-	if (index !== pages[from].index) {
-		editor.markHistoryStoppingPoint("moving page")
-		editor.updatePage({ id, index })
-		trackEvent("move-page", { source: "page-menu" })
-	}
 }
 
 export function useSortablePages(

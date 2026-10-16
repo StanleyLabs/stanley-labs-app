@@ -2,12 +2,11 @@ import { useRef, useCallback, useEffect, useState, type RefObject } from "react"
 import { useMachine } from "@xstate/react"
 import { useAuth } from "../../lib/auth"
 import { errorMessage, pb } from "../../lib/pocketbase"
-import { roomMachine, type PeerMediaState } from "./machines/roomMachine"
+import { roomMachine } from "./machines/roomMachine"
 import { useWebRTC } from "./hooks/useWebRTC"
 import { useDevices } from "./hooks/useDevices"
-import { useDraggable } from "./hooks/useDraggable"
 import { getGridClasses } from "./utils/gridLayout"
-import PeerVideo from "./PeerVideo"
+import PeerVideo, { type PeerData } from "./PeerVideo"
 import LocalVideo from "./LocalVideo"
 import ControlsBar from "./ControlsBar"
 import LeaveModal from "./LeaveModal"
@@ -19,20 +18,18 @@ import TopBar from "./TopBar"
  * Observes the PARENT container (not the grid itself) to avoid feedback loops.
  */
 function useGridFit(gridRef: RefObject<HTMLDivElement | null>, peerCount: number) {
-	const rafRef = useRef(0)
-	const fittedRef = useRef(false)
-
 	useEffect(() => {
 		const grid = gridRef.current
 		const parent = grid?.parentElement
 		if (!grid || !parent || peerCount === 0) return
 
-		fittedRef.current = false
+		let fitted = false
 		grid.style.visibility = "hidden"
 
+		let raf = 0
 		const recalc = () => {
-			cancelAnimationFrame(rafRef.current)
-			rafRef.current = requestAnimationFrame(() => {
+			cancelAnimationFrame(raf)
+			raf = requestAnimationFrame(() => {
 				const video = grid.querySelector("video")
 				if (!video || !video.videoWidth || !video.videoHeight) return
 
@@ -57,8 +54,8 @@ function useGridFit(gridRef: RefObject<HTMLDivElement | null>, peerCount: number
 				}
 
 				// Reveal on first successful fit
-				if (!fittedRef.current) {
-					fittedRef.current = true
+				if (!fitted) {
+					fitted = true
 					grid.style.visibility = ""
 				}
 			})
@@ -72,7 +69,7 @@ function useGridFit(gridRef: RefObject<HTMLDivElement | null>, peerCount: number
 		recalc()
 
 		return () => {
-			cancelAnimationFrame(rafRef.current)
+			cancelAnimationFrame(raf)
 			grid.removeEventListener("loadedmetadata", recalc, true)
 			ro.disconnect()
 			grid.style.maxWidth = ""
@@ -102,18 +99,20 @@ function saveGuestName(name: string) {
 interface VideoChatProps {
 	roomId: string
 	onLeave: () => void
-	streamRef?: React.MutableRefObject<MediaStream | null>
 }
 
-export default function VideoChat({ roomId, onLeave, streamRef }: VideoChatProps) {
-	const [state, send] = useMachine(roomMachine, { input: { roomId } })
-	const { localStream, peerList, spotlightPeerId, isAudioMuted, isVideoMuted, error } =
-		state.context
-
-	// Keep parent's streamRef in sync so ChatApp can stop tracks on unmount
-	useEffect(() => {
-		if (streamRef) streamRef.current = localStream
-	}, [localStream, streamRef])
+export default function VideoChat({ roomId, onLeave }: VideoChatProps) {
+	const [state, send] = useMachine(roomMachine)
+	const {
+		localStream,
+		peerList,
+		peerNames,
+		peerMedia,
+		spotlightPeerId,
+		isAudioMuted,
+		isVideoMuted,
+		error,
+	} = state.context
 
 	// Clean up on unmount (e.g. navigating away from /chat)
 	// Stop all media tracks directly - the machine/actor may already be stopped
@@ -132,10 +131,7 @@ export default function VideoChat({ roomId, onLeave, streamRef }: VideoChatProps
 	}, [send])
 
 	const localVideoRef = useRef<HTMLVideoElement>(null)
-	const pipRef = useRef<HTMLDivElement>(null)
 	const gridRef = useRef<HTMLDivElement>(null)
-
-	useDraggable(pipRef)
 
 	// Request media on mount
 	const isRequestingMedia = state.matches("requestingMedia")
@@ -164,52 +160,10 @@ export default function VideoChat({ roomId, onLeave, streamRef }: VideoChatProps
 		}
 	}, [isRequestingMedia, send])
 
-	// WebRTC signaling
-	const onPeerAdded = useCallback(
-		(peerId: string, stream: MediaStream) => {
-			send({ type: "PEER_ADDED", peerId, stream })
-		},
-		[send],
-	)
-
-	const onPeerRemoved = useCallback(
-		(peerId: string) => {
-			send({ type: "PEER_REMOVED", peerId })
-		},
-		[send],
-	)
-
-	const onPeerName = useCallback(
-		(peerId: string, name: string) => {
-			send({ type: "PEER_NAME", peerId, name })
-		},
-		[send],
-	)
-
-	const onPeerMediaState = useCallback(
-		(peerId: string, mediaState: PeerMediaState) => {
-			send({ type: "PEER_MEDIA_STATE", peerId, state: mediaState })
-		},
-		[send],
-	)
-
-	const onConnected = useCallback(() => {
-		send({ type: "SOCKET_CONNECTED" })
-	}, [send])
-
-	const onDisconnected = useCallback(() => {
-		send({ type: "SOCKET_DISCONNECTED" })
-	}, [send])
-
 	const { replaceTrackInPeers, sendName, sendMediaState } = useWebRTC({
 		roomId,
 		localStream,
-		onConnected,
-		onDisconnected,
-		onPeerAdded,
-		onPeerRemoved,
-		onPeerName,
-		onPeerMediaState,
+		send,
 	})
 
 	// Device management
@@ -226,10 +180,14 @@ export default function VideoChat({ roomId, onLeave, streamRef }: VideoChatProps
 	const devices = useDevices({ localStream, onTrackReplaced })
 
 	// Derived state
-	const peerCount = peerList.length
+	const peers: PeerData[] = peerList.map((p) => ({
+		...p,
+		name: peerNames[p.id] || "",
+		...peerMedia[p.id],
+	}))
+	const peerCount = peers.length
 	const isConnected = state.matches("connected")
-	const spotlightPeer = peerList.find((p) => p.id === spotlightPeerId)
-	const thumbPeers = spotlightPeerId ? peerList.filter((p) => p.id !== spotlightPeerId) : []
+	const spotlightPeer = peers.find((p) => p.id === spotlightPeerId)
 
 	// Fit grid width to actual video content
 	useGridFit(gridRef, spotlightPeerId ? 0 : peerCount)
@@ -335,34 +293,26 @@ export default function VideoChat({ roomId, onLeave, streamRef }: VideoChatProps
 								Share room ID: <span className="text-electric">{roomId}</span>
 							</div>
 						</div>
-					) : spotlightPeerId && spotlightPeer ? (
+					) : spotlightPeer ? (
 						<div className="flex flex-col gap-2 min-h-0 h-full">
 							<PeerVideo
 								key={spotlightPeer.id}
-								peerId={spotlightPeer.id}
-								name={spotlightPeer.name}
-								stream={spotlightPeer.stream}
-								videoMuted={spotlightPeer.videoMuted}
-								avatarUrl={spotlightPeer.avatarUrl}
+								peer={spotlightPeer}
 								isSpotlight
-								isThumb={false}
 								onSelect={() => send({ type: "SPOTLIGHT", peerId: null })}
 							/>
-							{thumbPeers.length > 0 && (
+							{peerCount > 1 && (
 								<div className="flex flex-wrap justify-center gap-2 shrink-0">
-									{thumbPeers.map((p) => (
-										<PeerVideo
-											key={p.id}
-											peerId={p.id}
-											name={p.name}
-											stream={p.stream}
-											videoMuted={p.videoMuted}
-											avatarUrl={p.avatarUrl}
-											isSpotlight={false}
-											isThumb
-											onSelect={() => send({ type: "SPOTLIGHT", peerId: p.id })}
-										/>
-									))}
+									{peers
+										.filter((p) => p !== spotlightPeer)
+										.map((p) => (
+											<PeerVideo
+												key={p.id}
+												peer={p}
+												isThumb
+												onSelect={() => send({ type: "SPOTLIGHT", peerId: p.id })}
+											/>
+										))}
 								</div>
 							)}
 						</div>
@@ -371,16 +321,10 @@ export default function VideoChat({ roomId, onLeave, streamRef }: VideoChatProps
 							ref={gridRef}
 							className={`w-full h-full min-w-0 min-h-0 mx-auto ${getGridClasses(peerCount)} `}
 						>
-							{peerList.map((p) => (
+							{peers.map((p) => (
 								<PeerVideo
 									key={p.id}
-									peerId={p.id}
-									name={p.name}
-									stream={p.stream}
-									videoMuted={p.videoMuted}
-									avatarUrl={p.avatarUrl}
-									isSpotlight={false}
-									isThumb={false}
+									peer={p}
 									onSelect={() => send({ type: "SPOTLIGHT", peerId: p.id })}
 								/>
 							))}
@@ -391,7 +335,6 @@ export default function VideoChat({ roomId, onLeave, streamRef }: VideoChatProps
 
 			{/* Local video pip */}
 			<LocalVideo
-				ref={pipRef}
 				videoRef={localVideoRef}
 				stream={localStream}
 				isVideoMuted={isVideoMuted}

@@ -1,8 +1,10 @@
 import { useState } from "react"
+import { DEFAULT_CURRENCY, parseRate } from "../lib/rates"
 import { CURRENCIES, type Client, type ClientInput } from "../types"
 import { PROJECT_COLORS } from "../../tasks/types"
 import { Select } from "../../../components/ui/Select"
 import { btnGhost, btnPrimary, cn, input, label } from "../../../components/ui/styles"
+import { ColorField } from "./ColorField"
 
 export function ClientForm({
 	initial,
@@ -19,7 +21,7 @@ export function ClientForm({
 	const [email, setEmail] = useState(initial?.email ?? "")
 	const [address, setAddress] = useState(initial?.address ?? "")
 	const [rate, setRate] = useState(initial?.hourlyRate ? String(initial.hourlyRate) : "")
-	const [currency, setCurrency] = useState(initial?.currency ?? "USD")
+	const [currency, setCurrency] = useState(initial?.currency ?? DEFAULT_CURRENCY)
 	const [color, setColor] = useState(initial?.color ?? PROJECT_COLORS[0])
 	const [notes, setNotes] = useState(initial?.notes ?? "")
 	const [saving, setSaving] = useState(false)
@@ -27,8 +29,8 @@ export function ClientForm({
 
 	const submit = async (e: React.FormEvent) => {
 		e.preventDefault()
-		const parsedRate = rate.trim() ? Number(rate) : undefined
-		if (parsedRate !== undefined && (!Number.isFinite(parsedRate) || parsedRate < 0)) {
+		const hourlyRate = parseRate(rate)
+		if (hourlyRate === null) {
 			setError("Hourly rate must be a positive number.")
 			return
 		}
@@ -39,7 +41,7 @@ export function ClientForm({
 				name: name.trim(),
 				email: email.trim() || undefined,
 				address: address.trim() || undefined,
-				hourlyRate: parsedRate || undefined,
+				hourlyRate,
 				currency,
 				color,
 				notes: notes.trim() || undefined,
@@ -112,24 +114,7 @@ export function ClientForm({
 				<span className={label}>Notes</span>
 				<input value={notes} onChange={(e) => setNotes(e.target.value)} className={input} />
 			</label>
-			<div>
-				<span className={label}>Color</span>
-				<div className="flex flex-wrap gap-2">
-					{PROJECT_COLORS.map((c) => (
-						<button
-							key={c}
-							type="button"
-							onClick={() => setColor(c)}
-							className={cn(
-								"h-7 w-7 rounded-full border-2 transition-all",
-								color === c ? "scale-110 border-paper" : "border-transparent hover:scale-105",
-							)}
-							style={{ backgroundColor: c }}
-							aria-label={`Color ${c}`}
-						/>
-					))}
-				</div>
-			</div>
+			<ColorField value={color} onChange={setColor} />
 			{error && <p className="text-xs text-signal">{error}</p>}
 			<div className="flex justify-end gap-2 pt-2">
 				<button type="button" onClick={onCancel} className={btnGhost}>

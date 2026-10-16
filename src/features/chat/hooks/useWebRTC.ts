@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from "react"
 import { io, Socket } from "socket.io-client"
-import type { PeerMediaState } from "../machines/roomMachine"
+import type { PeerMediaState, RoomEvent } from "../machines/roomMachine"
 
 function getIceServers(): RTCIceServer[] {
 	const raw = import.meta.env.VITE_ICE_SERVERS_JSON
@@ -18,29 +18,13 @@ function getIceServers(): RTCIceServer[] {
 interface UseWebRTCOptions {
 	roomId: string
 	localStream: MediaStream | null
-	onConnected: () => void
-	onDisconnected: () => void
-	onPeerAdded: (peerId: string, stream: MediaStream) => void
-	onPeerRemoved: (peerId: string) => void
-	onPeerName: (peerId: string, name: string) => void
-	onPeerMediaState: (peerId: string, state: PeerMediaState) => void
+	/** Room machine `send`; must be stable, since changing it reconnects. */
+	send: (event: RoomEvent) => void
 }
 
-export function useWebRTC({
-	roomId,
-	localStream,
-	onConnected,
-	onDisconnected,
-	onPeerAdded,
-	onPeerRemoved,
-	onPeerName,
-	onPeerMediaState,
-}: UseWebRTCOptions) {
+export function useWebRTC({ roomId, localStream, send }: UseWebRTCOptions) {
 	const socketRef = useRef<Socket | null>(null)
 	const peersRef = useRef<Record<string, RTCPeerConnection>>({})
-	const pendingIceRef = useRef<Record<string, RTCIceCandidateInit[]>>({})
-
-	const getSocket = useCallback(() => socketRef.current, [])
 
 	// Replace tracks in all peer connections (for device switching)
 	const replaceTrackInPeers = useCallback(
@@ -61,10 +45,13 @@ export function useWebRTC({
 		const socket = io(serverUrl)
 		socketRef.current = socket
 
+		// ICE candidates that arrive before the remote description is set
+		const pendingIce: Record<string, RTCIceCandidateInit[]> = {}
+
 		const flushPendingIce = async (peerId: string, peer: RTCPeerConnection) => {
-			const pending = pendingIceRef.current[peerId]
+			const pending = pendingIce[peerId]
 			if (!pending?.length) return
-			pendingIceRef.current[peerId] = []
+			pendingIce[peerId] = []
 			for (const init of pending) {
 				try {
 					await peer.addIceCandidate(new RTCIceCandidate(init))
@@ -78,8 +65,8 @@ export function useWebRTC({
 			const peer = peersRef.current[peerId]
 			if (!peer) return
 			if (!peer.remoteDescription) {
-				if (!pendingIceRef.current[peerId]) pendingIceRef.current[peerId] = []
-				pendingIceRef.current[peerId].push(init)
+				if (!pendingIce[peerId]) pendingIce[peerId] = []
+				pendingIce[peerId].push(init)
 				return
 			}
 			peer.addIceCandidate(new RTCIceCandidate(init)).catch((err) => {
@@ -88,19 +75,19 @@ export function useWebRTC({
 		}
 
 		socket.on("connect", () => {
-			onConnected()
+			send({ type: "SOCKET_CONNECTED" })
 			socket.emit("join", { channel: roomId, userdata: { name: "" } })
 		})
 
 		socket.on("disconnect", () => {
-			onDisconnected()
+			send({ type: "SOCKET_DISCONNECTED" })
 		})
 
 		socket.on("addPeer", async (config: { peer_id: string; should_create_offer: boolean }) => {
 			const peerId = config.peer_id
 			if (peersRef.current[peerId]) return
 
-			pendingIceRef.current[peerId] = []
+			pendingIce[peerId] = []
 			const pc = new RTCPeerConnection({ iceServers })
 			peersRef.current[peerId] = pc
 
@@ -119,7 +106,7 @@ export function useWebRTC({
 
 			pc.ontrack = (e) => {
 				if (e.track.kind === "audio") return
-				onPeerAdded(peerId, e.streams[0])
+				send({ type: "PEER_ADDED", peerId, stream: e.streams[0] })
 			}
 
 			localStream.getTracks().forEach((track) => {
@@ -170,24 +157,23 @@ export function useWebRTC({
 
 		socket.on("removePeer", (config: { peer_id: string }) => {
 			const peerId = config.peer_id
-			if (peersRef.current[peerId]) {
-				peersRef.current[peerId].close()
-				delete peersRef.current[peerId]
-			}
-			delete pendingIceRef.current[peerId]
-			onPeerRemoved(peerId)
+			peersRef.current[peerId]?.close()
+			delete peersRef.current[peerId]
+			delete pendingIce[peerId]
+			send({ type: "PEER_REMOVED", peerId })
 		})
 
 		socket.on("peerName", (config: { peer_id: string; name: string }) => {
-			onPeerName(config.peer_id, config.name)
+			send({ type: "PEER_NAME", peerId: config.peer_id, name: config.name })
 		})
 
 		socket.on(
 			"peerMediaState",
 			(config: { peer_id: string; videoMuted?: boolean; avatarUrl?: string }) => {
-				onPeerMediaState(config.peer_id, {
-					videoMuted: !!config.videoMuted,
-					avatarUrl: config.avatarUrl || undefined,
+				send({
+					type: "PEER_MEDIA_STATE",
+					peerId: config.peer_id,
+					state: { videoMuted: !!config.videoMuted, avatarUrl: config.avatarUrl || undefined },
 				})
 			},
 		)
@@ -195,20 +181,10 @@ export function useWebRTC({
 		return () => {
 			Object.values(peersRef.current).forEach((pc) => pc.close())
 			peersRef.current = {}
-			pendingIceRef.current = {}
 			socket.disconnect()
 			socketRef.current = null
 		}
-	}, [
-		roomId,
-		localStream,
-		onConnected,
-		onDisconnected,
-		onPeerAdded,
-		onPeerRemoved,
-		onPeerName,
-		onPeerMediaState,
-	])
+	}, [roomId, localStream, send])
 
 	const sendName = useCallback((name: string) => {
 		socketRef.current?.emit("relayName", { name })
@@ -218,5 +194,5 @@ export function useWebRTC({
 		socketRef.current?.emit("relayMediaState", state)
 	}, [])
 
-	return { getSocket, replaceTrackInPeers, sendName, sendMediaState }
+	return { replaceTrackInPeers, sendName, sendMediaState }
 }

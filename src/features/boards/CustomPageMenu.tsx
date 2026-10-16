@@ -5,14 +5,14 @@
  * Authed users: DB pages, share button for owners, copy link for shared pages.
  */
 
-import type { TLPageId } from "@tldraw/tlschema"
-import { stopEventPropagation, tlenv, useEditor, useValue } from "@tldraw/editor"
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import { useAuth } from "../../lib/auth"
 import {
 	PageItemInput,
 	PageRecordType,
 	PORTRAIT_BREAKPOINT,
+	stopEventPropagation,
+	tlenv,
 	TldrawUiButton,
 	TldrawUiButtonCheck,
 	TldrawUiButtonIcon,
@@ -21,22 +21,37 @@ import {
 	TldrawUiPopoverContent,
 	TldrawUiPopoverTrigger,
 	useBreakpoint,
+	useEditor,
 	useMenuIsOpen,
 	useReadonly,
 	useTranslation,
 	useUiEvents,
+	useValue,
+	type Editor,
+	type TLPageId,
 } from "tldraw"
+import { createPage, updatePage } from "./api"
 import { useSortablePages } from "./hooks/useSortablePages"
 import { useBoardsMachine } from "./MachineContext"
-import {
-	OpenSharedLinkPopover,
-	SharePageButton,
-	CustomPageItemSubmenu,
-} from "./components/page-menu"
+import { CustomPageItemSubmenu } from "./components/page-menu/CustomPageItemSubmenu"
+import { OpenSharedLinkPopover } from "./components/page-menu/OpenSharedLinkPopover"
+import { SharePageButton } from "./components/page-menu/SharePageButton"
+import type { TrackEvent } from "./components/page-menu/onMovePage"
+
+const ITEM_HEIGHT = 36
+
+/** Focus a page row's button once the new row has rendered. */
+function focusPageButton(editor: Editor, pageId: string): void {
+	editor.timers.requestAnimationFrame(() => {
+		const elm = document.querySelector(`[data-pageid="${pageId}"]`) as HTMLDivElement
+		elm?.querySelector("button")?.focus()
+	})
+}
 
 export const CustomPageMenu = memo(function CustomPageMenu() {
 	const editor = useEditor()
 	const trackEvent = useUiEvents()
+	const track = trackEvent as TrackEvent
 	const msg = useTranslation()
 	const breakpoint = useBreakpoint()
 	const { user } = useAuth()
@@ -46,7 +61,6 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 	const handleOpenChange = useCallback(() => setIsEditing(false), [])
 	const [isOpen, onOpenChange] = useMenuIsOpen("page-menu", handleOpenChange)
 
-	const ITEM_HEIGHT = 36
 	const allTldrawPages = useValue("pages", () => editor.getPages(), [editor])
 
 	// For authed users, only show pages that exist in the DB.
@@ -98,12 +112,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 		handlePointerMove,
 		handlePointerUp,
 		handleKeyDown,
-	} = useSortablePages(
-		displayPages,
-		ITEM_HEIGHT,
-		editor,
-		trackEvent as (name: string, data?: unknown) => void,
-	)
+	} = useSortablePages(displayPages, ITEM_HEIGHT, editor, track)
 
 	useEffect(() => {
 		if (!isOpen) return
@@ -120,7 +129,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 			if (elmBottom > containerBottom)
 				container.scrollTo({ top: elmBottom - container.offsetHeight })
 		})
-	}, [ITEM_HEIGHT, currentPageId, isOpen, editor, rSortableContainer])
+	}, [currentPageId, isOpen, editor, rSortableContainer])
 
 	const handleCreatePage = useCallback(() => {
 		if (isReadonlyMode) return
@@ -128,14 +137,13 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 		if (user) {
 			// Authed: create in DB first
 			void (async () => {
-				const { createPage } = await import("./api")
 				const pageName = msg("page-menu.new-page-initial-name")
 				const newPage = await createPage({ title: pageName })
 				if (!newPage) return
 
 				// Register in machine + tldrawToDb BEFORE switching pages,
 				// so the page change tracker sees it in the map
-				registerPage?.({
+				registerPage({
 					dbId: newPage.id,
 					tldrawId: newPage.tldraw_page_id,
 					title: newPage.title,
@@ -150,13 +158,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 					editor.setCurrentPage(newPage.tldraw_page_id as TLPageId)
 					setIsEditing(true)
 				})
-
-				editor.timers.requestAnimationFrame(() => {
-					const elm = document.querySelector(
-						`[data-pageid="${newPage.tldraw_page_id}"]`,
-					) as HTMLDivElement
-					elm?.querySelector("button")?.focus()
-				})
+				focusPageButton(editor, newPage.tldraw_page_id)
 
 				// Sync auto-renamed title and sort_index to DB
 				const createdPage = editor.getPage(newPage.tldraw_page_id as TLPageId)
@@ -164,10 +166,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 					const patch: Record<string, string> = {}
 					if (createdPage.name !== pageName) patch.title = createdPage.name
 					if (createdPage.index) patch.sort_index = createdPage.index
-					if (Object.keys(patch).length) {
-						const { updatePage } = await import("./api")
-						void updatePage(newPage.id, patch)
-					}
+					if (Object.keys(patch).length) void updatePage(newPage.id, patch)
 				}
 
 				editor.menus.clearOpenMenus()
@@ -183,11 +182,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 			editor.createPage({ name: msg("page-menu.new-page-initial-name"), id: newPageId })
 			editor.setCurrentPage(newPageId)
 			setIsEditing(true)
-
-			editor.timers.requestAnimationFrame(() => {
-				const elm = document.querySelector(`[data-pageid="${newPageId}"]`) as HTMLDivElement
-				elm?.querySelector("button")?.focus()
-			})
+			focusPageButton(editor, newPageId)
 		})
 		editor.menus.clearOpenMenus()
 		trackEvent("new-page", { source: "page-menu" })
@@ -208,6 +203,11 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 		},
 		[editor, trackEvent],
 	)
+
+	const promptRename = (page: { id: TLPageId; name: string }) => {
+		const name = window.prompt("Rename page", page.name)
+		if (name && name !== page.name) renamePage(page.id, name)
+	}
 
 	// Build a lookup from tldraw page id to PageEntry for share button
 	const pageEntryByTldraw = new Map(state.context.pages.map((p) => [p.tldrawId, p]))
@@ -293,10 +293,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 										<TldrawUiButton
 											type="normal"
 											className="tlui-page-menu__item__button"
-											onClick={() => {
-												const name = window.prompt("Rename page", page.name)
-												if (name && name !== page.name) renamePage(page.id, name)
-											}}
+											onClick={() => promptRename(page)}
 											onDoubleClick={toggleEditing}
 										>
 											<TldrawUiButtonCheck checked={page.id === currentPage.id} />
@@ -316,7 +313,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 											/>
 										</div>
 									)}
-									<SharePageButton pageId={page.id} entry={entry} isLoggedIn={!!user} />
+									<SharePageButton pageId={page.id} entry={entry} />
 									{!isReadonlyMode && page.id === currentPageId && (
 										<div className="tlui-page_menu__item__submenu" data-isediting={isEditing}>
 											<CustomPageItemSubmenu
@@ -325,7 +322,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 												listSize={displayPages.length}
 												pages={displayPages}
 												entry={entry}
-												trackEvent={trackEvent as (name: string, data?: unknown) => void}
+												trackEvent={track}
 											/>
 										</div>
 									)}
@@ -348,7 +345,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 										<TldrawUiButtonCheck checked={page.id === currentPage.id} />
 										<TldrawUiButtonLabel>{page.name}</TldrawUiButtonLabel>
 									</TldrawUiButton>
-									<SharePageButton pageId={page.id} entry={entry} isLoggedIn={!!user} />
+									<SharePageButton pageId={page.id} entry={entry} />
 									{!isReadonlyMode && page.id === currentPageId && (
 										<div className="tlui-page_menu__item__submenu">
 											<CustomPageItemSubmenu
@@ -359,14 +356,13 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 												entry={entry}
 												onRename={() => {
 													if (tlenv.isIos) {
-														const name = window.prompt("Rename page", page.name)
-														if (name && name !== page.name) renamePage(page.id, name)
+														promptRename(page)
 													} else {
 														setIsEditing(true)
 														if (currentPageId !== page.id) changePage(page.id)
 													}
 												}}
-												trackEvent={trackEvent as (name: string, data?: unknown) => void}
+												trackEvent={track}
 											/>
 										</div>
 									)}

@@ -1,12 +1,11 @@
 interface CameraOffTileProps {
 	name?: string
 	avatarUrl?: string
-	size?: "sm" | "md" | "lg"
+	size: "sm" | "lg"
 }
 
 const SIZE_CLASSES = {
 	sm: "w-9 h-9 text-sm",
-	md: "w-16 h-16 text-xl",
 	lg: "w-28 h-28 text-4xl",
 }
 
@@ -22,7 +21,7 @@ function isSafeImageUrl(url?: string): url is string {
 }
 
 /** Dark styled placeholder with a centered avatar, shown when a camera is turned off. */
-export default function CameraOffTile({ name, avatarUrl, size = "md" }: CameraOffTileProps) {
+export default function CameraOffTile({ name, avatarUrl, size }: CameraOffTileProps) {
 	const letters = initials(name)
 
 	return (

@@ -3,9 +3,8 @@
  * Reads from the boards state machine via context.
  */
 
-import { createContext, useContext, useEffect, useState } from "react"
-import { useEditor, useValue } from "@tldraw/editor"
-import { TldrawUiIcon } from "tldraw"
+import { useEffect, useState } from "react"
+import { TldrawUiIcon, useEditor, useValue } from "tldraw"
 import { getSyncStatus } from "./machine"
 import { useBoardsMachine } from "./MachineContext"
 import { useAuth } from "../../lib/auth"
@@ -14,8 +13,6 @@ type SyncStatusValue = ReturnType<typeof getSyncStatus>
 
 const INDICATOR_DELAY_MS = 300
 const CONNECTION_TIMEOUT_MS = 10_000
-
-const ConnectionIndicatorContext = createContext<{ onRetry?: () => void } | null>(null)
 
 function getDotColor(status: SyncStatusValue, isDark: boolean): string {
 	switch (status) {
@@ -66,9 +63,8 @@ function getTooltip(status: SyncStatusValue): string {
 }
 
 export function ConnectionIndicator() {
-	const ctx = useContext(ConnectionIndicatorContext)
 	const { user } = useAuth()
-	const { state } = useBoardsMachine()
+	const { state, send } = useBoardsMachine()
 	const status = getSyncStatus(state)
 
 	const editor = useEditor()
@@ -143,13 +139,13 @@ export function ConnectionIndicator() {
 		</>
 	)
 
-	if (isError && ctx?.onRetry) {
+	if (isError) {
 		return (
 			<button
 				type="button"
 				onClick={(e) => {
 					e.stopPropagation()
-					ctx.onRetry?.()
+					send({ type: "RETRY" })
 				}}
 				title={getTooltip(effective)}
 				className={`tl-container tl-theme__${theme}`}
@@ -174,19 +170,5 @@ export function ConnectionIndicator() {
 		>
 			{content}
 		</div>
-	)
-}
-
-export function ConnectionIndicatorProvider({
-	onRetry,
-	children,
-}: {
-	onRetry?: () => void
-	children: React.ReactNode
-}) {
-	return (
-		<ConnectionIndicatorContext.Provider value={{ onRetry }}>
-			{children}
-		</ConnectionIndicatorContext.Provider>
 	)
 }

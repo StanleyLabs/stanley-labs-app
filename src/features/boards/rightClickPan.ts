@@ -98,7 +98,6 @@ function endPanning(
 
 function createPointerDownHandler(
 	state: RightClickPanState,
-	_editor: EditorLike,
 	container: HTMLElement,
 ): (e: PointerEvent) => void {
 	return (e: PointerEvent) => {
@@ -180,7 +179,7 @@ export function setupRightClickPan(editor: EditorLike): () => void {
 		rafId: 0,
 	}
 
-	const onPointerDown = createPointerDownHandler(state, editor, container)
+	const onPointerDown = createPointerDownHandler(state, container)
 	const onPointerMove = createPointerMoveHandler(state, editor, container)
 	const onPointerUp = createPointerUpHandler(state, editor, container)
 	const onContextMenu = createContextMenuHandler(state)

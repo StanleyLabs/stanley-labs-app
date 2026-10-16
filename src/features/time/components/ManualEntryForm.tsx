@@ -1,6 +1,15 @@
 import { useState } from "react"
 import type { TimeData } from "../hooks/useTimeData"
-import { dayKey, formatHM, fromDayKey, HOUR, parseDuration, parseTimeInput } from "../lib/time"
+import {
+	dayKey,
+	formatHM,
+	formatTime,
+	fromDayKey,
+	HOUR,
+	MINUTE,
+	parseDuration,
+	parseTimeInput,
+} from "../lib/time"
 import { DatePicker } from "../../../components/ui/DatePicker"
 import { IconDollar } from "../../../components/ui/icons"
 import { btnGhost, btnPrimary, card, cn, input, label } from "../../../components/ui/styles"
@@ -10,10 +19,7 @@ import { ProjectTaskPicker, type PickerValue } from "./ProjectTaskPicker"
 export function ManualEntryForm({ data, onDone }: { data: TimeData; onDone: () => void }) {
 	const { projects, tasks, clientsById, entries, createEntry, createProject } = data
 	const [day, setDay] = useState(dayKey(new Date()))
-	const [startText, setStartText] = useState(() => {
-		const d = new Date(Date.now() - HOUR)
-		return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-	})
+	const [startText, setStartText] = useState(() => formatTime(new Date(Date.now() - HOUR)))
 	const [durationText, setDurationText] = useState("1:00")
 	const [description, setDescription] = useState("")
 	const [pick, setPick] = useState<PickerValue>({})
@@ -27,7 +33,7 @@ export function ManualEntryForm({ data, onDone }: { data: TimeData; onDone: () =
 		const duration = parseDuration(durationText)
 		if (!start) return setError("Start time not recognised (try 9:30 or 2pm).")
 		if (!duration || duration <= 0) return setError("Duration not recognised (try 1:30 or 45m).")
-		if (start.getTime() + duration > Date.now() + 60_000)
+		if (start.getTime() + duration > Date.now() + MINUTE)
 			return setError("That entry would end in the future.")
 		setError(null)
 		setSaving(true)
@@ -72,7 +78,7 @@ export function ManualEntryForm({ data, onDone }: { data: TimeData; onDone: () =
 							tasks={tasks}
 							clientsById={clientsById}
 							recentEntries={entries}
-							onCreateProject={(name) => createProject(name)}
+							onCreateProject={createProject}
 							align="right"
 						/>
 					</div>

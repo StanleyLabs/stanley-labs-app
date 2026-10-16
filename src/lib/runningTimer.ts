@@ -35,6 +35,19 @@ export function useRunningTimer(): RunningTimerState {
 	return ctx
 }
 
+/** Dot color, title and optional subtitle for showing the running entry. */
+export function describeRunning(running: TimeEntry, labels: TimeLabels) {
+	return {
+		color: labels.projectColor ?? "#2D6BFF",
+		title: labels.taskTitle ?? labels.projectName ?? (running.description || "Timer running"),
+		sub: labels.taskTitle
+			? labels.projectName
+			: labels.projectName
+				? running.description || undefined
+				: undefined,
+	}
+}
+
 /** Current time in ms, re-rendering every second while `active`. */
 export function useNow(active = true): number {
 	const [now, setNow] = useState(() => Date.now())

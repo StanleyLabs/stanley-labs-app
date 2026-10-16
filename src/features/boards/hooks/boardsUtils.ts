@@ -5,8 +5,7 @@
  * and snapshot hydration. No React — just functions.
  */
 
-import type { Editor as TldrawEditor } from "@tldraw/editor"
-import type { TLRecord } from "@tldraw/tlschema"
+import type { Editor as TldrawEditor, TLRecord } from "tldraw"
 import * as api from "../api"
 
 // ── Stored document helpers ────────────────────────────────────────────────────
@@ -29,7 +28,7 @@ export function parentIdOf(rec: TLRecord | undefined): string | undefined {
 // ── localStorage helpers ───────────────────────────────────────────────────────
 
 export const LS_KEY = "whiteboard-document"
-export const LS_LAST_PAGE = "whiteboard-last-selected-page-id"
+const LS_LAST_PAGE = "whiteboard-last-selected-page-id"
 const LS_THEME = "whiteboard-theme"
 
 export function lsLoad(): string | null {

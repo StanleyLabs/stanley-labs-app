@@ -6,11 +6,12 @@ import { createPocketBaseRepo } from "./pocketbaseStorage"
 
 export type TaskCreate = Omit<Task, "id" | "createdAt" | "updatedAt">
 export type TaskUpdate = Partial<Omit<Task, "id" | "createdAt" | "projectId">>
+type ProjectCreate = Omit<Project, "id" | "createdAt" | "updatedAt" | "order">
 type ProjectUpdate = Partial<Omit<Project, "id" | "createdAt">>
 
 export type DashboardRepo = {
 	listProjects(): Promise<Project[]>
-	createProject(data: Omit<Project, "id" | "createdAt" | "updatedAt" | "order">): Promise<Project>
+	createProject(data: ProjectCreate): Promise<Project>
 	updateProject(id: string, patch: ProjectUpdate): Promise<Project>
 	deleteProject(id: string): Promise<void>
 	listAllTasks(): Promise<Task[]>
@@ -39,17 +40,10 @@ function getMaxIdCounter(projects: Project[], tasks: Task[]): number {
 	return max
 }
 
-type PersistFn = (projects: Project[], tasks: Task[]) => void
-
-type CreateRepoOptions = {
-	persist?: PersistFn
-	uid?: UidFactory
-}
-
 function createRepo(
 	initialProjects: Project[],
 	initialTasks: Task[],
-	options?: CreateRepoOptions,
+	options?: { persist?: (projects: Project[], tasks: Task[]) => void; uid?: UidFactory },
 ): DashboardRepo {
 	let projects = [...initialProjects]
 	let tasks = [...initialTasks]
@@ -163,24 +157,18 @@ function createRepo(
 	}
 }
 
-export function createMockRepo(): DashboardRepo {
-	return createRepo(MOCK_PROJECTS, MOCK_TASKS)
-}
-
 function createLocalStorageRepo(): DashboardRepo {
 	const projects = loadProjects()
-	const projectIds = new Set(projects.map((p) => p.id))
-	const tasks = loadTasks(projectIds)
-	const uid = createUidFactory(getMaxIdCounter(projects, tasks))
+	const tasks = loadTasks(new Set(projects.map((p) => p.id)))
 	return createRepo(projects, tasks, {
-		uid,
+		uid: createUidFactory(getMaxIdCounter(projects, tasks)),
 		persist: saveDashboardData,
 	})
 }
 
 export function useDashboardRepo(useMockData = false, userId?: string | null) {
 	return useMemo(() => {
-		if (useMockData) return createMockRepo()
+		if (useMockData) return createRepo(MOCK_PROJECTS, MOCK_TASKS)
 		if (userId) return createPocketBaseRepo(userId)
 		return createLocalStorageRepo()
 	}, [useMockData, userId])
@@ -203,7 +191,7 @@ export function useProjects(repo: DashboardRepo) {
 		}
 	}, [repo])
 
-	async function create(data: Omit<Project, "id" | "createdAt" | "updatedAt" | "order">) {
+	async function create(data: ProjectCreate) {
 		const p = await repo.createProject(data)
 		setProjects((prev) => (prev ? [...prev, p] : [p]))
 		return p

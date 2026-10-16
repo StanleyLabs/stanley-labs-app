@@ -17,14 +17,14 @@ import {
 	TldrawUiDialogHeader,
 	TldrawUiDialogTitle,
 	useToasts,
+	type TLUiDialogProps,
 } from "tldraw"
-import type { TLUiDialogProps } from "tldraw"
 import type { PageEntry } from "../machine"
-import type { PageRole } from "../api"
 import * as api from "../api"
+import type { PageRole, PublicAccess } from "../api"
 import { useAuth } from "../../../lib/auth"
-import { InlineSelect } from "./InlineSelect"
-import type { InlineSelectOption } from "./InlineSelect"
+import { errorMessage } from "../../../lib/pocketbase"
+import { InlineSelect, type InlineSelectOption } from "./InlineSelect"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -32,7 +32,36 @@ type Visibility = "private" | "shared" | "public"
 
 type MemberRow = api.PageMemberWithEmail
 
-// ── Role pill ──────────────────────────────────────────────────────────────────
+const byEmail = (a: MemberRow, b: MemberRow) => a.email.localeCompare(b.email)
+
+// ── Options ────────────────────────────────────────────────────────────────────
+
+const ROLE_COLORS: Record<PageRole, string> = {
+	owner: "#a78bfa",
+	editor: "#60a5fa",
+	viewer: "#9ca3af",
+}
+
+const ROLE_OPTIONS: InlineSelectOption<PageRole>[] = [
+	{ value: "viewer", label: "Viewer", color: ROLE_COLORS.viewer },
+	{ value: "editor", label: "Editor", color: ROLE_COLORS.editor },
+	{ value: "owner", label: "Owner", color: ROLE_COLORS.owner },
+]
+
+const VISIBILITY_OPTIONS: { value: Visibility; label: string; hint: string }[] = [
+	{ value: "private", label: "Private", hint: "Only you can view and edit this page." },
+	{
+		value: "shared",
+		label: "Shared",
+		hint: "Invite specific users by email. Only members can access.",
+	},
+	{ value: "public", label: "Public", hint: "Anyone with the link can open this page." },
+]
+
+const PUBLIC_ACCESS_OPTIONS: { value: PublicAccess; label: string }[] = [
+	{ value: "view", label: "View only" },
+	{ value: "edit", label: "Can edit" },
+]
 
 function rolePillStyle(role: PageRole): React.CSSProperties {
 	const color = ROLE_COLORS[role] ?? "#9ca3af"
@@ -50,27 +79,10 @@ function rolePillStyle(role: PageRole): React.CSSProperties {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export interface PageSettingsDialogProps extends TLUiDialogProps {
+interface PageSettingsDialogProps extends TLUiDialogProps {
 	entry: PageEntry
 	onUpdated: () => void
 }
-
-const ROLE_COLORS: Record<PageRole, string> = {
-	owner: "#a78bfa",
-	editor: "#60a5fa",
-	viewer: "#9ca3af",
-}
-
-const ROLE_OPTIONS: InlineSelectOption<PageRole>[] = [
-	{ value: "viewer", label: "Viewer", color: ROLE_COLORS.viewer },
-	{ value: "editor", label: "Editor", color: ROLE_COLORS.editor },
-	{ value: "owner", label: "Owner", color: ROLE_COLORS.owner },
-]
-
-const PUBLIC_ACCESS_OPTIONS: { value: "view" | "edit"; label: string }[] = [
-	{ value: "view", label: "View only" },
-	{ value: "edit", label: "Can edit" },
-]
 
 export function PageSettingsDialog(props: PageSettingsDialogProps) {
 	const { entry, onUpdated } = props
@@ -83,7 +95,7 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 		entry.visibility === "public" ? "public" : entry.visibility === "members" ? "shared" : "private"
 
 	const [visibility, setVisibility] = useState<Visibility>(initialVisibility)
-	const [publicAccess, setPublicAccess] = useState<"view" | "edit">(entry.publicAccess ?? "view")
+	const [publicAccess, setPublicAccess] = useState<PublicAccess>(entry.publicAccess ?? "view")
 	const [saving, setSaving] = useState(false)
 
 	// Members
@@ -106,14 +118,14 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 		setMembersError(null)
 		try {
 			const list = await api.listPageMembers(entry.dbId)
-			list.sort((a, b) => a.email.localeCompare(b.email))
+			list.sort(byEmail)
 			setMembers(list)
 			// If there are non-owner members and visibility is private, upgrade to shared
 			if (list.filter((m) => m.role !== "owner").length > 0 && visibility === "private") {
 				setVisibility("shared")
 			}
 		} catch (e) {
-			setMembersError(e instanceof Error ? e.message : String(e))
+			setMembersError(errorMessage(e))
 		} finally {
 			setMembersLoading(false)
 		}
@@ -159,7 +171,7 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 	)
 
 	const handlePublicAccessChange = useCallback(
-		async (access: "view" | "edit") => {
+		async (access: PublicAccess) => {
 			setPublicAccess(access)
 			if (visibility === "public") {
 				await api.sharePage(entry.dbId, access)
@@ -182,16 +194,12 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 		setAddBusy(true)
 		try {
 			const member = await api.addMemberByEmail(entry.dbId, addEmail.trim(), addRole)
-			setMembers((prev) => {
-				const next = [...prev, member]
-				next.sort((a, b) => a.email.localeCompare(b.email))
-				return next
-			})
+			setMembers((prev) => [...prev, member].sort(byEmail))
 			setAddEmail("")
 			setAddRole("viewer")
 			onUpdated()
 		} catch (e) {
-			setAddError(e instanceof Error ? e.message : String(e))
+			setAddError(errorMessage(e))
 		} finally {
 			setAddBusy(false)
 		}
@@ -204,7 +212,7 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 				setMembers((prev) => prev.filter((m) => m.userId !== userId))
 				onUpdated()
 			} catch (e) {
-				setMembersError(e instanceof Error ? e.message : String(e))
+				setMembersError(errorMessage(e))
 			}
 		},
 		[entry.dbId, onUpdated],
@@ -217,7 +225,7 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 				setMembers((prev) => prev.map((m) => (m.userId === userId ? { ...m, role } : m)))
 				onUpdated()
 			} catch (e) {
-				setMembersError(e instanceof Error ? e.message : String(e))
+				setMembersError(errorMessage(e))
 			}
 		},
 		[entry.dbId, onUpdated],
@@ -284,46 +292,21 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 				<div style={sectionStyle}>
 					<span style={labelStyle}>Visibility</span>
 					<div style={pillGroupStyle}>
-						<button
-							type="button"
-							style={pillStyle(visibility === "private")}
-							onClick={() => void handleSaveVisibility("private")}
-							disabled={!isOwner || saving}
-						>
-							Private
-						</button>
-						<button
-							type="button"
-							style={pillStyle(visibility === "shared")}
-							onClick={() => void handleSaveVisibility("shared")}
-							disabled={!isOwner || saving}
-						>
-							Shared
-						</button>
-						<button
-							type="button"
-							style={pillStyle(visibility === "public")}
-							onClick={() => void handleSaveVisibility("public")}
-							disabled={!isOwner || saving}
-						>
-							Public
-						</button>
+						{VISIBILITY_OPTIONS.map((opt) => (
+							<button
+								key={opt.value}
+								type="button"
+								style={pillStyle(visibility === opt.value)}
+								onClick={() => void handleSaveVisibility(opt.value)}
+								disabled={!isOwner || saving}
+							>
+								{opt.label}
+							</button>
+						))}
 					</div>
-					{visibility === "private" && (
-						<p style={{ fontSize: 11, color: "var(--tl-color-text-3)", marginTop: 8 }}>
-							Only you can view and edit this page.
-						</p>
-					)}
-					{visibility === "shared" && (
-						<p style={{ fontSize: 11, color: "var(--tl-color-text-3)", marginTop: 8 }}>
-							Invite specific users by email. Only members can access.
-						</p>
-					)}
-					{visibility === "public" && (
-						<p style={{ fontSize: 11, color: "var(--tl-color-text-3)", marginTop: 8 }}>
-							Anyone with the link can open this page.
-						</p>
-					)}
+					<p style={{ fontSize: 11, color: "var(--tl-color-text-3)", marginTop: 8 }}>
+						{VISIBILITY_OPTIONS.find((opt) => opt.value === visibility)?.hint}
+					</p>
 				</div>
 
 				{/* Public link + access level */}

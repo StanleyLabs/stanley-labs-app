@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react"
 
-export type TaskTimeState = {
+type TaskTimeState = {
 	/** False in demo mode or for viewers; hides all time controls. */
 	enabled: boolean
 	/** Completed tracked ms per task id. */

@@ -96,16 +96,7 @@ export default function initSignaling(server) {
 		socket.on("relayName", (config) => {
 			const { name } = config
 			socket.displayName = name || ""
-			for (const channel in socket.channels) {
-				for (const id in channels[channel]) {
-					if (id !== socket.id) {
-						channels[channel][id].emit("peerName", {
-							peer_id: socket.id,
-							name: socket.displayName,
-						})
-					}
-				}
-			}
+			emitToPeers("peerName", { peer_id: socket.id, name: socket.displayName })
 		})
 
 		socket.on("relayMediaState", (config) => {
@@ -114,17 +105,17 @@ export default function initSignaling(server) {
 					? config.avatarUrl.slice(0, 2048)
 					: ""
 			socket.mediaState = { videoMuted: !!config?.videoMuted, avatarUrl }
+			emitToPeers("peerMediaState", { peer_id: socket.id, ...socket.mediaState })
+		})
+
+		/** Emits to every other socket in any channel this socket has joined. */
+		function emitToPeers(event, payload) {
 			for (const channel in socket.channels) {
 				for (const id in channels[channel]) {
-					if (id !== socket.id) {
-						channels[channel][id].emit("peerMediaState", {
-							peer_id: socket.id,
-							...socket.mediaState,
-						})
-					}
+					if (id !== socket.id) channels[channel][id].emit(event, payload)
 				}
 			}
-		})
+		}
 
 		function part(channel) {
 			console.log(`[${socket.id}] part`)

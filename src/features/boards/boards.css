@@ -10,23 +10,12 @@ body {
 	overscroll-behavior: none;
 }
 
-/* Keep nested submenus inside the viewport.
-   tldraw uses overflow:clip on .tl-container which clips Radix submenu
-   portals. Rather than changing overflow (which breaks touch events),
-   we use a MutationObserver in WhiteboardEditor to reposition submenus
-   that would overflow the viewport. */
-
 /* Horizontal button row (tldraw v4 removed tlui-buttons__horizontal) */
 .tlui-buttons__horizontal {
 	display: flex;
 	flex-direction: row;
 	align-items: center;
 	gap: 2px;
-}
-
-/* Share page: divider below when last in main menu */
-.tlui-menu__group[data-testid="main-menu-group.create-link"] {
-	border-bottom: 1px solid var(--tl-color-divider);
 }
 
 /* Share button: left of 3-dot menu, clickable to copy link. Shows on hover like submenu. */
@@ -98,27 +87,6 @@ body {
 	border-color: var(--tl-color-selected);
 }
 
-.tlui-page-menu__open-link__button {
-	flex-shrink: 0;
-}
-
-/* Loading animation: a segment chases around the rounded square */
-.loading-animation {
-	color: inherit;
-}
-
-.loading-animation path {
-	stroke-dasharray: 0.25 0.75;
-	stroke-dashoffset: 1;
-	animation: loading-chase 1.2s linear infinite;
-}
-
-@keyframes loading-chase {
-	to {
-		stroke-dashoffset: 0;
-	}
-}
-
 /* Delete page dialog: centered title and subtitle, larger text */
 .delete-page-dialog__header {
 	justify-content: center;
@@ -180,10 +148,6 @@ body {
 		flex: 0 0 auto;
 		min-height: 40px;
 	}
-
-	.delete-page-dialog__hint {
-		font-size: 10px;
-	}
 }
 
 .delete-page-dialog__actions .tlui-button {
@@ -211,25 +175,4 @@ body {
 .delete-page-dialog__actions .tlui-button__danger:hover::after,
 .delete-page-dialog__actions .tlui-button__danger::after {
 	background-color: color-mix(in srgb, var(--tl-color-danger) 25%, transparent);
-}
-
-.delete-page-dialog__footer {
-	display: flex;
-	flex-direction: row;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--tl-space-4, 12px);
-	padding: var(--tl-space-3, 8px) var(--tl-space-4, 12px);
-	border-top: 1px solid var(--tl-color-divider);
-}
-
-.delete-page-dialog__hint {
-	margin: 0;
-	font-size: 11px;
-	line-height: 1.4;
-	color: var(--tl-color-text-3, rgba(255, 255, 255, 0.6));
-	text-align: left;
-	flex: 1;
-	min-width: 0;
-	padding-right: var(--tl-space-4, 12px);
 }

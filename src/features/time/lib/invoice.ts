@@ -91,7 +91,7 @@ export function buildItems(
 
 	return [...groups.values()].map(({ item, ms }) => ({
 		...item,
-		hours: Math.round(msToHours(ms) * 100) / 100,
+		hours: round2(msToHours(ms)),
 		amount: amountFor(ms, item.rate),
 	}))
 }

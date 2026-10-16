@@ -8,9 +8,9 @@
  */
 
 import { useCallback } from "react"
-import type { TLPageId } from "@tldraw/tlschema"
 import {
 	PageRecordType,
+	type TLPageId,
 	TldrawUiButton,
 	TldrawUiButtonIcon,
 	TldrawUiDropdownMenuContent,
@@ -30,16 +30,16 @@ import { useAuth } from "../../../../lib/auth"
 import { useBoardsMachine } from "../../MachineContext"
 import * as api from "../../api"
 import type { PageEntry } from "../../machine"
-import { onMovePage } from "./onMovePage"
+import { onMovePage, type TrackEvent } from "./onMovePage"
 
-export interface CustomPageItemSubmenuProps {
+interface CustomPageItemSubmenuProps {
 	index: number
 	item: { id: string; name: string }
 	listSize: number
 	pages: { id: string; name: string }[]
 	entry: PageEntry | undefined
 	onRename?: () => void
-	trackEvent: (name: string, data?: unknown) => void
+	trackEvent: TrackEvent
 }
 
 export function CustomPageItemSubmenu({
@@ -91,7 +91,7 @@ export function CustomPageItemSubmenu({
 
 	const performDelete = useCallback(async () => {
 		// Guest viewing a shared page: clean navigate (tldraw sync fights in-place removal)
-		if (isGuestSharedPage && removeSharedPage) {
+		if (isGuestSharedPage) {
 			removeSharedPage()
 			return
 		}
@@ -123,7 +123,6 @@ export function CustomPageItemSubmenu({
 				<ConfirmDeleteDialog
 					onClose={props.onClose}
 					pageName={item.name}
-					isLoggedIn
 					onConfirm={() => {
 						performDelete()
 						toasts.addToast({

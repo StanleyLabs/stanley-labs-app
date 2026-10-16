@@ -3,11 +3,15 @@
  * add its shapes/assets to the current page (merge, don't replace).
  */
 
-import type { Editor, TLContent } from "@tldraw/editor"
-import type { TLAsset, TLBinding, TLShape } from "@tldraw/tlschema"
-
-import type { SerializedSchema } from "@tldraw/store"
-import type { TLUiOverrides } from "tldraw"
+import type {
+	Editor,
+	SerializedSchema,
+	TLAsset,
+	TLBinding,
+	TLContent,
+	TLShape,
+	TLUiOverrides,
+} from "tldraw"
 
 interface DocSnapshot {
 	store: Record<string, { typeName: string; id: string; parentId?: string }>
@@ -68,8 +72,8 @@ export function importJsonFromText(editor: Editor, text: string): boolean {
 	}
 }
 
-/** Try to paste from clipboard; returns true if our JSON was pasted. For use by paste action override. */
-export async function tryPasteJsonFromClipboard(editor: Editor): Promise<boolean> {
+/** Try to paste from clipboard; returns true if our JSON was pasted. */
+async function tryPasteJsonFromClipboard(editor: Editor): Promise<boolean> {
 	if (!navigator.clipboard?.readText) return false
 	try {
 		const text = await navigator.clipboard.readText()
@@ -85,6 +89,12 @@ export function createPasteActionOverride(): TLUiOverrides {
 		actions: (editor, actions, helpers) => {
 			const pasteAction = actions["paste"]
 			if (!pasteAction?.onSelect) return actions
+			const showPasteError = () =>
+				helpers.addToast({
+					title: helpers.msg("action.paste-error-title"),
+					description: helpers.msg("action.paste-error-description"),
+					severity: "error",
+				})
 			const newPasteAction = {
 				...pasteAction,
 				onSelect: (source: Parameters<typeof pasteAction.onSelect>[0]) => {
@@ -93,11 +103,7 @@ export function createPasteActionOverride(): TLUiOverrides {
 							const handled = await tryPasteJsonFromClipboard(editor)
 							if (handled) return
 							if (!navigator.clipboard || typeof navigator.clipboard.read !== "function") {
-								helpers.addToast({
-									title: helpers.msg("action.paste-error-title"),
-									description: helpers.msg("action.paste-error-description"),
-									severity: "error",
-								})
+								showPasteError()
 								return
 							}
 							const clipboardItems = await navigator.clipboard.read()
@@ -107,11 +113,7 @@ export function createPasteActionOverride(): TLUiOverrides {
 								source === "context-menu" ? editor.inputs.currentPagePoint : undefined,
 							)
 						} catch {
-							helpers.addToast({
-								title: helpers.msg("action.paste-error-title"),
-								description: helpers.msg("action.paste-error-description"),
-								severity: "error",
-							})
+							showPasteError()
 						}
 					})()
 				},

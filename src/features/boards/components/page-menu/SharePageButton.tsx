@@ -12,7 +12,6 @@ import { useBoardsMachine } from "../../MachineContext"
 interface Props {
 	pageId: string
 	entry: PageEntry | undefined
-	isLoggedIn: boolean
 }
 
 export function SharePageButton({ pageId, entry }: Props) {

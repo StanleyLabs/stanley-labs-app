@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { formatHM, parseDuration } from "../lib/time"
+import { formatHM, MINUTE, parseDuration } from "../lib/time"
 import { cn } from "../../../components/ui/styles"
 
 /** Editable h:mm duration ("1:30", "90m", "1.5h"). Commits on blur/Enter. */
@@ -29,7 +29,7 @@ export function DurationInput({
 			}, 600)
 			return
 		}
-		if (Math.round(parsed / 60000) !== Math.round(ms / 60000)) onCommit(parsed)
+		if (Math.round(parsed / MINUTE) !== Math.round(ms / MINUTE)) onCommit(parsed)
 		else setText(formatHM(ms))
 	}
 

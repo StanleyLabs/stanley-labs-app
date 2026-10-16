@@ -5,11 +5,21 @@ import { btnGhost, btnPrimary, cn, input, label } from "../../../components/ui/s
 import { useDismiss } from "../../../components/ui/useDismiss"
 import type { TaskPriority, TaskStatus } from "../types"
 import { STATUS_COLUMNS, PRIORITY_CONFIG } from "../types"
-import { Avatar } from "../ui"
+import { Avatar } from "../ui/Avatar"
 import { IconX } from "../icons"
 import { AVATAR_COLORS, nameToInitials } from "../utils"
 
 export type KnownAssignee = { name: string; initials: string; color: string }
+
+export type TaskFormValues = {
+	title: string
+	description: string
+	priority: TaskPriority
+	status: TaskStatus
+	tags: string[]
+	assignee: string
+	assigneeColor: string
+}
 
 const STATUS_OPTIONS = STATUS_COLUMNS.map((c) => ({ value: c.key, label: c.label, color: c.color }))
 const PRIORITY_OPTIONS = (["urgent", "high", "medium", "low"] as TaskPriority[]).map((p) => ({
@@ -28,26 +38,10 @@ export function TaskForm({
 	onSubmit,
 	onCancel,
 }: {
-	initial: {
-		title: string
-		description: string
-		priority: TaskPriority
-		status: TaskStatus
-		tags: string[]
-		assignee: string
-		assigneeColor: string
-	}
+	initial: TaskFormValues
 	knownAssignees: KnownAssignee[]
 	knownTags: string[]
-	onSubmit: (v: {
-		title: string
-		description: string
-		priority: TaskPriority
-		status: TaskStatus
-		tags: string[]
-		assignee: string
-		assigneeColor: string
-	}) => void
+	onSubmit: (v: TaskFormValues) => void
 	onCancel: () => void
 }) {
 	const [title, setTitle] = useState(initial.title)

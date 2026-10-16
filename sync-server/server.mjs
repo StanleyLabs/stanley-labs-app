@@ -125,6 +125,8 @@ async function loadSnapshot(roomId) {
 	return undefined
 }
 
+const lastSaveLog = new Map()
+
 async function saveSnapshot(roomId, snapshot) {
 	const pb = await getPocketBase()
 	if (!pb) return
@@ -158,7 +160,6 @@ const schema = createTLSchema({
 })
 
 const rooms = new Map()
-const lastSaveLog = new Map()
 
 /**
  * Returns a room synchronously so handleSocketConnect can run immediately

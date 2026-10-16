@@ -26,6 +26,14 @@ export function amountFor(ms: number, rate: number): number {
 	return Math.round(msToHours(ms) * rate * 100) / 100
 }
 
+/** Parses an hourly-rate field: undefined when blank or 0, null when invalid. */
+export function parseRate(text: string): number | undefined | null {
+	if (!text.trim()) return undefined
+	const n = Number(text)
+	if (!Number.isFinite(n) || n < 0) return null
+	return n || undefined
+}
+
 const formatters = new Map<string, Intl.NumberFormat>()
 
 export function formatMoney(amount: number, currency = DEFAULT_CURRENCY): string {
@@ -39,4 +47,9 @@ export function formatMoney(amount: number, currency = DEFAULT_CURRENCY): string
 		formatters.set(currency, f)
 	}
 	return f.format(amount)
+}
+
+/** Per-currency amounts as "$1.00 + €2.00". */
+export function formatMoneyTotals(amounts: Map<string, number>): string {
+	return [...amounts.entries()].map(([c, a]) => formatMoney(a, c)).join(" + ")
 }

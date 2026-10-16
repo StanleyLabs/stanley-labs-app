@@ -7,10 +7,19 @@ import { IconEdit, IconPlus, IconTrash, IconUsers } from "../../../components/ui
 import { ConfirmDialog, Modal } from "../../../components/ui/Modal"
 import { btnPrimary, card, cn, iconBtn } from "../../../components/ui/styles"
 import { ClientForm } from "./ClientForm"
+import { EmptyState } from "./EmptyState"
 
 export function ClientsView({ data }: { data: TimeData }) {
-	const { clients, projects, completed, projectsById, createClient, updateClient, deleteClient } =
-		data
+	const {
+		clients,
+		projects,
+		completed,
+		clientsById,
+		projectsById,
+		createClient,
+		updateClient,
+		deleteClient,
+	} = data
 	const [modal, setModal] = useState<{ client?: Client } | null>(null)
 	const [confirm, setConfirm] = useState<Client | null>(null)
 
@@ -20,7 +29,6 @@ export function ClientsView({ data }: { data: TimeData }) {
 		for (const p of projects) {
 			if (p.clientId && m.has(p.clientId)) m.get(p.clientId)!.projects++
 		}
-		const clientsById = new Map(clients.map((c) => [c.id, c]))
 		for (const e of completed) {
 			const p = e.projectId ? projectsById.get(e.projectId) : undefined
 			const s = p?.clientId ? m.get(p.clientId) : undefined
@@ -32,7 +40,7 @@ export function ClientsView({ data }: { data: TimeData }) {
 			}
 		}
 		return m
-	}, [clients, projects, completed, projectsById])
+	}, [clients, clientsById, projects, completed, projectsById])
 
 	return (
 		<div className="space-y-4">
@@ -48,15 +56,11 @@ export function ClientsView({ data }: { data: TimeData }) {
 			</div>
 
 			{clients.length === 0 ? (
-				<div className={cn(card, "flex flex-col items-center px-6 py-14 text-center")}>
-					<div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-electric/10 text-electric">
-						<IconUsers className="h-6 w-6" />
-					</div>
-					<p className="font-display text-lg font-semibold text-paper">No clients yet</p>
+				<EmptyState icon={IconUsers} title="No clients yet">
 					<p className="mt-1 max-w-sm text-sm text-fog/50">
 						Add a client, then assign it to projects in the Projects tab to bill their time.
 					</p>
-				</div>
+				</EmptyState>
 			) : (
 				<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
 					{clients.map((c) => {

@@ -5,7 +5,7 @@ type MemberRow = {
 	id: string
 	project_id: string
 	user_id: string
-	role: MemberRole | string
+	role: string
 	added_at: string
 	email: string
 }
@@ -58,15 +58,12 @@ export async function addProjectMember(
 	if (!userId) throw new Error("No user found with that email.")
 
 	try {
-		const inserted = await members().create({ project_id: projectId, user_id: userId, role })
-		return {
-			id: inserted.id,
-			projectId: inserted.project_id,
-			userId: inserted.user_id,
-			email,
-			role: inserted.role as MemberRole,
-			addedAt: inserted.added_at,
-		}
+		const inserted = await members().create<Omit<MemberRow, "email">>({
+			project_id: projectId,
+			user_id: userId,
+			role,
+		})
+		return toProjectMember({ ...inserted, email })
 	} catch (err) {
 		if (isUniqueViolation(err)) throw new Error("That user is already a member of this project.")
 		throw new Error(errorMessage(err))
@@ -113,18 +110,5 @@ export async function leaveProject(projectId: string, userId: string): Promise<v
 		await members().delete(row.id)
 	} catch (err) {
 		throw new Error(errorMessage(err))
-	}
-}
-
-/** Get the current user's role on a project. Returns null if not a member. */
-export async function getUserRole(projectId: string, userId: string): Promise<MemberRole | null> {
-	try {
-		const row = await members().getFirstListItem(
-			pb.filter("project_id = {:p} && user_id = {:u}", { p: projectId, u: userId }),
-			{ fields: "role" },
-		)
-		return row.role as MemberRole
-	} catch {
-		return null
 	}
 }

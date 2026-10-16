@@ -7,18 +7,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useLocation } from "react-router-dom"
-import type { MemberRole, Project, Task, TaskPriority, TaskStatus, ViewMode } from "../types"
+import type { MemberRole, Project, Task, TaskStatus, ViewMode } from "../types"
 import { PROJECT_COLORS } from "../types"
 import { getUserRoles, leaveProject } from "../memberStorage"
 import { useDashboardRepo, useProjects, useTasks } from "../store"
 import { useAuth } from "../../../lib/auth"
 import { nameToInitials } from "../utils"
-import type { KnownAssignee } from "../index"
+import type { KnownAssignee, TaskFormValues } from "../forms/TaskForm"
 import type { ProjectFormValues } from "../forms/ProjectForm"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-export interface ConfirmDialogState {
+interface ConfirmDialogState {
 	title: string
 	message: string
 	confirmLabel?: string
@@ -26,17 +26,31 @@ export interface ConfirmDialogState {
 	onConfirm: () => void
 }
 
-export interface ProjectModalState {
+interface ProjectModalState {
 	mode: "create" | "edit"
 	project?: Project
 	/** Pre-selected client when creating from a client group or the Clients panel. */
 	clientId?: string
 }
 
-export interface TaskModalState {
+interface TaskModalState {
 	mode: "create" | "edit"
 	task?: Task
 	defaultStatus?: TaskStatus
+}
+
+function toAssignee(data: TaskFormValues): Task["assignee"] {
+	return data.assignee
+		? {
+				name: data.assignee,
+				initials: nameToInitials(data.assignee),
+				color: data.assigneeColor,
+			}
+		: undefined
+}
+
+function firstOtherProjectId(projects: Project[] | null, id: string): string | null {
+	return projects?.find((p) => p.id !== id)?.id ?? null
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
@@ -44,7 +58,7 @@ export interface TaskModalState {
 export function useTasksPage() {
 	const { pathname } = useLocation()
 	const { user } = useAuth()
-	const useMockData = pathname === "/tasks/demo" || pathname === "/demo"
+	const useMockData = pathname === "/tasks/demo"
 	const repo = useDashboardRepo(useMockData, user?.id)
 	const projectsApi = useProjects(repo)
 	const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
@@ -123,18 +137,10 @@ export function useTasksPage() {
 		)
 	}, [tasksApi.tasks, search])
 
-	const statusCounts = useMemo(() => {
-		const counts: Record<string, number> = {}
-		for (const t of tasksApi.tasks ?? []) {
-			counts[t.status] = (counts[t.status] || 0) + 1
-		}
-		return counts
-	}, [tasksApi.tasks])
-
 	const totalTasks = tasksApi.tasks?.length ?? 0
-	const doneTasks = statusCounts["done"] ?? 0
+	const doneTasks = tasksApi.tasks?.filter((t) => t.status === "done").length ?? 0
 
-	// ── Assignees & tags (single query instead of two) ─────────────────────────
+	// ── Assignees & tags ───────────────────────────────────────────────────────
 
 	const [allAssignees, setAllAssignees] = useState<KnownAssignee[]>([])
 	const [allTags, setAllTags] = useState<string[]>([])
@@ -271,10 +277,8 @@ export function useTasksPage() {
 							return next
 						})
 						await projectsApi.refresh()
-						if (activeProjectId === id) {
-							const next = (projectsApi.projects ?? []).filter((p) => p.id !== id)[0]
-							setActiveProjectId(next?.id ?? null)
-						}
+						if (activeProjectId === id)
+							setActiveProjectId(firstOtherProjectId(projectsApi.projects, id))
 					} catch {
 						/* ignore */
 					}
@@ -294,10 +298,8 @@ export function useTasksPage() {
 				onConfirm: async () => {
 					setConfirmDialog(null)
 					await projectsApi.remove(id)
-					if (activeProjectId === id) {
-						const next = (projectsApi.projects ?? []).filter((p) => p.id !== id)[0]
-						setActiveProjectId(next?.id ?? null)
-					}
+					if (activeProjectId === id)
+						setActiveProjectId(firstOtherProjectId(projectsApi.projects, id))
 				},
 			})
 		},
@@ -307,15 +309,7 @@ export function useTasksPage() {
 	// ── Task handlers ──────────────────────────────────────────────────────────
 
 	const handleCreateTask = useCallback(
-		async (data: {
-			title: string
-			description: string
-			priority: TaskPriority
-			status: TaskStatus
-			tags: string[]
-			assignee: string
-			assigneeColor: string
-		}) => {
+		async (data: TaskFormValues) => {
 			if (!activeProjectId) return
 			const maxOrder = Math.max(
 				0,
@@ -329,13 +323,7 @@ export function useTasksPage() {
 				status: data.status,
 				tags: data.tags,
 				order: maxOrder + 1,
-				assignee: data.assignee
-					? {
-							name: data.assignee,
-							initials: nameToInitials(data.assignee),
-							color: data.assigneeColor,
-						}
-					: undefined,
+				assignee: toAssignee(data),
 			})
 			if (data.assignee) await syncAssigneeColor(data.assignee, data.assigneeColor)
 			setTaskModal(null)
@@ -344,15 +332,7 @@ export function useTasksPage() {
 	)
 
 	const handleUpdateTask = useCallback(
-		async (data: {
-			title: string
-			description: string
-			priority: TaskPriority
-			status: TaskStatus
-			tags: string[]
-			assignee: string
-			assigneeColor: string
-		}) => {
+		async (data: TaskFormValues) => {
 			if (!taskModal?.task) return
 			await tasksApi.update(taskModal.task.id, {
 				title: data.title,
@@ -360,13 +340,7 @@ export function useTasksPage() {
 				priority: data.priority,
 				status: data.status,
 				tags: data.tags,
-				assignee: data.assignee
-					? {
-							name: data.assignee,
-							initials: nameToInitials(data.assignee),
-							color: data.assigneeColor,
-						}
-					: undefined,
+				assignee: toAssignee(data),
 			})
 			if (data.assignee) await syncAssigneeColor(data.assignee, data.assigneeColor)
 			setTaskModal(null)
@@ -386,13 +360,6 @@ export function useTasksPage() {
 					setTaskModal(null)
 				},
 			})
-		},
-		[tasksApi],
-	)
-
-	const handleReorder = useCallback(
-		async (taskId: string, newStatus: TaskStatus, newIndex: number) => {
-			await tasksApi.reorder(taskId, newStatus, newIndex)
 		},
 		[tasksApi],
 	)
@@ -440,6 +407,6 @@ export function useTasksPage() {
 		handleCreateTask,
 		handleUpdateTask,
 		handleDeleteTask,
-		handleReorder,
+		handleReorder: tasksApi.reorder,
 	}
 }

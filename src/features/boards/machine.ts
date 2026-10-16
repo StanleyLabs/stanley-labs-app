@@ -26,10 +26,9 @@
  */
 
 import { setup, assign, type SnapshotFrom } from "xstate"
+import type { PageRole, PageVisibility, PublicAccess } from "./api"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-
-export type PageRole = "owner" | "editor" | "viewer"
 
 export interface PageEntry {
 	/** DB page id */
@@ -37,9 +36,9 @@ export interface PageEntry {
 	/** tldraw page id (page:xxx) */
 	tldrawId: string
 	title: string
-	visibility: "private" | "members" | "public"
+	visibility: PageVisibility
 	publicSlug: string | null
-	publicAccess: "view" | "edit" | null
+	publicAccess: PublicAccess | null
 	sortIndex: string | null
 	role: PageRole
 }
@@ -58,12 +57,6 @@ export interface BoardsContext {
 	activeRole: PageRole | null
 	/** Public slug when viewing a shared link. */
 	activeSlug: string | null
-
-	/** Whether the PocketBase backend is configured. */
-	backendReady: boolean
-
-	/** Error message for loading failures. */
-	error: string | null
 }
 
 export type BoardsEvent =
@@ -71,14 +64,9 @@ export type BoardsEvent =
 	| { type: "LOGIN"; userId: string }
 	| { type: "LOGOUT" }
 
-	// Backend init
-	| { type: "BACKEND_READY" }
-	| { type: "BACKEND_UNAVAILABLE" }
-
 	// Page list (authed)
 	| { type: "PAGES_LOADED"; pages: PageEntry[] }
 	| { type: "PAGE_ADDED"; page: PageEntry }
-	| { type: "PAGES_FAILED"; error: string }
 	| { type: "RELOAD_PAGES" }
 
 	// Page selection
@@ -103,8 +91,6 @@ const initialContext: BoardsContext = {
 	activePageTldrawId: null,
 	activeRole: null,
 	activeSlug: null,
-	backendReady: false,
-	error: null,
 }
 
 export const boardsMachine = setup({
@@ -127,15 +113,11 @@ export const boardsMachine = setup({
 		}),
 		setPages: assign(({ event }) => {
 			const e = event as Extract<BoardsEvent, { type: "PAGES_LOADED" }>
-			return { pages: e.pages, error: null }
+			return { pages: e.pages }
 		}),
 		addPage: assign(({ context, event }) => {
 			const e = event as Extract<BoardsEvent, { type: "PAGE_ADDED" }>
 			return { pages: [...context.pages, e.page] }
-		}),
-		setError: assign(({ event }) => {
-			const e = event as Extract<BoardsEvent, { type: "PAGES_FAILED" }>
-			return { error: e.error }
 		}),
 		selectPage: assign(({ event }) => {
 			const e = event as Extract<BoardsEvent, { type: "SELECT_PAGE" }>
@@ -165,7 +147,6 @@ export const boardsMachine = setup({
 			const e = event as Extract<BoardsEvent, { type: "UPDATE_ROLE" }>
 			return { activeRole: e.role }
 		}),
-		markBackendReady: assign({ backendReady: true }),
 	},
 	guards: {
 		isPageShared: ({ context }) => {
@@ -178,11 +159,6 @@ export const boardsMachine = setup({
 	id: "boards",
 	initial: "guest",
 	context: initialContext,
-
-	on: {
-		BACKEND_READY: { actions: "markBackendReady" },
-		BACKEND_UNAVAILABLE: {},
-	},
 
 	states: {
 		guest: {
@@ -220,7 +196,6 @@ export const boardsMachine = setup({
 				loading: {
 					on: {
 						PAGES_LOADED: { target: "ready", actions: "setPages" },
-						PAGES_FAILED: { target: "ready", actions: "setError" },
 					},
 				},
 				ready: {
@@ -272,22 +247,6 @@ export const boardsMachine = setup({
 
 export type MachineState = SnapshotFrom<typeof boardsMachine>
 
-export function isGuest(state: MachineState): boolean {
-	return state.matches("guest")
-}
-
-export function isAuthed(state: MachineState): boolean {
-	return state.matches("authed")
-}
-
-export function isLoading(state: MachineState): boolean {
-	return state.matches({ authed: "loading" })
-}
-
-export function isReady(state: MachineState): boolean {
-	return state.matches({ authed: "ready" })
-}
-
 export function isEditable(state: MachineState): boolean {
 	const { activeRole } = state.context
 	// Guest idle = editing local pages
@@ -297,15 +256,11 @@ export function isEditable(state: MachineState): boolean {
 		return activeRole === "editor" || activeRole === "owner"
 	}
 	// Authed: editable if role is owner/editor, or if no page selected yet (loading/default state)
-	if (isAuthed(state)) {
+	if (state.matches("authed")) {
 		if (!activeRole) return true // default editable while loading
 		return activeRole === "owner" || activeRole === "editor"
 	}
 	return false
-}
-
-export function isViewingSharedLink(state: MachineState): boolean {
-	return Boolean(state.context.activeSlug)
 }
 
 export function isServerSynced(state: MachineState): boolean {
@@ -333,19 +288,11 @@ export function isActivePageShared(state: MachineState): boolean {
 	return page?.visibility === "public"
 }
 
-export function isOwner(state: MachineState): boolean {
-	return state.context.activeRole === "owner"
-}
-
 /** Get the sync status for the connection indicator. */
 export function getSyncStatus(
 	state: MachineState,
 ): "local" | "loading" | "synced" | "server-sync" | "offline" {
-	if (
-		state.matches({ authed: { ready: "serverSync" } }) ||
-		state.matches({ guest: "viewingSynced" })
-	)
-		return "server-sync"
+	if (isServerSynced(state)) return "server-sync"
 	if (state.matches({ authed: { ready: "connecting" } })) return "loading"
 	if (state.matches({ authed: { ready: "offline" } })) return "offline"
 	if (state.matches({ authed: { ready: "local" } }) && state.context.activePageDbId) return "synced"

@@ -8,11 +8,11 @@
 import {
 	EASINGS,
 	StateNode,
-	TLClickEventInfo,
-	TLPointerEventInfo,
-	TLStateNodeConstructor,
+	type TLClickEventInfo,
+	type TLPointerEventInfo,
+	type TLStateNodeConstructor,
 	Vec,
-} from "@tldraw/editor"
+} from "tldraw"
 
 // ── Idle: default cursor (not grab) ─────────────────────────────────────────
 

@@ -1,13 +1,12 @@
 import { Link } from "react-router-dom"
-import { useNow, useRunningTimer } from "../lib/runningTimer"
+import { describeRunning, useNow, useRunningTimer } from "../lib/runningTimer"
 import { entryDurationMs, formatClock } from "../features/time/lib/time"
+import { IconStop } from "./ui/icons"
 
 /** Floating "timer running" pill shown next to the nav button outside the Time app. */
 export function RunningTimerPill({
-	className = "",
 	compact = false,
 }: {
-	className?: string
 	/** Hide the title up to 880px wide instead of only below `sm`. */
 	compact?: boolean
 }) {
@@ -15,18 +14,10 @@ export function RunningTimerPill({
 	const now = useNow(!!running)
 	if (!running) return null
 
-	const color = labels.projectColor ?? "#2D6BFF"
-	const title = labels.taskTitle ?? labels.projectName ?? (running.description || "Timer running")
-	const sub = labels.taskTitle
-		? labels.projectName
-		: labels.projectName
-			? running.description || undefined
-			: undefined
+	const { color, title, sub } = describeRunning(running, labels)
 
 	return (
-		<div
-			className={`pointer-events-auto flex h-10 items-center gap-1 rounded-full border border-white/[0.08] bg-ink/90 pl-1.5 pr-1 shadow-lg backdrop-blur-xl animate-scale-in ${className}`}
-		>
+		<div className="pointer-events-auto flex h-10 items-center gap-1 rounded-full border border-white/[0.08] bg-ink/90 pl-1.5 pr-1 shadow-lg backdrop-blur-xl animate-scale-in">
 			<Link
 				to="/time"
 				className="flex min-w-0 items-center gap-2 rounded-full py-1 pl-2 pr-2 transition-colors hover:bg-white/[0.06]"
@@ -60,9 +51,7 @@ export function RunningTimerPill({
 				title="Stop timer"
 				aria-label="Stop timer"
 			>
-				<svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-					<rect x="6" y="6" width="12" height="12" rx="2" />
-				</svg>
+				<IconStop className="h-3.5 w-3.5" />
 			</button>
 		</div>
 	)

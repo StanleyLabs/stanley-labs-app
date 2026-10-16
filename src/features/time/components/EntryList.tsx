@@ -5,12 +5,13 @@ import type { EntryPatch, TimeEntry } from "../types"
 import { IconClock, IconPlus, IconX } from "../../../components/ui/icons"
 import { ConfirmDialog } from "../../../components/ui/Modal"
 import { btnGhost, card, cn } from "../../../components/ui/styles"
+import { EmptyState } from "./EmptyState"
 import { EntryRow } from "./EntryRow"
 import { ManualEntryForm } from "./ManualEntryForm"
 
 const DAYS_PER_PAGE = 14
 
-export type EntryFilter = { projectId?: string; taskId?: string }
+type EntryFilter = { projectId?: string; taskId?: string }
 
 export function EntryList({
 	data,
@@ -103,16 +104,12 @@ export function EntryList({
 			{showManual && <ManualEntryForm data={data} onDone={() => setShowManual(false)} />}
 
 			{days.length === 0 && !showManual && (
-				<div className={cn(card, "flex flex-col items-center px-6 py-14 text-center")}>
-					<div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-electric/10 text-electric">
-						<IconClock className="h-6 w-6" />
-					</div>
-					<p className="font-display text-lg font-semibold text-paper">No time tracked yet</p>
+				<EmptyState icon={IconClock} title="No time tracked yet">
 					<p className="mt-1 max-w-sm text-sm text-fog/50">
 						Type what you're working on above, pick a project or task, and hit play. Press Space
 						anywhere to start or stop.
 					</p>
-				</div>
+				</EmptyState>
 			)}
 
 			{visibleDays.map(([key, list]) => {

@@ -17,9 +17,13 @@ const EMPTY: BillingProfile = {
 	defaultTerms: 14,
 }
 
+function storageKey(userId?: string | null): string {
+	return userId ? `${KEY}:${userId}` : KEY
+}
+
 export function loadProfile(userId?: string | null): BillingProfile {
 	try {
-		const raw = localStorage.getItem(userId ? `${KEY}:${userId}` : KEY)
+		const raw = localStorage.getItem(storageKey(userId))
 		return raw ? { ...EMPTY, ...JSON.parse(raw) } : { ...EMPTY }
 	} catch {
 		return { ...EMPTY }
@@ -28,7 +32,7 @@ export function loadProfile(userId?: string | null): BillingProfile {
 
 export function saveProfile(profile: BillingProfile, userId?: string | null): void {
 	try {
-		localStorage.setItem(userId ? `${KEY}:${userId}` : KEY, JSON.stringify(profile))
+		localStorage.setItem(storageKey(userId), JSON.stringify(profile))
 	} catch {
 		// Ignore quota/security errors
 	}

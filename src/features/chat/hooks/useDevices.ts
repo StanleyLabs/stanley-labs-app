@@ -2,7 +2,11 @@ import { useState, useEffect, useCallback } from "react"
 
 interface UseDevicesOptions {
 	localStream: MediaStream | null
-	onTrackReplaced?: (kind: "audio" | "video", track: MediaStreamTrack) => void
+	onTrackReplaced: (kind: "audio" | "video", track: MediaStreamTrack) => void
+}
+
+function getTrack(stream: MediaStream, kind: "audio" | "video"): MediaStreamTrack | undefined {
+	return kind === "audio" ? stream.getAudioTracks()[0] : stream.getVideoTracks()[0]
 }
 
 export function useDevices({ localStream, onTrackReplaced }: UseDevicesOptions) {
@@ -10,22 +14,27 @@ export function useDevices({ localStream, onTrackReplaced }: UseDevicesOptions) 
 	const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([])
 	const [selectedAudioDevice, setSelectedAudioDevice] = useState("")
 	const [selectedVideoDevice, setSelectedVideoDevice] = useState("")
-	const enumerate = useCallback(async () => {
-		try {
-			const devices = await navigator.mediaDevices.enumerateDevices()
+
+	const apply = useCallback(
+		(devices: MediaDeviceInfo[]) => {
 			setAudioDevices(devices.filter((d) => d.kind === "audioinput"))
 			setVideoDevices(devices.filter((d) => d.kind === "videoinput"))
+			if (!localStream) return
+			const audioId = getTrack(localStream, "audio")?.getSettings().deviceId
+			const videoId = getTrack(localStream, "video")?.getSettings().deviceId
+			if (audioId) setSelectedAudioDevice(audioId)
+			if (videoId) setSelectedVideoDevice(videoId)
+		},
+		[localStream],
+	)
 
-			if (localStream) {
-				const at = localStream.getAudioTracks()[0]
-				const vt = localStream.getVideoTracks()[0]
-				if (at?.getSettings().deviceId) setSelectedAudioDevice(at.getSettings().deviceId!)
-				if (vt?.getSettings().deviceId) setSelectedVideoDevice(vt.getSettings().deviceId!)
-			}
+	const enumerate = useCallback(async () => {
+		try {
+			apply(await navigator.mediaDevices.enumerateDevices())
 		} catch (err) {
 			console.error("Failed to enumerate devices:", err)
 		}
-	}, [localStream])
+	}, [apply])
 
 	// Initial enumeration when stream is available
 	useEffect(() => {
@@ -34,21 +43,14 @@ export function useDevices({ localStream, onTrackReplaced }: UseDevicesOptions) 
 		navigator.mediaDevices
 			.enumerateDevices()
 			.then((devices) => {
-				if (cancelled) return
-				setAudioDevices(devices.filter((d) => d.kind === "audioinput"))
-				setVideoDevices(devices.filter((d) => d.kind === "videoinput"))
-				const at = localStream.getAudioTracks()[0]
-				const vt = localStream.getVideoTracks()[0]
-				if (at?.getSettings().deviceId) setSelectedAudioDevice(at.getSettings().deviceId!)
-				if (vt?.getSettings().deviceId) setSelectedVideoDevice(vt.getSettings().deviceId!)
+				if (!cancelled) apply(devices)
 			})
 			.catch((err) => console.error("Failed to enumerate devices:", err))
 		return () => {
 			cancelled = true
 		}
-	}, [localStream])
+	}, [localStream, apply])
 
-	// Listen for device changes
 	useEffect(() => {
 		const handler = () => enumerate()
 		navigator.mediaDevices.addEventListener("devicechange", handler)
@@ -68,26 +70,15 @@ export function useDevices({ localStream, onTrackReplaced }: UseDevicesOptions) 
 						: { video: { deviceId: { exact: deviceId } } }
 
 				const newStream = await navigator.mediaDevices.getUserMedia(constraints)
-				const newTrack =
-					kind === "audio" ? newStream.getAudioTracks()[0] : newStream.getVideoTracks()[0]
-
-				if (!newTrack) {
-					// Stop all tracks from the unused stream
-					newStream.getTracks().forEach((t) => t.stop())
-					return
-				}
-
-				// Stop any extra tracks we don't need from the new stream
+				const newTrack = getTrack(newStream, kind)
 				newStream.getTracks().forEach((t) => {
 					if (t !== newTrack) t.stop()
 				})
+				if (!newTrack) return
 
-				// Replace in local stream
-				const oldTrack =
-					kind === "audio" ? localStream.getAudioTracks()[0] : localStream.getVideoTracks()[0]
-
+				// Swap in place so every holder of localStream sees the new track
+				const oldTrack = getTrack(localStream, kind)
 				if (oldTrack) {
-					// Preserve enabled state
 					newTrack.enabled = oldTrack.enabled
 					localStream.removeTrack(oldTrack)
 					oldTrack.stop()
@@ -97,7 +88,7 @@ export function useDevices({ localStream, onTrackReplaced }: UseDevicesOptions) 
 				if (kind === "audio") setSelectedAudioDevice(deviceId)
 				else setSelectedVideoDevice(deviceId)
 
-				onTrackReplaced?.(kind, newTrack)
+				onTrackReplaced(kind, newTrack)
 			} catch (err) {
 				console.error(`Failed to switch ${kind} device:`, err)
 			}

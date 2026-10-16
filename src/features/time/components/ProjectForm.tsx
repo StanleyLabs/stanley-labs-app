@@ -1,10 +1,11 @@
 import { useState } from "react"
 import { PROJECT_COLORS, type Project } from "../../tasks/types"
 import type { ProjectFields } from "../hooks/useTimeData"
-import { resolveCurrency } from "../lib/rates"
+import { parseRate, resolveCurrency } from "../lib/rates"
 import type { Client } from "../types"
 import { Select } from "../../../components/ui/Select"
 import { btnGhost, btnPrimary, cn, input, label } from "../../../components/ui/styles"
+import { ColorField } from "./ColorField"
 
 export function ProjectForm({
 	initial,
@@ -36,8 +37,8 @@ export function ProjectForm({
 
 	const submit = async (e: React.FormEvent) => {
 		e.preventDefault()
-		const parsedRate = rate.trim() ? Number(rate) : undefined
-		if (parsedRate !== undefined && (!Number.isFinite(parsedRate) || parsedRate < 0)) {
+		const hourlyRate = parseRate(rate)
+		if (hourlyRate === null) {
 			setError("Hourly rate must be a positive number.")
 			return
 		}
@@ -49,7 +50,7 @@ export function ProjectForm({
 				description: description.trim(),
 				color,
 				clientId: clientId || undefined,
-				hourlyRate: parsedRate || undefined,
+				hourlyRate,
 			})
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Could not save project")
@@ -108,24 +109,7 @@ export function ProjectForm({
 					</div>
 				</label>
 			</div>
-			<div>
-				<span className={label}>Color</span>
-				<div className="flex flex-wrap gap-2">
-					{PROJECT_COLORS.map((c) => (
-						<button
-							key={c}
-							type="button"
-							onClick={() => setColor(c)}
-							className={cn(
-								"h-7 w-7 rounded-full border-2 transition-all",
-								color === c ? "scale-110 border-paper" : "border-transparent hover:scale-105",
-							)}
-							style={{ backgroundColor: c }}
-							aria-label={`Color ${c}`}
-						/>
-					))}
-				</div>
-			</div>
+			<ColorField value={color} onChange={setColor} />
 			{error && <p className="text-xs text-signal">{error}</p>}
 			<div className="flex justify-end gap-2 pt-2">
 				<button type="button" onClick={onCancel} className={btnGhost}>

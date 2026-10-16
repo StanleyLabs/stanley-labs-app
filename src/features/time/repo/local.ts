@@ -48,10 +48,25 @@ function byStartDesc(a: TimeEntry, b: TimeEntry) {
 	return b.start.localeCompare(a.start)
 }
 
-function guestProjects() {
-	const projects = loadProjects()
-	const tasks = loadTasks(new Set(projects.map((p) => p.id)))
-	return { projects, tasks }
+function updateRow<T extends { id: string; updatedAt: string }>(
+	key: Key,
+	id: string,
+	patch: Partial<T>,
+	notFound: string,
+): T {
+	const all = read<T>(key)
+	const idx = all.findIndex((r) => r.id === id)
+	if (idx === -1) throw new Error(notFound)
+	all[idx] = { ...all[idx], ...patch, updatedAt: now() }
+	write(key, all)
+	return all[idx]
+}
+
+function deleteRow(key: Key, id: string): void {
+	write(
+		key,
+		read<{ id: string }>(key).filter((r) => r.id !== id),
+	)
 }
 
 export function createLocalTimeRepo(): TimeRepo {
@@ -67,19 +82,11 @@ export function createLocalTimeRepo(): TimeRepo {
 			return c
 		},
 		async updateClient(id, patch) {
-			const all = read<Client>(KEYS.clients)
-			const idx = all.findIndex((c) => c.id === id)
-			if (idx === -1) throw new Error("Client not found")
-			all[idx] = { ...all[idx], ...patch, updatedAt: now() }
-			write(KEYS.clients, all)
-			return all[idx]
+			return updateRow<Client>(KEYS.clients, id, patch, "Client not found")
 		},
 		async deleteClient(id) {
 			// Callers unset projects.clientId through the Tasks repo, which owns that data.
-			write(
-				KEYS.clients,
-				read<Client>(KEYS.clients).filter((c) => c.id !== id),
-			)
+			deleteRow(KEYS.clients, id)
 		},
 
 		async listEntries() {
@@ -102,18 +109,10 @@ export function createLocalTimeRepo(): TimeRepo {
 			return e
 		},
 		async updateEntry(id, patch) {
-			const all = read<TimeEntry>(KEYS.entries)
-			const idx = all.findIndex((e) => e.id === id)
-			if (idx === -1) throw new Error("Entry not found")
-			all[idx] = { ...all[idx], ...patch, updatedAt: now() }
-			write(KEYS.entries, all)
-			return all[idx]
+			return updateRow<TimeEntry>(KEYS.entries, id, patch, "Entry not found")
 		},
 		async deleteEntry(id) {
-			write(
-				KEYS.entries,
-				read<TimeEntry>(KEYS.entries).filter((e) => e.id !== id),
-			)
+			deleteRow(KEYS.entries, id)
 		},
 
 		async listInvoices() {
@@ -132,18 +131,10 @@ export function createLocalTimeRepo(): TimeRepo {
 			return inv
 		},
 		async updateInvoice(id, patch) {
-			const all = read<Invoice>(KEYS.invoices)
-			const idx = all.findIndex((i) => i.id === id)
-			if (idx === -1) throw new Error("Invoice not found")
-			all[idx] = { ...all[idx], ...patch, updatedAt: now() }
-			write(KEYS.invoices, all)
-			return all[idx]
+			return updateRow<Invoice>(KEYS.invoices, id, patch, "Invoice not found")
 		},
 		async deleteInvoice(id) {
-			write(
-				KEYS.invoices,
-				read<Invoice>(KEYS.invoices).filter((i) => i.id !== id),
-			)
+			deleteRow(KEYS.invoices, id)
 			write(
 				KEYS.entries,
 				read<TimeEntry>(KEYS.entries).map((e) =>
@@ -154,7 +145,8 @@ export function createLocalTimeRepo(): TimeRepo {
 
 		async resolveLabels(projectId, taskId) {
 			if (!projectId && !taskId) return {}
-			const { projects, tasks } = guestProjects()
+			const projects = loadProjects()
+			const tasks = loadTasks(new Set(projects.map((p) => p.id)))
 			const project = projects.find((p) => p.id === projectId)
 			const task = tasks.find((t) => t.id === taskId)
 			return {

@@ -3,7 +3,7 @@
  * Receives boards orchestration state and renders the editor with sync components.
  */
 
-import { useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo } from "react"
 import { Tldraw, DefaultMenuPanel, useEditor, useToasts, type Editor } from "tldraw"
 import { HandTool } from "../handToolCursor"
 import { createPasteActionOverride } from "../pasteJson"
@@ -14,7 +14,7 @@ import { CustomPageMenu } from "../CustomPageMenu"
 import { createEditorOnMount } from "../setupEditorMount"
 import type { BoardsOrchestration } from "../hooks/useBoards"
 
-const licenseKey = import.meta.env.VITE_TLDRAW_LICENSE_KEY ?? undefined
+const licenseKey = import.meta.env.VITE_TLDRAW_LICENSE_KEY
 const SYNC_APPLY_IDLE_MS = 400
 
 function ReadonlyTracker({ editable }: { editable: boolean }) {
@@ -202,12 +202,18 @@ function MenuPanelWithIndicator() {
 	)
 }
 
-const COMPONENTS = { MenuPanel: MenuPanelWithIndicator, SharePanel: null }
+const TOOLS = [HandTool]
+const COMPONENTS = {
+	MainMenu: CustomMainMenu,
+	ContextMenu: CustomContextMenu,
+	PageMenu: CustomPageMenu,
+	MenuPanel: MenuPanelWithIndicator,
+	SharePanel: null,
+}
 
 export function WhiteboardEditor({ boards }: { boards: BoardsOrchestration }) {
 	const {
 		store,
-		editorRef,
 		editable,
 		serverSynced,
 		activePageShared,
@@ -218,16 +224,16 @@ export function WhiteboardEditor({ boards }: { boards: BoardsOrchestration }) {
 
 	const overrides = useMemo(() => [createPasteActionOverride()], [])
 
-	const onMount = useMemo(
-		() => (editor: Editor) => {
-			const cleanupSetup = createEditorOnMount({ editor, store, editorRef })
+	const onMount = useCallback(
+		(editor: Editor) => {
+			const cleanupSetup = createEditorOnMount(editor, store)
 			const cleanupRegister = onEditorMount(editor)
 			return () => {
 				cleanupRegister()
 				cleanupSetup()
 			}
 		},
-		[store, editorRef, onEditorMount],
+		[store, onEditorMount],
 	)
 
 	return (
@@ -235,14 +241,9 @@ export function WhiteboardEditor({ boards }: { boards: BoardsOrchestration }) {
 			<Tldraw
 				store={store}
 				licenseKey={licenseKey}
-				tools={[HandTool]}
+				tools={TOOLS}
 				overrides={overrides}
-				components={{
-					MainMenu: CustomMainMenu,
-					ContextMenu: CustomContextMenu,
-					PageMenu: CustomPageMenu,
-					...COMPONENTS,
-				}}
+				components={COMPONENTS}
 				onMount={onMount}
 			>
 				<SyncThemeToDocument />

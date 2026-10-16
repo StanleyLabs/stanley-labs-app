@@ -4,7 +4,7 @@ import type { TimeData } from "../hooks/useTimeData"
 import { invoiceTotals } from "../lib/invoice"
 import { downloadInvoicePdf } from "../lib/invoicePdf"
 import { loadProfile, saveProfile, type BillingProfile } from "../lib/profile"
-import { formatMoney } from "../lib/rates"
+import { formatMoney, formatMoneyTotals } from "../lib/rates"
 import { formatShortDate, dayKey } from "../lib/time"
 import type { Invoice, InvoiceStatus } from "../types"
 import { IconDownload, IconInvoice, IconPlus, IconTrash } from "../../../components/ui/icons"
@@ -19,6 +19,7 @@ import {
 	input,
 	label,
 } from "../../../components/ui/styles"
+import { EmptyState } from "./EmptyState"
 import { InvoiceBuilder } from "./InvoiceBuilder"
 
 const STATUS_STYLES: Record<InvoiceStatus, string> = {
@@ -66,9 +67,7 @@ export function InvoicesView({ data }: { data: TimeData }) {
 					{outstanding.size > 0 ? (
 						<>
 							Outstanding:{" "}
-							<span className="font-mono text-paper">
-								{[...outstanding.entries()].map(([c, a]) => formatMoney(a, c)).join(" + ")}
-							</span>
+							<span className="font-mono text-paper">{formatMoneyTotals(outstanding)}</span>
 						</>
 					) : (
 						"Invoices are built from unbilled, billable time."
@@ -86,16 +85,12 @@ export function InvoicesView({ data }: { data: TimeData }) {
 			</div>
 
 			{invoices.length === 0 ? (
-				<div className={cn(card, "flex flex-col items-center px-6 py-14 text-center")}>
-					<div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-electric/10 text-electric">
-						<IconInvoice className="h-6 w-6" />
-					</div>
-					<p className="font-display text-lg font-semibold text-paper">No invoices yet</p>
+				<EmptyState icon={IconInvoice} title="No invoices yet">
 					<p className="mt-1 max-w-sm text-sm text-fog/50">
 						Assign clients and rates to your projects, track some billable time, then create an
 						invoice and download it as a PDF.
 					</p>
-				</div>
+				</EmptyState>
 			) : (
 				<div className={cn(card, "divide-y divide-white/[0.05]")}>
 					{invoices.map((inv) => {

@@ -3,8 +3,7 @@
  * No state, no side effects — just data extraction, comparison, and remapping.
  */
 
-import type { Editor } from "@tldraw/editor"
-import type { TLPageId, TLShapeId } from "@tldraw/tlschema"
+import type { Editor, TLPageId, TLShapeId } from "tldraw"
 
 export interface ShareSnapshot {
 	document: { store: Record<string, unknown>; schema: unknown }
@@ -13,11 +12,7 @@ export interface ShareSnapshot {
 
 // ── Hashing / comparison ───────────────────────────────────────────────────────
 
-/**
- * Stable JSON serialization — single native `JSON.stringify` with a replacer
- * that sorts object keys.  Much faster than the former recursive JS-based
- * `stableHash` which rebuilt intermediate strings at every recursion level.
- */
+/** Stable JSON serialization — native `JSON.stringify` with a replacer that sorts object keys. */
 function stableStringify(val: unknown): string {
 	return JSON.stringify(val, (_key, v: unknown) => {
 		if (v !== null && typeof v === "object" && !Array.isArray(v)) {
@@ -118,7 +113,7 @@ export function getFirstPageIdFromStore(storeSnapshot: {
 
 // ── ID remapping ───────────────────────────────────────────────────────────────
 
-export function remapIdInValue(val: unknown, fromId: string, toId: string): unknown {
+function remapIdInValue(val: unknown, fromId: string, toId: string): unknown {
 	if (val === fromId) return toId
 	if (typeof val === "string") return val
 	if (val === null || typeof val !== "object") return val

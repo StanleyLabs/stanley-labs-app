@@ -1,6 +1,6 @@
 /**
  * Popover with paste-link input. Trigger is a button in the page menu footer.
- * v2: resolves slug via pages table.
+ * Submitting navigates to the shared link URL, where useSharedLink resolves it.
  */
 
 import { useCallback, useState } from "react"
@@ -13,6 +13,7 @@ import {
 	TldrawUiPopoverTrigger,
 	useToasts,
 } from "tldraw"
+
 /** Extract a share slug from pasted text (full URL or plain slug). */
 function parseShareIdFromPastedText(text: string): string | null {
 	const trimmed = text.trim()
@@ -41,9 +42,8 @@ export function OpenSharedLinkPopover() {
 	const toasts = useToasts()
 	const [popoverOpen, setPopoverOpen] = useState(false)
 	const [input, setInput] = useState("")
-	const [loading, setLoading] = useState(false)
 
-	const handleSubmit = useCallback(async () => {
+	const handleSubmit = useCallback(() => {
 		const slug = parseShareIdFromPastedText(input)
 		if (!slug) {
 			toasts.addToast({
@@ -53,21 +53,14 @@ export function OpenSharedLinkPopover() {
 			})
 			return
 		}
-
-		setLoading(true)
-		try {
-			// v2: navigate to the shared link URL; the app router + usePageTracker will handle resolution.
-			window.location.href = `${window.location.origin}/boards/s/${slug}`
-		} finally {
-			setLoading(false)
-		}
+		window.location.href = `${window.location.origin}/boards/s/${slug}`
 	}, [input, toasts])
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
 			if (e.key === "Enter") {
 				e.preventDefault()
-				void handleSubmit()
+				handleSubmit()
 			}
 		},
 		[handleSubmit],
@@ -112,7 +105,6 @@ export function OpenSharedLinkPopover() {
 						value={input}
 						onChange={(e) => setInput(e.target.value)}
 						onKeyDown={handleKeyDown}
-						disabled={loading}
 						data-testid="page-menu.open-shared-link-input"
 					/>
 					<TldrawUiButton
@@ -126,8 +118,8 @@ export function OpenSharedLinkPopover() {
 					<TldrawUiButton
 						type="icon"
 						title="Open"
-						onClick={() => void handleSubmit()}
-						disabled={loading || !input.trim()}
+						onClick={handleSubmit}
+						disabled={!input.trim()}
 						data-testid="page-menu.open-shared-link-go"
 					>
 						<TldrawUiButtonIcon icon="check" />

@@ -1,17 +1,10 @@
 import { addDays, dayKey, fromDayKey, startOfDay } from "../../../lib/dates"
 import type { TimeEntry } from "../types"
 
-export {
-	addDays,
-	dayKey,
-	fromDayKey,
-	startOfDay,
-	startOfMonth,
-	startOfWeek,
-} from "../../../lib/dates"
+export { addDays, dayKey, fromDayKey, startOfMonth, startOfWeek } from "../../../lib/dates"
 
-const MINUTE = 60_000
-const HOUR = 60 * MINUTE
+export const MINUTE = 60_000
+export const HOUR = 60 * MINUTE
 const DAY = 24 * HOUR
 
 export function entryDurationMs(entry: Pick<TimeEntry, "start" | "end">, now = Date.now()): number {
@@ -42,18 +35,9 @@ export function msToHours(ms: number): number {
 	return ms / HOUR
 }
 
-export function formatDecimalHours(ms: number): string {
-	return msToHours(ms).toFixed(2)
-}
-
 export function formatTime(iso: string | Date): string {
 	const d = typeof iso === "string" ? new Date(iso) : iso
 	return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-}
-
-/** "HH:MM" for <input type="time">. */
-export function toTimeInput(d: Date): string {
-	return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
 }
 
 export function addMonths(d: Date, n: number): Date {
@@ -147,5 +131,3 @@ export function splitByDay(startMs: number, endMs: number): Map<string, number> 
 	}
 	return out
 }
-
-export { MINUTE, HOUR, DAY }

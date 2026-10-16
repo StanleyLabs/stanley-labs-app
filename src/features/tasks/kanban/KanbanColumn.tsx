@@ -3,6 +3,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { card, cn, iconBtn } from "../../../components/ui/styles"
 import type { Task, TaskStatus } from "../types"
 import { IconPlus } from "../icons"
+import { StatusLabel } from "../ui/StatusLabel"
 import { SortableTaskCard } from "./TaskCard"
 
 export function KanbanColumn({
@@ -42,16 +43,7 @@ export function KanbanColumn({
 		>
 			<div className="flex items-center justify-between px-3.5 pb-1 pt-3">
 				<div className="flex items-center gap-2">
-					<span
-						className="h-2 w-2 rounded-full"
-						style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}80` }}
-					/>
-					<span className="text-xs font-semibold uppercase tracking-wider text-fog/80">
-						{label}
-					</span>
-					<span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/[0.06] px-1.5 font-mono text-2xs text-fog/50">
-						{tasks.length}
-					</span>
+					<StatusLabel label={label} color={color} count={tasks.length} />
 				</div>
 				{onAddTask && (
 					<button

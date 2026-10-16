@@ -3,7 +3,14 @@ import { useNow } from "../../../lib/runningTimer"
 import { BarChart, type Bar } from "../charts/BarChart"
 import { Donut } from "../charts/Donut"
 import type { TimeData } from "../hooks/useTimeData"
-import { amountFor, formatMoney, projectClient, resolveCurrency, resolveRate } from "../lib/rates"
+import {
+	amountFor,
+	formatMoney,
+	formatMoneyTotals,
+	projectClient,
+	resolveCurrency,
+	resolveRate,
+} from "../lib/rates"
 import {
 	addDays,
 	addMonths,
@@ -199,7 +206,7 @@ export function ReportsView({ data }: { data: TimeData }) {
 	const amountLabel =
 		report.amountsByCurrency.size === 0
 			? formatMoney(0)
-			: [...report.amountsByCurrency.entries()].map(([c, a]) => formatMoney(a, c)).join(" + ")
+			: formatMoneyTotals(report.amountsByCurrency)
 
 	return (
 		<div className="space-y-4">
@@ -308,14 +315,7 @@ export function ReportsView({ data }: { data: TimeData }) {
 					<p className="py-8 text-center text-sm text-fog/40">No time tracked in this period.</p>
 				) : (
 					<div className="flex flex-col items-center gap-6 md:flex-row md:items-start">
-						<Donut
-							slices={report.projectRows.map((r) => ({
-								key: r.key,
-								label: r.label,
-								color: r.color,
-								ms: r.ms,
-							}))}
-						/>
+						<Donut slices={report.projectRows} />
 						<div className="w-full min-w-0 flex-1 divide-y divide-white/[0.05]">
 							{report.projectRows.map((r) => {
 								const pct = report.totalMs ? (r.ms / report.totalMs) * 100 : 0

@@ -2,13 +2,14 @@ import { type ReactNode, useState, useRef, useEffect } from "react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useRunningTimer } from "../lib/runningTimer"
 import { RunningTimerPill } from "./RunningTimerPill"
+import { IconClock, IconGrid, IconHome, IconPenTool, IconVideo } from "./ui/icons"
 
 const navItems = [
-	{ to: "/", label: "Home", icon: HomeIcon, gradient: "from-slate-500 to-slate-700" },
-	{ to: "/tasks", label: "Tasks", icon: TasksIcon, gradient: "from-violet-500 to-indigo-500" },
-	{ to: "/time", label: "Time", icon: TimeIcon, gradient: "from-amber-400 to-orange-500" },
-	{ to: "/boards", label: "Boards", icon: BoardsIcon, gradient: "from-emerald-400 to-teal-500" },
-	{ to: "/chat", label: "Chat", icon: ChatIcon, gradient: "from-electric to-sky-400" },
+	{ to: "/", label: "Home", icon: IconHome, gradient: "from-slate-500 to-slate-700" },
+	{ to: "/tasks", label: "Tasks", icon: IconGrid, gradient: "from-violet-500 to-indigo-500" },
+	{ to: "/time", label: "Time", icon: IconClock, gradient: "from-amber-400 to-orange-500" },
+	{ to: "/boards", label: "Boards", icon: IconPenTool, gradient: "from-emerald-400 to-teal-500" },
+	{ to: "/chat", label: "Chat", icon: IconVideo, gradient: "from-electric to-sky-400" },
 ]
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -168,96 +169,5 @@ export function Shell({ children }: { children: ReactNode }) {
 			{/* Main content */}
 			<main className="flex-1 min-h-0 relative h-full">{children}</main>
 		</div>
-	)
-}
-
-// --- Icons ---
-
-function HomeIcon({ className }: { className?: string }) {
-	return (
-		<svg
-			className={className}
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-		>
-			<path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-			<polyline points="9 22 9 12 15 12 15 22" />
-		</svg>
-	)
-}
-
-function TasksIcon({ className }: { className?: string }) {
-	return (
-		<svg
-			className={className}
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-		>
-			<rect x="3" y="3" width="7" height="7" rx="1" />
-			<rect x="14" y="3" width="7" height="7" rx="1" />
-			<rect x="3" y="14" width="7" height="7" rx="1" />
-			<rect x="14" y="14" width="7" height="7" rx="1" />
-		</svg>
-	)
-}
-
-function BoardsIcon({ className }: { className?: string }) {
-	return (
-		<svg
-			className={className}
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-		>
-			<path d="M12 19l7-7 3 3-7 7-3-3z" />
-			<path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-			<path d="M2 2l7.586 7.586" />
-			<circle cx="11" cy="11" r="2" />
-		</svg>
-	)
-}
-
-function TimeIcon({ className }: { className?: string }) {
-	return (
-		<svg
-			className={className}
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-		>
-			<circle cx="12" cy="12" r="9" />
-			<path d="M12 7v5l3 2" />
-		</svg>
-	)
-}
-
-function ChatIcon({ className }: { className?: string }) {
-	return (
-		<svg
-			className={className}
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-		>
-			<path d="M16 10l4.553-2.276A1 1 0 0122 8.618v6.764a1 1 0 01-1.447.894L16 14v-4z" />
-			<rect x="2" y="6" width="14" height="12" rx="2" />
-		</svg>
 	)
 }

@@ -19,7 +19,6 @@
 		"@dnd-kit/utilities": "^3.2.2",
 		"@tldraw/sync": "^4.3.0",
 		"@xstate/react": "^6.0.0",
-		"dotenv": "^17.3.1",
 		"express": "^5.2.1",
 		"jspdf": "^4.2.1",
 		"jspdf-autotable": "^5.0.9",

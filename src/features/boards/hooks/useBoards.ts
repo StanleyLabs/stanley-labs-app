@@ -11,8 +11,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { Editor as TldrawEditor } from "@tldraw/editor"
-import { createTLStore } from "tldraw"
+import { createTLStore, type Editor as TldrawEditor } from "tldraw"
 import { useMachine } from "@xstate/react"
 
 import {
@@ -22,15 +21,11 @@ import {
 	isActivePageShared,
 	shouldAttemptSync,
 	type MachineState,
-	type PageEntry,
 } from "../machine"
+import type { NewPageInfo } from "../MachineContext"
 import { useAuth } from "../../../lib/auth"
-import { pocketbaseUrl } from "../../../lib/pocketbase"
 import { buildSyncUri, isSyncServerConfigured } from "../sharePage"
 import { getSlugFromUrl } from "./boardsUtils"
-
-// Re-export theme helpers so existing imports keep working
-export { getTheme, setTheme } from "./boardsUtils"
 
 // Sub-hooks
 import { useGuestPersistence } from "./useGuestPersistence"
@@ -44,7 +39,6 @@ export interface BoardsOrchestration {
 	store: ReturnType<typeof createTLStore>
 	state: MachineState
 	send: ReturnType<typeof useMachine<typeof boardsMachine>>[1]
-	editorRef: React.MutableRefObject<TldrawEditor | null>
 	isUserInteractingRef: React.MutableRefObject<boolean>
 	applySyncRef: React.MutableRefObject<(() => void) | null>
 	onIdleEnd: () => void
@@ -55,18 +49,9 @@ export interface BoardsOrchestration {
 	syncUri: string
 	serverRetryKey: number
 	bumpServerRetry: () => void
-	tldrawToDb: React.MutableRefObject<Map<string, string>>
-	pageEntryMap: Map<string, PageEntry>
 	onEditorMount: (editor: TldrawEditor) => () => void
 	removeSharedPage: () => void
-	registerPage: (page: {
-		dbId: string
-		tldrawId: string
-		title: string
-		visibility?: string
-		publicSlug?: string | null
-		publicAccess?: string | null
-	}) => void
+	registerPage: (page: NewPageInfo) => void
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
@@ -114,12 +99,6 @@ export function useBoards(): BoardsOrchestration {
 			send({ type: "LOGOUT" })
 		}
 	}, [userId, send])
-
-	// ── Backend init ───────────────────────────────────────────────────────────
-
-	useEffect(() => {
-		send(pocketbaseUrl ? { type: "BACKEND_READY" } : { type: "BACKEND_UNAVAILABLE" })
-	}, [send])
 
 	// ── Derived values for sub-hooks ───────────────────────────────────────────
 
@@ -185,24 +164,10 @@ export function useBoards(): BoardsOrchestration {
 	const [serverRetryKey, setServerRetryKey] = useState(0)
 	const bumpServerRetry = useCallback(() => setServerRetryKey((k) => k + 1), [])
 
-	const pageEntryMap = useMemo(() => {
-		const map = new Map<string, PageEntry>()
-		for (const p of state.context.pages) map.set(p.dbId, p)
-		return map
-	}, [state.context.pages])
-
 	// ── registerPage ───────────────────────────────────────────────────────────
 
 	const registerPage = useCallback(
-		(page: {
-			dbId: string
-			tldrawId: string
-			title: string
-			visibility?: string
-			publicSlug?: string | null
-			publicAccess?: string | null
-			sortIndex?: string | null
-		}) => {
+		(page: NewPageInfo) => {
 			tldrawToDb.current.set(page.tldrawId, page.dbId)
 			send({
 				type: "PAGE_ADDED",
@@ -210,10 +175,10 @@ export function useBoards(): BoardsOrchestration {
 					dbId: page.dbId,
 					tldrawId: page.tldrawId,
 					title: page.title,
-					visibility: (page.visibility ?? "private") as PageEntry["visibility"],
+					visibility: page.visibility ?? "private",
 					publicSlug: page.publicSlug ?? null,
-					publicAccess: (page.publicAccess ?? null) as "view" | "edit" | null,
-					sortIndex: page.sortIndex ?? null,
+					publicAccess: page.publicAccess ?? null,
+					sortIndex: null,
 					role: "owner",
 				},
 			})
@@ -225,7 +190,6 @@ export function useBoards(): BoardsOrchestration {
 		store,
 		state,
 		send,
-		editorRef,
 		isUserInteractingRef,
 		applySyncRef,
 		onIdleEnd,
@@ -236,8 +200,6 @@ export function useBoards(): BoardsOrchestration {
 		syncUri,
 		serverRetryKey,
 		bumpServerRetry,
-		tldrawToDb,
-		pageEntryMap,
 		onEditorMount: handleEditorMount,
 		removeSharedPage,
 		registerPage,

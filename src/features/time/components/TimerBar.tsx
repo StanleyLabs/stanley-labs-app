@@ -79,7 +79,7 @@ export function TimerBar({
 
 	const onPick = (v: PickerValue) => {
 		if (running) updateRunning({ projectId: v.projectId, taskId: v.taskId })
-		else setDraft((d) => ({ ...d, ...v, projectId: v.projectId, taskId: v.taskId }))
+		else setDraft((d) => ({ ...d, projectId: v.projectId, taskId: v.taskId }))
 	}
 
 	const toggle = () => {
@@ -155,7 +155,7 @@ export function TimerBar({
 							tasks={tasks}
 							clientsById={clientsById}
 							recentEntries={entries}
-							onCreateProject={(name) => createProject(name)}
+							onCreateProject={createProject}
 							align="right"
 						/>
 					</div>

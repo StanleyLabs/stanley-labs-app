@@ -76,5 +76,3 @@ export function useClients({
 
 	return { enabled, clients, clientsById, create, update, remove }
 }
-
-export type ClientsApi = ReturnType<typeof useClients>
