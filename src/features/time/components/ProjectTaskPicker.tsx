@@ -10,6 +10,7 @@ import {
 	IconX,
 } from "../ui/icons"
 import { cn } from "../ui/styles"
+import { FloatingPanel } from "../ui/FloatingPanel"
 import { useDismiss } from "../ui/useDismiss"
 
 export type PickerValue = { projectId?: string; taskId?: string }
@@ -61,13 +62,15 @@ export function ProjectTaskPicker({
 	const [expanded, setExpanded] = useState<Set<string>>(new Set())
 	const [active, setActive] = useState(0)
 	const rootRef = useRef<HTMLDivElement>(null)
+	const panelRef = useRef<HTMLDivElement>(null)
 	const listRef = useRef<HTMLDivElement>(null)
+	const dismissRefs = useMemo(() => [rootRef, panelRef], [])
 
 	const close = useCallback(() => {
 		setOpen(false)
 		setQuery("")
 	}, [])
-	useDismiss(rootRef, open, close)
+	useDismiss(dismissRefs, open, close)
 
 	const projectsById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects])
 	const tasksById = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks])
@@ -289,122 +292,122 @@ export function ProjectTaskPicker({
 				)}
 			</button>
 
-			{open && (
-				<div
-					className={cn(
-						"absolute top-full z-50 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-white/10 bg-graphite/95 shadow-2xl backdrop-blur-xl animate-scale-in",
-						align === "left" ? "left-0 origin-top-left" : "right-0 origin-top-right",
+			<FloatingPanel
+				open={open}
+				anchorRef={rootRef}
+				panelRef={panelRef}
+				width={352}
+				align={align === "left" ? "start" : "end"}
+				maxHeight={400}
+			>
+				<div className="flex shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-2.5">
+					<IconSearch className="h-4 w-4 shrink-0 text-fog/40" />
+					<input
+						autoFocus
+						value={query}
+						onChange={(e) => setQuery(e.target.value)}
+						onKeyDown={onKeyDown}
+						placeholder="Search projects, tasks, clients…"
+						className="w-full bg-transparent text-base text-paper outline-none placeholder:text-fog/40 sm:text-sm"
+					/>
+					{query && (
+						<button onClick={() => setQuery("")} className="text-fog/40 hover:text-paper">
+							<IconX className="h-3.5 w-3.5" />
+						</button>
 					)}
-				>
-					<div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2.5">
-						<IconSearch className="h-4 w-4 shrink-0 text-fog/40" />
-						<input
-							autoFocus
-							value={query}
-							onChange={(e) => setQuery(e.target.value)}
-							onKeyDown={onKeyDown}
-							placeholder="Search projects, tasks, clients…"
-							className="w-full bg-transparent text-base text-paper outline-none placeholder:text-fog/40 sm:text-sm"
-						/>
-						{query && (
-							<button onClick={() => setQuery("")} className="text-fog/40 hover:text-paper">
-								<IconX className="h-3.5 w-3.5" />
-							</button>
-						)}
-					</div>
-					<div ref={listRef} className="subtle-scroll max-h-80 overflow-y-auto p-1.5">
-						{items.length === 0 && (
-							<div className="px-3 py-6 text-center text-sm text-fog/40">
-								{projects.length === 0 ? "No projects yet" : "No matches"}
-							</div>
-						)}
-						{items.map((it, i) => {
-							if (it.kind === "header") {
-								return (
-									<div
-										key={it.key}
-										className="px-2.5 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-wider text-fog/35"
-									>
-										{it.label}
-									</div>
-								)
-							}
-							const isActive = selectable[active] === i
-							if (it.kind === "create") {
-								return (
-									<button
-										key={it.key}
-										data-idx={i}
-										onMouseEnter={() => setActive(selectable.indexOf(i))}
-										onClick={() => void choose(it)}
-										className={cn(
-											"mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-electric",
-											isActive && "bg-electric/10",
-										)}
-									>
-										<IconPlus className="h-4 w-4" />
-										Create project “{it.label}”
-									</button>
-								)
-							}
-							const isSelected =
-								it.value.projectId === value.projectId && it.value.taskId === value.taskId
+				</div>
+				<div ref={listRef} className="subtle-scroll min-h-0 flex-1 overflow-y-auto p-1.5">
+					{items.length === 0 && (
+						<div className="px-3 py-6 text-center text-sm text-fog/40">
+							{projects.length === 0 ? "No projects yet" : "No matches"}
+						</div>
+					)}
+					{items.map((it, i) => {
+						if (it.kind === "header") {
 							return (
 								<div
 									key={it.key}
-									data-idx={i}
-									onMouseEnter={() => setActive(selectable.indexOf(i))}
-									className={cn(
-										"flex items-center rounded-lg transition-colors",
-										isActive && "bg-white/[0.07]",
-									)}
+									className="px-2.5 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-wider text-fog/35"
 								>
-									<button
-										onClick={() => void choose(it)}
-										className={cn(
-											"flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-2 text-left text-sm",
-											it.indent && "pl-8",
-										)}
-									>
-										{it.color ? (
-											<span
-												className={cn(
-													"shrink-0 rounded-full",
-													it.isTask ? "h-1.5 w-1.5 opacity-70" : "h-2.5 w-2.5",
-												)}
-												style={{ backgroundColor: it.color }}
-											/>
-										) : (
-											<span className="h-2.5 w-2.5 shrink-0 rounded-full border border-white/20" />
-										)}
-										<span className="min-w-0 flex-1 truncate">
-											<span className={isSelected ? "text-electric" : "text-paper/90"}>
-												{it.label}
-											</span>
-											{it.sub && <span className="ml-1.5 text-xs text-fog/40">{it.sub}</span>}
-										</span>
-									</button>
-									{it.expandable && !query && (
-										<button
-											onClick={() => toggleExpand(it.expandable!.projectId)}
-											className="mr-1 flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-1 text-2xs text-fog/40 hover:bg-white/10 hover:text-fog"
-											title={it.expandable.expanded ? "Hide tasks" : "Show tasks"}
-										>
-											{it.expandable.count}
-											<IconChevronRight
-												className={cn(
-													"h-3 w-3 transition-transform",
-													it.expandable.expanded && "rotate-90",
-												)}
-											/>
-										</button>
-									)}
+									{it.label}
 								</div>
 							)
-						})}
-					</div>
+						}
+						const isActive = selectable[active] === i
+						if (it.kind === "create") {
+							return (
+								<button
+									key={it.key}
+									data-idx={i}
+									onMouseEnter={() => setActive(selectable.indexOf(i))}
+									onClick={() => void choose(it)}
+									className={cn(
+										"mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-electric",
+										isActive && "bg-electric/10",
+									)}
+								>
+									<IconPlus className="h-4 w-4" />
+									Create project “{it.label}”
+								</button>
+							)
+						}
+						const isSelected =
+							it.value.projectId === value.projectId && it.value.taskId === value.taskId
+						return (
+							<div
+								key={it.key}
+								data-idx={i}
+								onMouseEnter={() => setActive(selectable.indexOf(i))}
+								className={cn(
+									"flex items-center rounded-lg transition-colors",
+									isActive && "bg-white/[0.07]",
+								)}
+							>
+								<button
+									onClick={() => void choose(it)}
+									className={cn(
+										"flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-2 text-left text-sm",
+										it.indent && "pl-8",
+									)}
+								>
+									{it.color ? (
+										<span
+											className={cn(
+												"shrink-0 rounded-full",
+												it.isTask ? "h-1.5 w-1.5 opacity-70" : "h-2.5 w-2.5",
+											)}
+											style={{ backgroundColor: it.color }}
+										/>
+									) : (
+										<span className="h-2.5 w-2.5 shrink-0 rounded-full border border-white/20" />
+									)}
+									<span className="min-w-0 flex-1 truncate">
+										<span className={isSelected ? "text-electric" : "text-paper/90"}>
+											{it.label}
+										</span>
+										{it.sub && <span className="ml-1.5 text-xs text-fog/40">{it.sub}</span>}
+									</span>
+								</button>
+								{it.expandable && !query && (
+									<button
+										onClick={() => toggleExpand(it.expandable!.projectId)}
+										className="mr-1 flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-1 text-2xs text-fog/40 hover:bg-white/10 hover:text-fog"
+										title={it.expandable.expanded ? "Hide tasks" : "Show tasks"}
+									>
+										{it.expandable.count}
+										<IconChevronRight
+											className={cn(
+												"h-3 w-3 transition-transform",
+												it.expandable.expanded && "rotate-90",
+											)}
+										/>
+									</button>
+								)}
+							</div>
+						)
+					})}
 				</div>
-			)}
+			</FloatingPanel>
 		</div>
 	)
 }

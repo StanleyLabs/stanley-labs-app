@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { CLIENT_COLORS, CURRENCIES, type Client, type ClientInput } from "../types"
+import { Select } from "../ui/Select"
 import { btnGhost, btnPrimary, cn, input, label } from "../ui/styles"
 
 export function ClientForm({
@@ -83,20 +84,17 @@ export function ClientForm({
 							placeholder="0.00"
 						/>
 					</label>
-					<label className="block">
+					<div>
 						<span className={label}>Currency</span>
-						<select
+						<Select
 							value={currency}
-							onChange={(e) => setCurrency(e.target.value)}
-							className={cn(input, "select-styled")}
-						>
-							{CURRENCIES.map((c) => (
-								<option key={c} value={c}>
-									{c}
-								</option>
-							))}
-						</select>
-					</label>
+							onChange={setCurrency}
+							ariaLabel="Currency"
+							align="end"
+							menuWidth={140}
+							options={CURRENCIES.map((c) => ({ value: c, label: c }))}
+						/>
+					</div>
 				</div>
 			</div>
 			<label className="block">

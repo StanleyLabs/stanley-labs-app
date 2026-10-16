@@ -11,6 +11,8 @@ import type { BillingProfile } from "../lib/profile"
 import { formatMoney, resolveCurrency } from "../lib/rates"
 import { addDays, dayKey, fromDayKey, startOfMonth } from "../lib/time"
 import type { Invoice, InvoiceItem } from "../types"
+import { DatePicker } from "../ui/DatePicker"
+import { Select } from "../ui/Select"
 import { btnGhost, btnPrimary, cn, input, label } from "../ui/styles"
 
 const TERMS = [0, 7, 14, 30, 45, 60]
@@ -112,20 +114,15 @@ export function InvoiceBuilder({
 	return (
 		<div className="space-y-4">
 			<div className="grid gap-3 sm:grid-cols-2">
-				<label className="block">
+				<div>
 					<span className={label}>Client</span>
-					<select
+					<Select
 						value={clientId}
-						onChange={(e) => setClientId(e.target.value)}
-						className={cn(input, "select-styled")}
-					>
-						{clients.map((c) => (
-							<option key={c.id} value={c.id}>
-								{c.name}
-							</option>
-						))}
-					</select>
-				</label>
+						onChange={setClientId}
+						ariaLabel="Client"
+						options={clients.map((c) => ({ value: c.id, label: c.name, color: c.color }))}
+					/>
+				</div>
 				<label className="block">
 					<span className={label}>Invoice number</span>
 					<input
@@ -134,52 +131,31 @@ export function InvoiceBuilder({
 						className={cn(input, "font-mono")}
 					/>
 				</label>
-				<label className="block">
+				<div>
 					<span className={label}>Period from</span>
-					<input
-						type="date"
-						value={from}
-						max={to}
-						onChange={(e) => e.target.value && setFrom(e.target.value)}
-						className={cn(input, "[color-scheme:dark]")}
-					/>
-				</label>
-				<label className="block">
+					<DatePicker value={from} max={to} onChange={setFrom} ariaLabel="Period from" />
+				</div>
+				<div>
 					<span className={label}>Period to</span>
-					<input
-						type="date"
-						value={to}
-						min={from}
-						onChange={(e) => e.target.value && setTo(e.target.value)}
-						className={cn(input, "[color-scheme:dark]")}
-					/>
-				</label>
-				<label className="block">
+					<DatePicker value={to} min={from} onChange={setTo} ariaLabel="Period to" align="end" />
+				</div>
+				<div>
 					<span className={label}>Issue date</span>
-					<input
-						type="date"
-						value={issueDate}
-						onChange={(e) => e.target.value && setIssueDate(e.target.value)}
-						className={cn(input, "[color-scheme:dark]")}
-					/>
-				</label>
+					<DatePicker value={issueDate} onChange={setIssueDate} ariaLabel="Issue date" />
+				</div>
 				<div className="grid grid-cols-2 gap-3">
-					<label className="block">
+					<div>
 						<span className={label}>Payment terms</span>
-						<select
-							value={terms}
-							onChange={(e) => setTerms(Number(e.target.value))}
-							className={cn(input, "select-styled")}
-						>
-							{(TERMS.includes(terms) ? TERMS : [...TERMS, terms].sort((a, b) => a - b)).map(
-								(t) => (
-									<option key={t} value={t}>
-										{t === 0 ? "On receipt" : `Net ${t}`}
-									</option>
-								),
-							)}
-						</select>
-					</label>
+						<Select
+							value={String(terms)}
+							onChange={(v) => setTerms(Number(v))}
+							ariaLabel="Payment terms"
+							options={(TERMS.includes(terms)
+								? TERMS
+								: [...TERMS, terms].sort((a, b) => a - b)
+							).map((t) => ({ value: String(t), label: t === 0 ? "On receipt" : `Net ${t}` }))}
+						/>
+					</div>
 					<label className="block">
 						<span className={label}>Tax %</span>
 						<input

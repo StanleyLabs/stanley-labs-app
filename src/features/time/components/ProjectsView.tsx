@@ -6,6 +6,7 @@ import { amountFor, formatMoney, projectClient, resolveCurrency, resolveRate } f
 import { entryDurationMs, formatHours } from "../lib/time"
 import type { Client } from "../types"
 import { IconFolder, IconPlus } from "../ui/icons"
+import { Select } from "../ui/Select"
 import { btnGhost, btnPrimary, card, cn, input } from "../ui/styles"
 
 export function ProjectsView({ data }: { data: TimeData }) {
@@ -156,20 +157,17 @@ function ProjectRow({
 				<span className="truncate text-sm font-medium text-paper">{project.name}</span>
 				{!editable && <span className="text-2xs text-fog/40">(shared)</span>}
 			</div>
-			<select
+			<Select
+				size="sm"
 				value={project.clientId && clientsById.has(project.clientId) ? project.clientId : ""}
 				disabled={!editable}
-				onChange={(e) => onSave({ clientId: e.target.value || undefined })}
-				className={cn(input, "select-styled py-1.5 text-xs disabled:opacity-50")}
-				aria-label="Client"
-			>
-				<option value="">No client</option>
-				{clients.map((c) => (
-					<option key={c.id} value={c.id}>
-						{c.name}
-					</option>
-				))}
-			</select>
+				onChange={(v) => onSave({ clientId: v || undefined })}
+				ariaLabel="Client"
+				options={[
+					{ value: "", label: "No client" },
+					...clients.map((c) => ({ value: c.id, label: c.name, color: c.color })),
+				]}
+			/>
 			<div className="relative">
 				<input
 					inputMode="decimal"

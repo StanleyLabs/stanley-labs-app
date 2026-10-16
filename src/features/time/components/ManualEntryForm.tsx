@@ -1,6 +1,7 @@
 import { useState } from "react"
 import type { TimeData } from "../hooks/useTimeData"
 import { dayKey, formatHM, fromDayKey, HOUR, parseDuration, parseTimeInput } from "../lib/time"
+import { DatePicker } from "../ui/DatePicker"
 import { IconDollar } from "../ui/icons"
 import { btnGhost, btnPrimary, card, cn, input, label } from "../ui/styles"
 import { ProjectTaskPicker, type PickerValue } from "./ProjectTaskPicker"
@@ -78,16 +79,10 @@ export function ManualEntryForm({ data, onDone }: { data: TimeData; onDone: () =
 				</div>
 			</div>
 			<div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-[auto_8rem_8rem_auto]">
-				<label className="col-span-2 block sm:col-span-1">
+				<div className="col-span-2 sm:col-span-1 sm:w-44">
 					<span className={label}>Date</span>
-					<input
-						type="date"
-						value={day}
-						max={dayKey(new Date())}
-						onChange={(e) => e.target.value && setDay(e.target.value)}
-						className={cn(input, "[color-scheme:dark]")}
-					/>
-				</label>
+					<DatePicker value={day} max={dayKey(new Date())} onChange={setDay} ariaLabel="Date" />
+				</div>
 				<label className="block">
 					<span className={label}>Start</span>
 					<input

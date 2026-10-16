@@ -42,6 +42,15 @@ export function IconClock(p: IconProps) {
 	)
 }
 
+export function IconCalendar(p: IconProps) {
+	return (
+		<Svg {...p}>
+			<rect x="3" y="5" width="18" height="16" rx="2" />
+			<path d="M16 3v4M8 3v4M3 10h18" />
+		</Svg>
+	)
+}
+
 export function IconPlus(p: IconProps) {
 	return (
 		<Svg {...p}>

@@ -9,6 +9,7 @@ import { formatShortDate, dayKey } from "../lib/time"
 import type { Invoice, InvoiceStatus } from "../types"
 import { IconDownload, IconInvoice, IconPlus, IconTrash } from "../ui/icons"
 import { ConfirmDialog, Modal } from "../ui/Modal"
+import { Select, type SelectOption } from "../ui/Select"
 import { btnGhost, btnPrimary, card, cn, iconBtn, input, label } from "../ui/styles"
 import { InvoiceBuilder } from "./InvoiceBuilder"
 
@@ -17,6 +18,12 @@ const STATUS_STYLES: Record<InvoiceStatus, string> = {
 	sent: "border-electric/30 bg-electric/10 text-electric",
 	paid: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
 }
+
+const STATUS_OPTIONS: SelectOption<InvoiceStatus>[] = [
+	{ value: "draft", label: "Draft", color: "#C7CEDA" },
+	{ value: "sent", label: "Sent", color: "#2D6BFF" },
+	{ value: "paid", label: "Paid", color: "#34D399" },
+]
 
 export function InvoicesView({ data }: { data: TimeData }) {
 	const { user } = useAuth()
@@ -108,21 +115,19 @@ export function InvoicesView({ data }: { data: TimeData }) {
 								<span className="font-mono text-sm font-semibold text-paper">
 									{formatMoney(total, inv.currency)}
 								</span>
-								<select
-									value={inv.status}
-									onChange={(e) =>
-										void updateInvoice(inv.id, { status: e.target.value as InvoiceStatus })
-									}
-									className={cn(
-										"select-styled cursor-pointer rounded-full border py-1 pl-3 text-xs font-medium capitalize outline-none",
-										STATUS_STYLES[inv.status],
-									)}
-									aria-label="Status"
-								>
-									<option value="draft">Draft</option>
-									<option value="sent">Sent</option>
-									<option value="paid">Paid</option>
-								</select>
+								<div className="w-24">
+									<Select
+										size="sm"
+										variant="bare"
+										value={inv.status}
+										onChange={(status) => void updateInvoice(inv.id, { status })}
+										ariaLabel="Status"
+										align="end"
+										menuWidth={140}
+										className={cn("rounded-full border font-medium", STATUS_STYLES[inv.status])}
+										options={STATUS_OPTIONS}
+									/>
+								</div>
 								<div className="flex">
 									<button
 										onClick={() => void download(inv)}

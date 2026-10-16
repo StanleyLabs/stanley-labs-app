@@ -1,7 +1,9 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { dayKey, formatTime, fromDayKey, MINUTE } from "../lib/time"
+import { DatePicker } from "../ui/DatePicker"
+import { FloatingPanel } from "../ui/FloatingPanel"
 import { IconClock } from "../ui/icons"
-import { cn, input } from "../ui/styles"
+import { cn } from "../ui/styles"
 import { useDismiss } from "../ui/useDismiss"
 import { TimeInput } from "./TimeInput"
 
@@ -17,8 +19,10 @@ export function StartTimeChip({
 }) {
 	const [open, setOpen] = useState(false)
 	const ref = useRef<HTMLDivElement>(null)
+	const panelRef = useRef<HTMLDivElement>(null)
+	const dismissRefs = useMemo(() => [ref, panelRef], [])
 	const close = useCallback(() => setOpen(false), [])
-	useDismiss(ref, open, close)
+	useDismiss(dismissRefs, open, close)
 
 	const startDate = new Date(start)
 	const isToday = dayKey(startDate) === dayKey(new Date())
@@ -51,8 +55,8 @@ export function StartTimeChip({
 				</span>
 			</button>
 
-			{open && (
-				<div className="absolute right-0 top-full z-50 mt-2 w-64 origin-top-right rounded-xl border border-white/10 bg-graphite/95 p-3 shadow-2xl backdrop-blur-xl animate-scale-in sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
+			<FloatingPanel open={open} anchorRef={ref} panelRef={panelRef} width={256} maxHeight={260}>
+				<div className="subtle-scroll overflow-y-auto p-3">
 					<div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-fog/40">
 						Start time
 					</div>
@@ -65,17 +69,18 @@ export function StartTimeChip({
 							ariaLabel="Start time"
 							className="w-24 border border-white/10 bg-white/5 py-1.5 text-base"
 						/>
-						<input
-							type="date"
+						<DatePicker
+							size="sm"
 							value={dayKey(startDate)}
 							max={dayKey(new Date())}
-							onChange={(e) => {
-								if (!e.target.value) return
-								const d = fromDayKey(e.target.value)
+							ariaLabel="Start date"
+							align="end"
+							className="h-[34px]"
+							onChange={(key) => {
+								const d = fromDayKey(key)
 								d.setHours(startDate.getHours(), startDate.getMinutes(), 0, 0)
 								apply(d)
 							}}
-							className={cn(input, "py-1.5 text-xs [color-scheme:dark]")}
 						/>
 					</div>
 					<div className="mt-3 grid grid-cols-4 gap-1.5">
@@ -100,7 +105,7 @@ export function StartTimeChip({
 						Type “9:15”, “930a” or “-20m”. Press Enter to apply.
 					</p>
 				</div>
-			)}
+			</FloatingPanel>
 		</div>
 	)
 }

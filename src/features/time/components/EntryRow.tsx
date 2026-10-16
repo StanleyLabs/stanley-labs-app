@@ -1,4 +1,5 @@
-import { memo, useEffect, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { FloatingPanel } from "../ui/FloatingPanel"
 import type { Project, Task } from "../../tasks/types"
 import { amountFor, formatMoney, projectClient, resolveCurrency, resolveRate } from "../lib/rates"
 import { entryDurationMs } from "../lib/time"
@@ -36,7 +37,10 @@ export const EntryRow = memo(function EntryRow({
 
 	const [menuOpen, setMenuOpen] = useState(false)
 	const menuRef = useRef<HTMLDivElement>(null)
-	useDismiss(menuRef, menuOpen, () => setMenuOpen(false))
+	const menuPanelRef = useRef<HTMLDivElement>(null)
+	const dismissRefs = useMemo(() => [menuRef, menuPanelRef], [])
+	const closeMenu = useCallback(() => setMenuOpen(false), [])
+	useDismiss(dismissRefs, menuOpen, closeMenu)
 
 	const durationMs = entryDurationMs(entry)
 	const project = entry.projectId ? projectsById.get(entry.projectId) : undefined
@@ -142,8 +146,15 @@ export const EntryRow = memo(function EntryRow({
 						>
 							<IconMore className="h-4 w-4" />
 						</button>
-						{menuOpen && (
-							<div className="absolute right-0 top-full z-40 mt-1 w-40 overflow-hidden rounded-xl border border-white/10 bg-graphite/95 p-1 shadow-2xl backdrop-blur-xl animate-scale-in">
+						<FloatingPanel
+							open={menuOpen}
+							anchorRef={menuRef}
+							panelRef={menuPanelRef}
+							width={160}
+							align="end"
+							maxHeight={120}
+						>
+							<div className="p-1">
 								<button
 									onClick={() => {
 										setMenuOpen(false)
@@ -164,7 +175,7 @@ export const EntryRow = memo(function EntryRow({
 									Delete
 								</button>
 							</div>
-						)}
+						</FloatingPanel>
 					</div>
 				</div>
 			</div>

@@ -15,7 +15,9 @@ import {
 	startOfWeek,
 } from "../lib/time"
 import type { TimeEntry } from "../types"
-import { card, cn, input } from "../ui/styles"
+import { DatePicker } from "../ui/DatePicker"
+import { Select } from "../ui/Select"
+import { card, cn } from "../ui/styles"
 
 type Preset = "week" | "lastWeek" | "month" | "lastMonth" | "year" | "custom"
 type Grouping = "day" | "week" | "month"
@@ -221,37 +223,44 @@ export function ReportsView({ data }: { data: TimeData }) {
 				</div>
 				{preset === "custom" && (
 					<div className="flex items-center gap-2">
-						<input
-							type="date"
-							value={custom[0]}
-							max={custom[1]}
-							onChange={(e) => e.target.value && setCustom([e.target.value, custom[1]])}
-							className={cn(input, "w-auto py-1.5 text-xs [color-scheme:dark]")}
-						/>
+						<div className="w-36">
+							<DatePicker
+								size="sm"
+								value={custom[0]}
+								max={custom[1]}
+								onChange={(key) => setCustom([key, custom[1]])}
+								ariaLabel="From"
+							/>
+						</div>
 						<span className="text-fog/40">–</span>
-						<input
-							type="date"
-							value={custom[1]}
-							min={custom[0]}
-							onChange={(e) => e.target.value && setCustom([custom[0], e.target.value])}
-							className={cn(input, "w-auto py-1.5 text-xs [color-scheme:dark]")}
-						/>
+						<div className="w-36">
+							<DatePicker
+								size="sm"
+								value={custom[1]}
+								min={custom[0]}
+								onChange={(key) => setCustom([custom[0], key])}
+								ariaLabel="To"
+								align="end"
+							/>
+						</div>
 					</div>
 				)}
 				<div className="ml-auto flex items-center gap-2">
-					<select
-						value={clientFilter}
-						onChange={(e) => setClientFilter(e.target.value)}
-						className={cn(input, "select-styled w-auto py-1.5 text-xs")}
-					>
-						<option value="all">All clients</option>
-						{clients.map((c) => (
-							<option key={c.id} value={c.id}>
-								{c.name}
-							</option>
-						))}
-						<option value="none">No client</option>
-					</select>
+					<div className="w-40">
+						<Select
+							size="sm"
+							value={clientFilter}
+							onChange={setClientFilter}
+							ariaLabel="Filter by client"
+							align="end"
+							menuWidth={200}
+							options={[
+								{ value: "all", label: "All clients" },
+								...clients.map((c) => ({ value: c.id, label: c.name, color: c.color })),
+								{ value: "none", label: "No client" },
+							]}
+						/>
+					</div>
 					<div className="flex rounded-xl border border-white/10 bg-white/[0.04] p-1">
 						{(["day", "week", "month"] as const).map((g) => (
 							<button

@@ -12,6 +12,7 @@ const DESCRIPTION_DEBOUNCE_MS = 500
 
 function isTypingTarget(el: EventTarget | null) {
 	if (!(el instanceof HTMLElement)) return false
+	if (el.closest('[role="listbox"]')) return true
 	return el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(el.tagName)
 }
 
@@ -102,7 +103,8 @@ export function TimerBar({
 	toggleRef.current = toggle
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
-			if (e.repeat || e.metaKey || e.ctrlKey || e.altKey || isTypingTarget(e.target)) return
+			if (e.defaultPrevented || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return
+			if (isTypingTarget(e.target)) return
 			if (document.querySelector('[role="dialog"]')) return
 			if (e.code === "Space" || e.key.toLowerCase() === "s") {
 				e.preventDefault()
