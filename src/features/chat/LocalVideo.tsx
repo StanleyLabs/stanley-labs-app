@@ -70,7 +70,7 @@ const LocalVideo = forwardRef<HTMLDivElement, LocalVideoProps>(
 						className="w-full h-full bg-graphite pointer-events-none"
 					/>
 					{isVideoMuted && <CameraOffTile name={name} avatarUrl={avatarUrl} size="sm" />}
-					<SpeakingRing active={speaking} />
+					<SpeakingRing active={speaking} borderWidth={2} />
 					<div className="absolute top-2 left-2 px-2 py-0.5 bg-electric/90 backdrop-blur-sm rounded text-[10px] font-semibold text-white pointer-events-none">
 						You
 					</div>

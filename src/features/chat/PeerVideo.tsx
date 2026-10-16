@@ -161,7 +161,7 @@ export default function PeerVideo({
 					<CameraOffTile name={name} avatarUrl={avatarUrl} size={isThumb ? "sm" : "lg"} />
 				)}
 
-				<SpeakingRing active={speaking} />
+				<SpeakingRing active={speaking} borderWidth={isSpotlight ? 2 : 1} />
 
 				{/* Label */}
 				<div
