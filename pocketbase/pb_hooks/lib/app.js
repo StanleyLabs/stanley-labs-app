@@ -43,14 +43,22 @@ function listProjectMembers(e) {
 		0,
 		{ p: projectId },
 	)
-	const allowed =
-		project.getString("user_id") === authId ||
-		members.some((m) => m.getString("user_id") === authId)
+	const ownerId = project.getString("user_id")
+	const allowed = ownerId === authId || members.some((m) => m.getString("user_id") === authId)
 	if (!allowed) throw new ForbiddenError("You do not have access to this project.")
 
-	return e.json(
-		200,
-		members.map((m) => ({
+	// The creator has no membership row; list them first as an owner.
+	const creator = {
+		id: "",
+		project_id: projectId,
+		user_id: ownerId,
+		role: "owner",
+		added_at: project.getString("created_at"),
+		email: userEmail(e.app, ownerId),
+	}
+	return e.json(200, [
+		creator,
+		...members.map((m) => ({
 			id: m.id,
 			project_id: m.getString("project_id"),
 			user_id: m.getString("user_id"),
@@ -58,7 +66,7 @@ function listProjectMembers(e) {
 			added_at: m.getString("added_at"),
 			email: userEmail(e.app, m.getString("user_id")),
 		})),
-	)
+	])
 }
 
 function listPageMembers(e) {
@@ -75,19 +83,28 @@ function listPageMembers(e) {
 	const members = e.app.findRecordsByFilter("page_members", "page_id = {:p}", "created_at", 0, 0, {
 		p: pageId,
 	})
-	const allowed =
-		page.getString("owner_id") === authId || members.some((m) => m.getString("user_id") === authId)
+	const ownerId = page.getString("owner_id")
+	const allowed = ownerId === authId || members.some((m) => m.getString("user_id") === authId)
 	if (!allowed) throw new ForbiddenError("You do not have access to this page.")
 
-	return e.json(
-		200,
-		members.map((m) => ({
+	// The creator has no membership row; list them first as an owner.
+	const creator = {
+		page_id: pageId,
+		user_id: ownerId,
+		role: "owner",
+		email: userEmail(e.app, ownerId),
+		creator: true,
+	}
+	return e.json(200, [
+		creator,
+		...members.map((m) => ({
 			page_id: m.getString("page_id"),
 			user_id: m.getString("user_id"),
 			role: m.getString("role"),
 			email: userEmail(e.app, m.getString("user_id")),
+			creator: false,
 		})),
-	)
+	])
 }
 
 /**

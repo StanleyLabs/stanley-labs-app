@@ -367,7 +367,7 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 							) : (
 								members.map((m) => {
 									const isMe = user?.id === m.userId
-									const canEdit = isOwner && !isMe
+									const canEdit = isOwner && !isMe && !m.isCreator
 									return (
 										<div
 											key={m.userId}

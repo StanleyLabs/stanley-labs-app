@@ -182,11 +182,7 @@ export function createPocketBaseTimeRepo(userId: string): TimeRepo {
 			return mapInvoice(await invoices().update(id, invoiceBody(patch)))
 		},
 		async deleteInvoice(id) {
-			const linked = await entries().getFullList({
-				filter: pb.filter("user_id = {:u} && invoice_id = {:i}", { u: userId, i: id }),
-				fields: "id",
-			})
-			await Promise.all(linked.map((r) => entries().update(r.id, { invoice_id: "" })))
+			// time_entries.invoice_id is optional, so PocketBase unsets it on delete.
 			await invoices().delete(id)
 		},
 

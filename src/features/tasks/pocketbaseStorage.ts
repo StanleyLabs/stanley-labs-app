@@ -5,6 +5,7 @@ import type { Project, Task, TaskStatus } from "./types"
 
 const projects = () => pb.collection("projects")
 const tasks = () => pb.collection("tasks")
+const members = () => pb.collection("project_members")
 
 function mapProjectRecord(r: RecordModel): Project {
 	return {
@@ -55,35 +56,69 @@ function withErrorLogging(repo: DashboardRepo): DashboardRepo {
 }
 
 export function createPocketBaseRepo(userId: string): DashboardRepo {
+	const myMemberships = () =>
+		members().getFullList({
+			filter: pb.filter("user_id = {:u}", { u: userId }),
+			fields: "id,project_id,order",
+		})
+
+	/**
+	 * Positions are 1-based: owned projects store theirs on the project, shared
+	 * ones on the user's membership, where 0 means "never placed" (sorts last).
+	 */
+	async function reorderProjects(ids: string[]) {
+		const membershipId = new Map((await myMemberships()).map((m) => [m.project_id, m.id]))
+		await Promise.all(
+			ids.map((id, i) => {
+				const memberId = membershipId.get(id)
+				return memberId
+					? members().update(memberId, { order: i + 1 })
+					: projects().update(id, { order: i + 1 })
+			}),
+		)
+	}
+
 	return withErrorLogging({
 		async listProjects() {
 			// API rules limit results to projects the user owns or is a member of.
-			const rows = await projects().getFullList({ sort: "order" })
-			const owned = rows.filter((r) => r.user_id === userId)
-			const shared = rows.filter((r) => r.user_id !== userId)
-			const all = [...owned, ...shared].map(mapProjectRecord)
+			const [rows, memberships] = await Promise.all([
+				projects().getFullList({ sort: "order" }),
+				myMemberships(),
+			])
+			const memberOrder = new Map(memberships.map((m) => [m.project_id, m.order as number]))
+			const position = (r: RecordModel) =>
+				r.user_id === userId ? r.order : memberOrder.get(r.id) || Infinity
+			const all = rows.sort((a, b) => position(a) - position(b) || 0).map(mapProjectRecord)
 
-			// Apply saved order (includes shared projects) if available
-			try {
-				const savedOrder = localStorage.getItem(`project-order:${userId}`)
-				if (savedOrder) {
-					const orderIds: string[] = JSON.parse(savedOrder)
-					const orderMap = new Map(orderIds.map((id, i) => [id, i]))
-					all.sort((a, b) => (orderMap.get(a.id) ?? 9999) - (orderMap.get(b.id) ?? 9999))
+			// One-time import of the order that used to be kept in this browser.
+			const legacyKey = `project-order:${userId}`
+			const legacy = localStorage.getItem(legacyKey)
+			if (legacy) {
+				localStorage.removeItem(legacyKey)
+				try {
+					const index = new Map((JSON.parse(legacy) as string[]).map((id, i) => [id, i]))
+					all.sort((a, b) => (index.get(a.id) ?? Infinity) - (index.get(b.id) ?? Infinity) || 0)
+					await reorderProjects(all.map((p) => p.id))
+				} catch {
+					/* keep the server order */
 				}
-			} catch {
-				/* ignore */
 			}
 
 			return all
 		},
 
 		async createProject(data) {
-			const existing = await projects().getList(1, 1, {
-				filter: pb.filter("user_id = {:u}", { u: userId }),
-				sort: "-order",
-			})
-			const maxOrder = existing.items[0]?.order ?? -1
+			const [latest, memberships] = await Promise.all([
+				projects().getList(1, 1, {
+					filter: pb.filter("user_id = {:u}", { u: userId }),
+					sort: "-order",
+				}),
+				myMemberships(),
+			])
+			const maxOrder = Math.max(
+				latest.items[0]?.order ?? 0,
+				...memberships.map((m) => m.order as number),
+			)
 
 			const created = await projects().create({
 				user_id: userId,
@@ -94,13 +129,6 @@ export function createPocketBaseRepo(userId: string): DashboardRepo {
 				client_id: data.clientId ?? "",
 				hourly_rate: data.hourlyRate ?? 0,
 			})
-
-			await pb.collection("project_members").create({
-				project_id: created.id,
-				user_id: userId,
-				role: "owner",
-			})
-
 			return mapProjectRecord(created)
 		},
 
@@ -136,7 +164,6 @@ export function createPocketBaseRepo(userId: string): DashboardRepo {
 
 		async createTask(input) {
 			const created = await tasks().create({
-				user_id: userId,
 				project_id: input.projectId,
 				title: input.title,
 				description: input.description ?? "",
@@ -206,27 +233,6 @@ export function createPocketBaseRepo(userId: string): DashboardRepo {
 			return mapTaskRecord(await tasks().getOne(id))
 		},
 
-		async reorderProjects(ids) {
-			// Only update order on projects the user owns; shared projects
-			// get their visual order from the ids array (client-side).
-			const owned = await projects().getFullList({
-				filter: pb.filter("user_id = {:u}", { u: userId }),
-				fields: "id",
-			})
-			const ownedIds = new Set(owned.map((r) => r.id))
-
-			await Promise.all(
-				ids
-					.filter((id) => ownedIds.has(id))
-					.map((id) => projects().update(id, { order: ids.indexOf(id) })),
-			)
-
-			// Persist full ordering (including shared) in localStorage
-			try {
-				localStorage.setItem(`project-order:${userId}`, JSON.stringify(ids))
-			} catch {
-				/* ignore */
-			}
-		},
+		reorderProjects,
 	})
 }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useAuth } from "../../../lib/auth"
+import { getUserRoles } from "../../tasks/memberStorage"
 import type { Project } from "../../tasks/types"
 import type { TimeData } from "../hooks/useTimeData"
 import {
@@ -46,7 +47,20 @@ export function ProjectsView({ data }: { data: TimeData }) {
 		return m
 	}, [completed])
 
-	const canEdit = (p: Project) => !user || !p.ownerId || p.ownerId === user.id
+	const [coOwned, setCoOwned] = useState<Set<string>>(new Set())
+	useEffect(() => {
+		if (!user?.id) return
+		let cancelled = false
+		getUserRoles(user.id).then((roles) => {
+			if (cancelled) return
+			setCoOwned(new Set([...roles].filter(([, role]) => role === "owner").map(([id]) => id)))
+		})
+		return () => {
+			cancelled = true
+		}
+	}, [user?.id, projects])
+
+	const canEdit = (p: Project) => !user || !p.ownerId || p.ownerId === user.id || coOwned.has(p.id)
 
 	const save = (id: string, patch: Partial<ProjectFields>) => {
 		setError(null)

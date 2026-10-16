@@ -3,7 +3,7 @@
  *
  * Collections:
  *   pages           — canonical page records (owner, title, visibility, slug)
- *   page_members    — user-page relationships (owner/editor/viewer)
+ *   page_members    — other users' roles on a page (owner/editor/viewer); the creator has no row
  *   page_snapshots  — tldraw document snapshots (one per page, record id = page id)
  */
 
@@ -60,6 +60,8 @@ export interface PageMemberWithEmail {
 	userId: string
 	email: string
 	role: PageRole
+	/** The page's creator (pages.owner_id), who has no membership row. */
+	isCreator: boolean
 }
 
 const pages = () => pb.collection("pages")
@@ -132,11 +134,6 @@ export async function createPage(
 		console.warn("[api] createPage failed:", errorMessage(err))
 		return null
 	}
-
-	// Add creator as owner in page_members
-	await upsertPageMember(created.id, userId, "owner").catch((err) =>
-		console.warn("[api] createPage membership failed:", errorMessage(err)),
-	)
 
 	return toPageRow(created)
 }
@@ -217,29 +214,35 @@ export async function setMembersOnly(pageId: string): Promise<boolean> {
 
 // ── Page Members ───────────────────────────────────────────────────────────────
 
-/** List all pages the current user has access to (via page_members). */
+/** List all pages the current user owns or is a member of. */
 export async function listMyPages(): Promise<MyPageEntry[]> {
 	const userId = currentUserId()
 	if (!userId) return []
 	try {
-		const rows = await pageMembers().getFullList({
-			filter: pb.filter("user_id = {:u}", { u: userId }),
-			expand: "page_id",
-		})
-		return rows
-			.filter((r) => r.expand?.page_id?.id)
-			.map((r) => ({
+		const [owned, memberships] = await Promise.all([
+			pages().getFullList({ filter: pb.filter("owner_id = {:u}", { u: userId }) }),
+			pageMembers().getFullList({
+				filter: pb.filter("user_id = {:u}", { u: userId }),
+				expand: "page_id",
+			}),
+		])
+		const byPage = new Map<string, MyPageEntry>()
+		for (const r of memberships) {
+			if (!r.expand?.page_id?.id) continue
+			byPage.set(r.page_id, {
 				page_id: r.page_id,
 				role: r.role as PageRole,
-				page: toPageRow(r.expand!.page_id),
-			}))
-			.sort((a, b) => {
-				const ai = a.page.sort_index ?? ""
-				const bi = b.page.sort_index ?? ""
-				if (ai && bi) return ai < bi ? -1 : ai > bi ? 1 : 0
-				// Pages without sort_index: fall back to created_at
-				return (a.page.created_at ?? "").localeCompare(b.page.created_at ?? "")
+				page: toPageRow(r.expand.page_id),
 			})
+		}
+		for (const r of owned) byPage.set(r.id, { page_id: r.id, role: "owner", page: toPageRow(r) })
+		return [...byPage.values()].sort((a, b) => {
+			const ai = a.page.sort_index ?? ""
+			const bi = b.page.sort_index ?? ""
+			if (ai && bi) return ai < bi ? -1 : ai > bi ? 1 : 0
+			// Pages without sort_index: fall back to created_at
+			return (a.page.created_at ?? "").localeCompare(b.page.created_at ?? "")
+		})
 	} catch {
 		return []
 	}
@@ -261,13 +264,14 @@ export async function addSelfAsViewer(pageId: string): Promise<boolean> {
 export async function listPageMembers(pageId: string): Promise<PageMemberWithEmail[]> {
 	try {
 		const rows = await pb.send<
-			{ page_id: string; user_id: string; role: PageRole; email: string }[]
+			{ page_id: string; user_id: string; role: PageRole; email: string; creator: boolean }[]
 		>(`/api/app/page-members/${encodeURIComponent(pageId)}`, { method: "GET" })
 		return (rows ?? []).map((r) => ({
 			pageId: r.page_id ?? pageId,
 			userId: r.user_id,
 			email: r.email || r.user_id.slice(0, 8) + "...",
 			role: r.role,
+			isCreator: !!r.creator,
 		}))
 	} catch {
 		const raw = await pageMembers()
@@ -278,6 +282,7 @@ export async function listPageMembers(pageId: string): Promise<PageMemberWithEma
 			userId: r.user_id,
 			email: r.user_id.slice(0, 8) + "...",
 			role: r.role as PageRole,
+			isCreator: false,
 		}))
 	}
 }
@@ -301,7 +306,7 @@ export async function addMemberByEmail(
 		if (isUniqueViolation(err)) throw new Error("That user is already a member.")
 		throw new Error(errorMessage(err))
 	}
-	return { pageId, userId, email, role }
+	return { pageId, userId, email, role, isCreator: false }
 }
 
 /** Change a member's role on a page. */
