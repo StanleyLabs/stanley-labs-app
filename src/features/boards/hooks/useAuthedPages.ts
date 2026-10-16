@@ -97,12 +97,17 @@ export function useAuthedPages({
 						name: entry.title,
 						...(entry.sortIndex ? { index: entry.sortIndex as IndexKey } : {}),
 					})
-				} else if (entry.sortIndex) {
+				} else {
+					// Pages that already exist locally (e.g. tldraw's default "Page 1") take the
+					// stored name and order; otherwise the tldraw -> DB sync below would overwrite them.
 					const page = editor.getPage(entry.tldrawId as TLPageId)
-					if (page && page.index !== entry.sortIndex) {
+					const nameChanged = Boolean(page && entry.title && page.name !== entry.title)
+					const indexChanged = Boolean(page && entry.sortIndex && page.index !== entry.sortIndex)
+					if (nameChanged || indexChanged) {
 						editor.updatePage({
 							id: entry.tldrawId as TLPageId,
-							index: entry.sortIndex as IndexKey,
+							...(nameChanged ? { name: entry.title } : {}),
+							...(indexChanged ? { index: entry.sortIndex as IndexKey } : {}),
 						})
 					}
 				}
