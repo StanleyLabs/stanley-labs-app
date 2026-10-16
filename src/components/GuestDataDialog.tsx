@@ -75,7 +75,7 @@ export function GuestDataDialog() {
 	}
 
 	return (
-		<Modal open title="Saved in this browser" onClose={close} width="max-w-md">
+		<Modal open title="Saved in this browser" onClose={close} width="max-w-lg">
 			{confirmingDiscard ? (
 				<>
 					<p className="text-sm leading-relaxed text-fog/70">
@@ -105,22 +105,20 @@ export function GuestDataDialog() {
 							{error} Anything not moved is still saved in this browser.
 						</p>
 					)}
-					<div className="mt-6 flex flex-wrap items-center gap-2">
+					<div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
 						<button
-							className={cn(btnGhost, "text-red-300 hover:text-red-200")}
+							className={cn(btnGhost, "text-red-300 hover:text-red-200 sm:mr-auto")}
 							onClick={() => setConfirmingDiscard(true)}
 							disabled={busy}
 						>
 							Discard
 						</button>
-						<div className="ml-auto flex gap-2">
-							<button className={btnGhost} onClick={close} disabled={busy}>
-								Keep in this browser
-							</button>
-							<button className={btnPrimary} onClick={move} disabled={busy} autoFocus>
-								{busy ? "Moving…" : "Move to my account"}
-							</button>
-						</div>
+						<button className={btnGhost} onClick={close} disabled={busy}>
+							Keep in this browser
+						</button>
+						<button className={btnPrimary} onClick={move} disabled={busy} autoFocus>
+							{busy ? "Moving…" : "Move to my account"}
+						</button>
 					</div>
 				</>
 			)}
