@@ -21,10 +21,14 @@ const pageMember = (path) => `${path}page_members_via_page_id.user_id ?= @reques
 const pageRole = (path, cond) =>
 	`(${pageMember(path)} && ${path}page_members_via_page_id.role ${cond})`
 
+// Fields inside `new Collection({ fields })` must be plain objects with a `type`;
+// Field class instances are silently dropped there.
+const field = (type, options) => ({ type, ...options })
+
 function timestamps() {
 	return [
-		new AutodateField({ name: "created_at", onCreate: true, onUpdate: false }),
-		new AutodateField({ name: "updated_at", onCreate: true, onUpdate: true }),
+		field("autodate", { name: "created_at", onCreate: true, onUpdate: false }),
+		field("autodate", { name: "updated_at", onCreate: true, onUpdate: true }),
 	]
 }
 
@@ -42,17 +46,17 @@ migrate(
 			type: "base",
 			name: "projects",
 			fields: [
-				new RelationField({
+				field("relation", {
 					name: "user_id",
 					collectionId: users.id,
 					maxSelect: 1,
 					required: true,
 					cascadeDelete: true,
 				}),
-				new TextField({ name: "name", required: true, max: 500 }),
-				new TextField({ name: "description", max: 20000 }),
-				new TextField({ name: "color", max: 50 }),
-				new NumberField({ name: "order", onlyInt: true }),
+				field("text", { name: "name", required: true, max: 500 }),
+				field("text", { name: "description", max: 20000 }),
+				field("text", { name: "color", max: 50 }),
+				field("number", { name: "order", onlyInt: true }),
 				...timestamps(),
 			],
 			indexes: ["CREATE INDEX idx_projects_user ON projects (user_id)"],
@@ -63,36 +67,36 @@ migrate(
 			type: "base",
 			name: "tasks",
 			fields: [
-				new RelationField({
+				field("relation", {
 					name: "project_id",
 					collectionId: projects.id,
 					maxSelect: 1,
 					required: true,
 					cascadeDelete: true,
 				}),
-				new RelationField({
+				field("relation", {
 					name: "user_id",
 					collectionId: users.id,
 					maxSelect: 1,
 					required: true,
 				}),
-				new TextField({ name: "title", required: true, max: 2000 }),
-				new TextField({ name: "description", max: 100000 }),
-				new SelectField({
+				field("text", { name: "title", required: true, max: 2000 }),
+				field("text", { name: "description", max: 100000 }),
+				field("select", {
 					name: "status",
 					values: ["backlog", "todo", "in_progress", "done"],
 					maxSelect: 1,
 					required: true,
 				}),
-				new SelectField({
+				field("select", {
 					name: "priority",
 					values: ["low", "medium", "high", "urgent"],
 					maxSelect: 1,
 				}),
-				new JSONField({ name: "assignee" }),
-				new TextField({ name: "due", max: 50 }),
-				new JSONField({ name: "tags" }),
-				new NumberField({ name: "order", onlyInt: true }),
+				field("json", { name: "assignee" }),
+				field("text", { name: "due", max: 50 }),
+				field("json", { name: "tags" }),
+				field("number", { name: "order", onlyInt: true }),
 				...timestamps(),
 			],
 			indexes: ["CREATE INDEX idx_tasks_project ON tasks (project_id)"],
@@ -103,27 +107,27 @@ migrate(
 			type: "base",
 			name: "project_members",
 			fields: [
-				new RelationField({
+				field("relation", {
 					name: "project_id",
 					collectionId: projects.id,
 					maxSelect: 1,
 					required: true,
 					cascadeDelete: true,
 				}),
-				new RelationField({
+				field("relation", {
 					name: "user_id",
 					collectionId: users.id,
 					maxSelect: 1,
 					required: true,
 					cascadeDelete: true,
 				}),
-				new SelectField({
+				field("select", {
 					name: "role",
 					values: ["viewer", "editor", "owner"],
 					maxSelect: 1,
 					required: true,
 				}),
-				new AutodateField({ name: "added_at", onCreate: true, onUpdate: false }),
+				field("autodate", { name: "added_at", onCreate: true, onUpdate: false }),
 			],
 			indexes: [
 				"CREATE UNIQUE INDEX idx_project_members_unique ON project_members (project_id, user_id)",
@@ -138,24 +142,24 @@ migrate(
 			type: "base",
 			name: "pages",
 			fields: [
-				new RelationField({
+				field("relation", {
 					name: "owner_id",
 					collectionId: users.id,
 					maxSelect: 1,
 					required: true,
 					cascadeDelete: true,
 				}),
-				new TextField({ name: "title", max: 500 }),
-				new TextField({ name: "tldraw_page_id", required: true, max: 100 }),
-				new SelectField({
+				field("text", { name: "title", max: 500 }),
+				field("text", { name: "tldraw_page_id", required: true, max: 100 }),
+				field("select", {
 					name: "visibility",
 					values: ["private", "members", "public"],
 					maxSelect: 1,
 					required: true,
 				}),
-				new TextField({ name: "public_slug", max: 100 }),
-				new SelectField({ name: "public_access", values: ["view", "edit"], maxSelect: 1 }),
-				new TextField({ name: "sort_index", max: 200 }),
+				field("text", { name: "public_slug", max: 100 }),
+				field("select", { name: "public_access", values: ["view", "edit"], maxSelect: 1 }),
+				field("text", { name: "sort_index", max: 200 }),
 				...timestamps(),
 			],
 			indexes: [
@@ -169,21 +173,21 @@ migrate(
 			type: "base",
 			name: "page_members",
 			fields: [
-				new RelationField({
+				field("relation", {
 					name: "page_id",
 					collectionId: pages.id,
 					maxSelect: 1,
 					required: true,
 					cascadeDelete: true,
 				}),
-				new RelationField({
+				field("relation", {
 					name: "user_id",
 					collectionId: users.id,
 					maxSelect: 1,
 					required: true,
 					cascadeDelete: true,
 				}),
-				new SelectField({
+				field("select", {
 					name: "role",
 					values: ["viewer", "editor", "owner"],
 					maxSelect: 1,
@@ -203,14 +207,14 @@ migrate(
 			type: "base",
 			name: "page_snapshots",
 			fields: [
-				new RelationField({
+				field("relation", {
 					name: "page_id",
 					collectionId: pages.id,
 					maxSelect: 1,
 					required: true,
 					cascadeDelete: true,
 				}),
-				new JSONField({ name: "document", maxSize: 50 * 1024 * 1024 }),
+				field("json", { name: "document", maxSize: 50 * 1024 * 1024 }),
 				...timestamps(),
 			],
 			indexes: ["CREATE UNIQUE INDEX idx_page_snapshots_page ON page_snapshots (page_id)"],
