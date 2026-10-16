@@ -3,14 +3,25 @@ import { useNow, useRunningTimer } from "../lib/runningTimer"
 import { entryDurationMs, formatClock } from "../features/time/lib/time"
 
 /** Floating "timer running" pill shown next to the nav button outside the Time app. */
-export function RunningTimerPill({ className = "" }: { className?: string }) {
+export function RunningTimerPill({
+	className = "",
+	compact = false,
+}: {
+	className?: string
+	/** Hide the title up to 880px wide instead of only below `sm`. */
+	compact?: boolean
+}) {
 	const { running, labels, stop } = useRunningTimer()
 	const now = useNow(!!running)
 	if (!running) return null
 
 	const color = labels.projectColor ?? "#2D6BFF"
 	const title = labels.taskTitle ?? labels.projectName ?? (running.description || "Timer running")
-	const sub = labels.taskTitle ? labels.projectName : running.description || undefined
+	const sub = labels.taskTitle
+		? labels.projectName
+		: labels.projectName
+			? running.description || undefined
+			: undefined
 
 	return (
 		<div
@@ -34,7 +45,11 @@ export function RunningTimerPill({ className = "" }: { className?: string }) {
 				<span className="font-mono text-sm font-semibold tabular-nums text-paper">
 					{formatClock(entryDurationMs(running, now))}
 				</span>
-				<span className="hidden min-w-0 max-w-[11rem] flex-col leading-tight sm:flex">
+				<span
+					className={`hidden min-w-0 max-w-[11rem] flex-col leading-tight ${
+						compact ? "min-[881px]:flex" : "sm:flex"
+					}`}
+				>
 					<span className="truncate text-xs text-fog">{title}</span>
 					{sub && <span className="truncate text-[10px] text-fog/40">{sub}</span>}
 				</span>
