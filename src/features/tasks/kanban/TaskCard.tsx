@@ -2,7 +2,7 @@ import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { cn } from "../../../components/ui/styles"
 import type { Task } from "../types"
-import { IconGrip, IconEdit, IconTrash } from "../icons"
+import { IconEdit, IconTrash } from "../icons"
 import { PriorityBadge, Avatar, Tag } from "../ui"
 import { stopProp } from "../utils"
 import { TaskTimerButton } from "../../time/taskTime/TaskTimerButton"
@@ -10,15 +10,20 @@ import { TaskTimerButton } from "../../time/taskTime/TaskTimerButton"
 export function SortableTaskCard({
 	task,
 	isActive,
+	canDrag,
 	onEdit,
 	onDelete,
 }: {
 	task: Task
 	isActive?: boolean
+	canDrag?: boolean
 	onEdit?: () => void
 	onDelete?: () => void
 }) {
-	const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: task.id })
+	const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+		id: task.id,
+		disabled: !canDrag,
+	})
 
 	const style: React.CSSProperties = {
 		transform: CSS.Transform.toString(transform),
@@ -32,7 +37,7 @@ export function SortableTaskCard({
 				task={task}
 				onEdit={onEdit}
 				onDelete={onDelete}
-				dragProps={{ ...attributes, ...listeners }}
+				dragProps={canDrag ? { ...attributes, ...listeners } : undefined}
 			/>
 		</div>
 	)
@@ -56,23 +61,19 @@ export function TaskCardInner({
 	return (
 		<div
 			className={cn(
-				"group rounded-xl border border-white/[0.08] bg-white/[0.04] p-3 transition-all hover:border-white/[0.14] hover:bg-white/[0.07]",
+				"group select-none rounded-xl border border-white/[0.08] bg-white/[0.04] p-3 transition-all [-webkit-touch-callout:none] hover:border-white/[0.14] hover:bg-white/[0.07]",
+				dragProps && "cursor-grab active:cursor-grabbing",
 				overlay &&
 					"border-electric/40 bg-graphite/95 shadow-2xl ring-2 ring-electric/30 backdrop-blur-xl",
 			)}
+			{...dragProps}
 		>
 			<div className="flex items-start gap-1.5">
-				<button
-					className="mt-0.5 shrink-0 cursor-grab rounded p-0.5 text-fog/20 transition-colors hover:text-fog/60 active:cursor-grabbing"
-					{...dragProps}
-				>
-					<IconGrip className="h-3.5 w-3.5" />
-				</button>
 				<div className="min-w-0 flex-1">
 					<div className="flex items-start justify-between gap-2">
 						<p
 							className={cn(
-								"select-none text-sm font-medium leading-snug text-paper sm:select-text",
+								"text-sm font-medium leading-snug text-paper",
 								task.status === "done" && "text-fog/50 line-through decoration-fog/30",
 							)}
 						>

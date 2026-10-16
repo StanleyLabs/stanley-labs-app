@@ -11,6 +11,7 @@ export function KanbanColumn({
 	color,
 	tasks,
 	activeTaskId,
+	canDrag,
 	onAddTask,
 	onEditTask,
 	onDeleteTask,
@@ -20,6 +21,7 @@ export function KanbanColumn({
 	color: string
 	tasks: Task[]
 	activeTaskId: string | null
+	canDrag: boolean
 	onAddTask?: () => void
 	onEditTask?: (t: Task) => void
 	onDeleteTask?: (t: Task) => void
@@ -68,6 +70,7 @@ export function KanbanColumn({
 							key={t.id}
 							task={t}
 							isActive={t.id === activeTaskId}
+							canDrag={canDrag}
 							onEdit={onEditTask ? () => onEditTask(t) : undefined}
 							onDelete={onDeleteTask ? () => onDeleteTask(t) : undefined}
 						/>

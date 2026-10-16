@@ -2,7 +2,6 @@ import { useState, useMemo, useRef, useEffect } from "react"
 import {
 	DndContext,
 	DragOverlay,
-	PointerSensor,
 	useSensor,
 	useSensors,
 	type DragStartEvent,
@@ -14,6 +13,7 @@ import type { Task, TaskStatus } from "../types"
 import { STATUS_COLUMNS } from "../types"
 import { KanbanColumn } from "./KanbanColumn"
 import { TaskCardInner } from "./TaskCard"
+import { CardMouseSensor, CardTouchSensor } from "./sensors"
 import { collisionDetection } from "../utils"
 
 export function KanbanBoard({
@@ -48,8 +48,14 @@ export function KanbanBoard({
 		setLiveColumns(baseByStatus)
 	}, [baseByStatus])
 
-	const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-	const sensors = useSensors(onReorder ? pointerSensor : undefined)
+	const mouseSensor = useSensor(CardMouseSensor, { activationConstraint: { distance: 5 } })
+	const touchSensor = useSensor(CardTouchSensor, {
+		activationConstraint: { delay: 250, tolerance: 5 },
+	})
+	const sensors = useSensors(
+		onReorder ? mouseSensor : undefined,
+		onReorder ? touchSensor : undefined,
+	)
 
 	function findColumn(cols: Record<TaskStatus, Task[]>, id: string): TaskStatus | null {
 		if (typeof id === "string" && id.startsWith("column-"))
@@ -152,12 +158,12 @@ export function KanbanBoard({
 			onDragEnd={handleDragEnd}
 			onDragCancel={handleDragCancel}
 		>
-			<div className="kanban-scroll -mx-3 min-w-0 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+			<div className="kanban-scroll -mx-3 min-w-0 snap-x snap-mandatory scroll-px-3 overflow-x-auto px-3 sm:mx-0 sm:snap-none sm:px-0">
 				<div className="flex w-max min-w-full gap-3 pb-4 lg:w-full">
 					{STATUS_COLUMNS.map((col) => (
 						<div
 							key={col.key}
-							className="w-[280px] min-w-[280px] shrink-0 lg:w-auto lg:min-w-0 lg:flex-1"
+							className="w-[280px] min-w-[280px] shrink-0 snap-center first:snap-start last:snap-end lg:w-auto lg:min-w-0 lg:flex-1"
 						>
 							<KanbanColumn
 								status={col.key}
@@ -165,6 +171,7 @@ export function KanbanBoard({
 								color={col.color}
 								tasks={liveColumns[col.key]}
 								activeTaskId={activeTask?.id ?? null}
+								canDrag={!!onReorder}
 								onAddTask={onAddTask ? () => onAddTask(col.key) : undefined}
 								onEditTask={onEditTask}
 								onDeleteTask={onDeleteTask}
