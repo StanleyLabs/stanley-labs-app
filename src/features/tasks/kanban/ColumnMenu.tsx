@@ -87,7 +87,6 @@ export function ColumnMenu({
 								}
 							}}
 							onFocus={(e) => e.currentTarget.select()}
-							autoFocus
 							maxLength={60}
 							className={cn(input, "py-1.5")}
 							aria-label="Column name"
