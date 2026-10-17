@@ -1,6 +1,5 @@
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core"
-import type { Task, TaskStatus } from "../types"
-import { STATUS_COLUMNS } from "../types"
+import type { ProjectColumn, Task, TaskStatus } from "../types"
 import { IconFolder } from "../icons"
 import { useStatusDrag } from "../hooks/useStatusDrag"
 import { ListStatusGroup } from "./ListStatusGroup"
@@ -9,17 +8,20 @@ import { collisionDetection } from "../utils"
 
 export function ListView({
 	tasks,
+	columns,
 	onEditTask,
 	onDeleteTask,
 	onReorder,
 }: {
 	tasks: Task[]
+	columns: ProjectColumn[]
 	onEditTask?: (t: Task) => void
 	onDeleteTask?: (t: Task) => void
 	onReorder?: (taskId: string, newStatus: TaskStatus, newIndex: number) => void
 }) {
 	const { activeTask, activeWidth, liveColumns, dndHandlers } = useStatusDrag(
 		tasks,
+		columns.map((c) => c.id),
 		"list-group-",
 		onReorder,
 	)
@@ -42,13 +44,14 @@ export function ListView({
 	return (
 		<DndContext sensors={sensors} collisionDetection={collisionDetection} {...dndHandlers}>
 			<div className="space-y-3">
-				{STATUS_COLUMNS.map((col) => (
+				{columns.map((col) => (
 					<ListStatusGroup
-						key={col.key}
-						status={col.key}
-						label={col.label}
+						key={col.id}
+						status={col.id}
+						label={col.name}
 						color={col.color}
-						tasks={liveColumns[col.key]}
+						done={col.done}
+						tasks={liveColumns[col.id] ?? []}
 						activeTaskId={activeTask?.id ?? null}
 						onEditTask={onEditTask}
 						onDeleteTask={onDeleteTask}

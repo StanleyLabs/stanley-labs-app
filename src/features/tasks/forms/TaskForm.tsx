@@ -3,8 +3,8 @@ import { FloatingPanel } from "../../../components/ui/FloatingPanel"
 import { Select } from "../../../components/ui/Select"
 import { btnGhost, btnPrimary, cn, input, label } from "../../../components/ui/styles"
 import { useDismiss } from "../../../components/ui/useDismiss"
-import type { TaskPriority, TaskStatus } from "../types"
-import { STATUS_COLUMNS, PRIORITY_CONFIG } from "../types"
+import type { ProjectColumn, TaskPriority, TaskStatus } from "../types"
+import { PRIORITY_CONFIG } from "../types"
 import { Avatar } from "../ui/Avatar"
 import { IconX } from "../icons"
 import { AVATAR_COLORS, nameToInitials } from "../utils"
@@ -21,7 +21,6 @@ export type TaskFormValues = {
 	assigneeColor: string
 }
 
-const STATUS_OPTIONS = STATUS_COLUMNS.map((c) => ({ value: c.key, label: c.label, color: c.color }))
 const PRIORITY_OPTIONS = (["urgent", "high", "medium", "low"] as TaskPriority[]).map((p) => ({
 	value: p,
 	label: PRIORITY_CONFIG[p].label,
@@ -33,12 +32,14 @@ const suggestionItem =
 
 export function TaskForm({
 	initial,
+	columns,
 	knownAssignees,
 	knownTags,
 	onSubmit,
 	onCancel,
 }: {
 	initial: TaskFormValues
+	columns: ProjectColumn[]
 	knownAssignees: KnownAssignee[]
 	knownTags: string[]
 	onSubmit: (v: TaskFormValues) => void
@@ -47,7 +48,15 @@ export function TaskForm({
 	const [title, setTitle] = useState(initial.title)
 	const [description, setDescription] = useState(initial.description)
 	const [priority, setPriority] = useState<TaskPriority>(initial.priority)
-	const [status, setStatus] = useState<TaskStatus>(initial.status)
+	const [status, setStatus] = useState<TaskStatus>(() =>
+		columns.some((c) => c.id === initial.status)
+			? initial.status
+			: (columns[0]?.id ?? initial.status),
+	)
+	const statusOptions = useMemo(
+		() => columns.map((c) => ({ value: c.id, label: c.name, color: c.color })),
+		[columns],
+	)
 	const [tags, setTags] = useState<string[]>(initial.tags)
 	const [tagInput, setTagInput] = useState("")
 	const [tagFocused, setTagFocused] = useState(false)
@@ -137,7 +146,7 @@ export function TaskForm({
 			<div className="grid grid-cols-2 gap-3">
 				<div>
 					<span className={label}>Status</span>
-					<Select value={status} onChange={setStatus} options={STATUS_OPTIONS} ariaLabel="Status" />
+					<Select value={status} onChange={setStatus} options={statusOptions} ariaLabel="Status" />
 				</div>
 				<div>
 					<span className={label}>Priority</span>

@@ -16,11 +16,13 @@ const deleteBtn = cn(actionBtn, "hover:bg-signal/15 hover:text-signal")
 
 export function SortableListRow({
 	task,
+	done,
 	isActive,
 	onEdit,
 	onDelete,
 }: {
 	task: Task
+	done?: boolean
 	isActive?: boolean
 	onEdit?: () => void
 	onDelete?: () => void
@@ -42,6 +44,7 @@ export function SortableListRow({
 		>
 			<ListRowContent
 				task={task}
+				done={done}
 				dragProps={{ ...attributes, ...listeners }}
 				onEdit={onEdit}
 				onDelete={onDelete}
@@ -61,18 +64,19 @@ export function ListOverlayRow({ task }: { task: Task }) {
 /** Without dragProps this renders the static drag-overlay version (no grip button, actions or timer). */
 function ListRowContent({
 	task,
+	done,
 	dragProps,
 	onEdit,
 	onDelete,
 }: {
 	task: Task
+	done?: boolean
 	dragProps?: Record<string, unknown>
 	onEdit?: () => void
 	onDelete?: () => void
 }) {
 	const overlay = !dragProps
-	const doneClass =
-		!overlay && task.status === "done" && "text-fog/50 line-through decoration-fog/30"
+	const doneClass = !overlay && done && "text-fog/50 line-through decoration-fog/30"
 	const hasActions = !!(onEdit || onDelete)
 
 	const mobileTitle = (

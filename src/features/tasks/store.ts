@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react"
-import type { Project, Task, TaskStatus } from "./types"
+import type { Project, ProjectColumn, Task, TaskStatus } from "./types"
+import { DEFAULT_COLUMNS } from "./types"
 import { MOCK_PROJECTS, MOCK_TASKS } from "./mockData"
 import { loadProjects, loadTasks, saveDashboardData } from "./storage"
 import { createPocketBaseRepo } from "./pocketbaseStorage"
@@ -20,6 +21,8 @@ export type DashboardRepo = {
 	updateTask(id: string, patch: TaskUpdate): Promise<Task>
 	deleteTask(id: string): Promise<void>
 	reorderTask(id: string, newStatus: TaskStatus, newOrder: number): Promise<Task>
+	/** Moves every task in `from` to the end of `to`, keeping their relative order. */
+	moveTasksToStatus(projectId: string, from: TaskStatus, to: TaskStatus): Promise<void>
 	reorderProjects(ids: string[]): Promise<void>
 }
 
@@ -58,6 +61,7 @@ function createRepo(
 			const maxOrder = projects.length > 0 ? Math.max(...projects.map((p) => p.order)) : -1
 			const p: Project = {
 				...data,
+				columns: data.columns ?? DEFAULT_COLUMNS,
 				id: uid("p"),
 				order: maxOrder + 1,
 				createdAt: new Date().toISOString(),
@@ -146,6 +150,23 @@ function createRepo(
 			save()
 			return tasks[idx]
 		},
+		async moveTasksToStatus(projectId, from, to) {
+			const inProject = (t: Task) => t.projectId === projectId
+			const byOrder = (a: Task, b: Task) => a.order - b.order
+			const target = tasks.filter((t) => inProject(t) && t.status === to)
+			let next = target.length > 0 ? Math.max(...target.map((t) => t.order)) + 1 : 0
+			const moving = new Map(
+				tasks
+					.filter((t) => inProject(t) && t.status === from)
+					.sort(byOrder)
+					.map((t) => [t.id, next++]),
+			)
+			const now = new Date().toISOString()
+			tasks = tasks.map((t) =>
+				moving.has(t.id) ? { ...t, status: to, order: moving.get(t.id)!, updatedAt: now } : t,
+			)
+			save()
+		},
 		async reorderProjects(ids) {
 			const map = new Map(projects.map((p) => [p.id, p]))
 			projects = ids.map((id, i) => {
@@ -218,7 +239,23 @@ export function useProjects(repo: DashboardRepo) {
 		await repo.reorderProjects(ids)
 	}
 
-	return { projects, loading, error, refresh, create, update, remove, reorder }
+	async function setColumns(id: string, columns: ProjectColumn[]) {
+		// Optimistic so dragged columns don't snap back while saving.
+		const previous = projects?.find((p) => p.id === id)?.columns
+		const apply = (cols: ProjectColumn[] | undefined) =>
+			setProjects((prev) =>
+				prev ? prev.map((p) => (p.id === id ? { ...p, columns: cols } : p)) : prev,
+			)
+		apply(columns)
+		try {
+			await repo.updateProject(id, { columns })
+		} catch (e) {
+			apply(previous)
+			throw e
+		}
+	}
+
+	return { projects, loading, error, refresh, create, update, remove, reorder, setColumns }
 }
 
 export function useTasks(repo: DashboardRepo, projectId: string | null) {
@@ -263,5 +300,11 @@ export function useTasks(repo: DashboardRepo, projectId: string | null) {
 		}
 	}
 
-	return { tasks, loading, error, refresh, create, update, remove, reorder }
+	async function moveAll(from: TaskStatus, to: TaskStatus) {
+		if (!projectId) return
+		await repo.moveTasksToStatus(projectId, from, to)
+		setTasks(await repo.listTasks(projectId))
+	}
+
+	return { tasks, loading, error, refresh, create, update, remove, reorder, moveAll }
 }

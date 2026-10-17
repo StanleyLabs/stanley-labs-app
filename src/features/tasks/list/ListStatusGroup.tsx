@@ -9,6 +9,7 @@ export function ListStatusGroup({
 	status,
 	label,
 	color,
+	done,
 	tasks,
 	activeTaskId,
 	onEditTask,
@@ -17,6 +18,7 @@ export function ListStatusGroup({
 	status: TaskStatus
 	label: string
 	color: string
+	done?: boolean
 	tasks: Task[]
 	activeTaskId: string | null
 	onEditTask?: (t: Task) => void
@@ -41,6 +43,7 @@ export function ListStatusGroup({
 						<SortableListRow
 							key={t.id}
 							task={t}
+							done={done}
 							isActive={t.id === activeTaskId}
 							onEdit={onEditTask ? () => onEditTask(t) : undefined}
 							onDelete={onDeleteTask ? () => onDeleteTask(t) : undefined}

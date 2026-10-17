@@ -8,24 +8,26 @@ type Columns = Record<TaskStatus, Task[]>
 /**
  * Drag state shared by the board and list views. Tasks move between status groups
  * live while dragging; the final position is reported through onReorder on drop.
- * Each group's droppable id must be `${groupIdPrefix}${status}`.
+ * Each group's droppable id must be `${groupIdPrefix}${status}`. Tasks whose status
+ * matches none of `columnIds` are shown in the first column.
  */
 export function useStatusDrag(
 	tasks: Task[],
+	columnIds: string[],
 	groupIdPrefix: string,
 	onReorder?: (taskId: string, newStatus: TaskStatus, newIndex: number) => void,
 ) {
 	const [activeTask, setActiveTask] = useState<Task | null>(null)
 	const [activeWidth, setActiveWidth] = useState<number | null>(null)
 
+	const columnKey = columnIds.join("\n")
 	const baseByStatus = useMemo(() => {
-		const map: Columns = { backlog: [], todo: [], in_progress: [], done: [] }
-		for (const t of tasks) map[t.status].push(t)
-		for (const key of Object.keys(map) as TaskStatus[]) {
-			map[key].sort((a, b) => a.order - b.order)
-		}
+		const ids = columnKey ? columnKey.split("\n") : []
+		const map: Columns = Object.fromEntries(ids.map((id) => [id, [] as Task[]]))
+		for (const t of tasks) (map[t.status] ?? map[ids[0]])?.push(t)
+		for (const key of ids) map[key].sort((a, b) => a.order - b.order)
 		return map
-	}, [tasks])
+	}, [tasks, columnKey])
 
 	const [liveColumns, setLiveColumns] = useState(baseByStatus)
 	const lastOverIdRef = useRef<string | null>(null)

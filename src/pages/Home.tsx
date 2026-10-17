@@ -4,6 +4,7 @@ import { ProfileDialog } from "../components/ProfileDialog"
 import { IconStop } from "../components/ui/icons"
 import { cn } from "../components/ui/styles"
 import { useDashboardRepo } from "../features/tasks/store"
+import { taskDoneChecker } from "../features/tasks/types"
 import { dayKey, entryDurationMs, formatClock, formatHours } from "../features/time/lib/time"
 import { initialsFor, useAuth } from "../lib/auth"
 import { describeRunning, useNow, useRunningTimer } from "../lib/runningTimer"
@@ -127,8 +128,9 @@ function useHomeStats(enabled: boolean) {
 		let cancelled = false
 		Promise.all([dashRepo.listProjects(), dashRepo.listAllTasks()])
 			.then(([p, t]) => {
-				if (!cancelled)
-					setTasks({ projects: p.length, open: t.filter((x) => x.status !== "done").length })
+				if (cancelled) return
+				const isDone = taskDoneChecker(p)
+				setTasks({ projects: p.length, open: t.filter((x) => !isDone(x)).length })
 			})
 			.catch(() => {})
 		return () => {

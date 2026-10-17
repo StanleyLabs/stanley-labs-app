@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Project, Task } from "../../tasks/types"
+import { taskDoneChecker } from "../../tasks/types"
 import type { Client, TimeEntry } from "../types"
 import {
 	IconChevronDown,
@@ -71,6 +72,7 @@ export function ProjectTaskPicker({
 	useDismiss(dismissRefs, open, close)
 
 	const projectsById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects])
+	const isDone = useMemo(() => taskDoneChecker(projects), [projects])
 	const tasksById = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks])
 	const tasksByProject = useMemo(() => {
 		const m = new Map<string, Task[]>()
@@ -144,7 +146,7 @@ export function ProjectTaskPicker({
 				const ptasks = tasksByProject.get(p.id) ?? []
 				const matchingTasks = q
 					? ptasks.filter((t) => t.title.toLowerCase().includes(q))
-					: ptasks.filter((t) => t.status !== "done")
+					: ptasks.filter((t) => !isDone(t))
 				if (!projectMatch && matchingTasks.length === 0) continue
 
 				const isExpanded = q ? matchingTasks.length > 0 : expanded.has(p.id)
@@ -187,6 +189,7 @@ export function ProjectTaskPicker({
 		projectsById,
 		tasksById,
 		tasksByProject,
+		isDone,
 		clientsById,
 		recentEntries,
 		expanded,

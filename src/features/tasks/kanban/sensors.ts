@@ -1,6 +1,6 @@
 import { MouseSensor, TouchSensor } from "@dnd-kit/core"
 
-const INTERACTIVE = "button, a, input, textarea, select, label"
+const INTERACTIVE = "button, a, input, textarea, select, label, [data-no-drag]"
 
 function startsOnInteractive(target: EventTarget | null) {
 	return target instanceof Element && target.closest(INTERACTIVE) !== null

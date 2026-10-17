@@ -34,3 +34,4 @@ Put it behind your existing reverse proxy on a public hostname (the value of `VI
 - A project's or page's creator is `projects.user_id` / `pages.owner_id` only; `project_members` and `page_members` hold everyone else (other owners, editors, viewers). The member-list routes add the creator back as an owner.
 - Project order is per user: `projects.order` for projects you created, `project_members.order` for projects shared with you.
 - Time tracking (`1760659200_time_tracker.js`) adds `clients`, `time_entries` and `invoices`, plus optional `client_id` / `hourly_rate` on `projects`. A time entry with an empty `end` is the running timer. Deleting a client, project, task or invoice keeps tracked time and just clears the reference.
+- Board columns (`1792116000_project_columns.js`) live in `projects.columns` as `{ id, name, color, done }` in display order; empty means the default Backlog / To Do / In Progress / Done. `tasks.status` is free text holding a column id.

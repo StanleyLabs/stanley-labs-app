@@ -11,12 +11,14 @@ import { TaskTimerButton } from "../../time/taskTime/TaskTimerButton"
 
 export function SortableTaskCard({
 	task,
+	done,
 	isActive,
 	canDrag,
 	onEdit,
 	onDelete,
 }: {
 	task: Task
+	done?: boolean
 	isActive?: boolean
 	canDrag?: boolean
 	onEdit?: () => void
@@ -37,6 +39,7 @@ export function SortableTaskCard({
 		<div ref={setNodeRef} style={style} data-task-id={task.id}>
 			<TaskCardInner
 				task={task}
+				done={done}
 				onEdit={onEdit}
 				onDelete={onDelete}
 				dragProps={canDrag ? { ...attributes, ...listeners } : undefined}
@@ -49,12 +52,14 @@ const actionBtn = "rounded-md p-1 text-fog/40 transition-colors hover:bg-white/1
 
 export function TaskCardInner({
 	task,
+	done,
 	onEdit,
 	onDelete,
 	dragProps,
 	overlay,
 }: {
 	task: Task
+	done?: boolean
 	onEdit?: () => void
 	onDelete?: () => void
 	dragProps?: Record<string, unknown>
@@ -76,7 +81,7 @@ export function TaskCardInner({
 						<p
 							className={cn(
 								"text-sm font-medium leading-snug text-paper",
-								task.status === "done" && "text-fog/50 line-through decoration-fog/30",
+								done && "text-fog/50 line-through decoration-fog/30",
 							)}
 						>
 							{task.title}

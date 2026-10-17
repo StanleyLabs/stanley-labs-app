@@ -1,10 +1,9 @@
-import type { Project, Task, TaskStatus } from "./types"
+import type { Project, ProjectColumn, Task } from "./types"
 
 const STORAGE_KEY_PROJECTS = "project-dashboard:projects"
 const STORAGE_KEY_TASKS = "project-dashboard:tasks"
 const STORAGE_VERSION = 1
 
-const VALID_STATUSES: TaskStatus[] = ["backlog", "todo", "in_progress", "done"]
 const VALID_PRIORITIES = ["low", "medium", "high", "urgent"] as const
 
 function parseVersionedData<T>(raw: string | null, guard: (obj: unknown) => obj is T): T[] {
@@ -33,7 +32,19 @@ function isProject(obj: unknown): obj is Project {
 		typeof o.color === "string" &&
 		typeof o.order === "number" &&
 		typeof o.createdAt === "string" &&
-		typeof o.updatedAt === "string"
+		typeof o.updatedAt === "string" &&
+		(o.columns === undefined || (Array.isArray(o.columns) && o.columns.every(isColumn)))
+	)
+}
+
+function isColumn(obj: unknown): obj is ProjectColumn {
+	if (!obj || typeof obj !== "object") return false
+	const o = obj as Record<string, unknown>
+	return (
+		typeof o.id === "string" &&
+		typeof o.name === "string" &&
+		typeof o.color === "string" &&
+		(o.done === undefined || typeof o.done === "boolean")
 	)
 }
 
@@ -49,7 +60,7 @@ function isTask(obj: unknown): obj is Task {
 		typeof o.updatedAt !== "string"
 	)
 		return false
-	if (!VALID_STATUSES.includes(o.status as TaskStatus)) return false
+	if (typeof o.status !== "string" || !o.status) return false
 	if (!VALID_PRIORITIES.includes(o.priority as (typeof VALID_PRIORITIES)[number])) return false
 	if (o.description !== undefined && typeof o.description !== "string") return false
 	if (o.due !== undefined && typeof o.due !== "string") return false

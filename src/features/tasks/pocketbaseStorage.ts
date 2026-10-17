@@ -2,6 +2,7 @@ import type { RecordModel } from "pocketbase"
 import { pb } from "../../lib/pocketbase"
 import type { DashboardRepo } from "./store"
 import type { Project, Task, TaskStatus } from "./types"
+import { DEFAULT_COLUMNS } from "./types"
 
 const projects = () => pb.collection("projects")
 const tasks = () => pb.collection("tasks")
@@ -19,6 +20,7 @@ function mapProjectRecord(r: RecordModel): Project {
 		ownerId: r.user_id,
 		clientId: r.client_id || undefined,
 		hourlyRate: r.hourly_rate || undefined,
+		columns: Array.isArray(r.columns) && r.columns.length > 0 ? r.columns : undefined,
 	}
 }
 
@@ -128,6 +130,7 @@ export function createPocketBaseRepo(userId: string): DashboardRepo {
 				order: maxOrder + 1,
 				client_id: data.clientId ?? "",
 				hourly_rate: data.hourlyRate ?? 0,
+				columns: data.columns ?? DEFAULT_COLUMNS,
 			})
 			return mapProjectRecord(created)
 		},
@@ -140,6 +143,7 @@ export function createPocketBaseRepo(userId: string): DashboardRepo {
 			if (patch.order !== undefined) update.order = patch.order
 			if ("clientId" in patch) update.client_id = patch.clientId ?? ""
 			if ("hourlyRate" in patch) update.hourly_rate = patch.hourlyRate ?? 0
+			if ("columns" in patch) update.columns = patch.columns ?? null
 			return mapProjectRecord(await projects().update(id, update))
 		},
 
@@ -231,6 +235,20 @@ export function createPocketBaseRepo(userId: string): DashboardRepo {
 			}
 
 			return mapTaskRecord(await tasks().getOne(id))
+		},
+
+		async moveTasksToStatus(projectId, from, to) {
+			const inStatus = (s: string) =>
+				tasks().getFullList({
+					filter: pb.filter("project_id = {:p} && status = {:s}", { p: projectId, s }),
+					sort: "order",
+					fields: "id,order",
+				})
+			const [moving, target] = await Promise.all([inStatus(from), inStatus(to)])
+			const start = target.length > 0 ? Math.max(...target.map((r) => r.order ?? 0)) + 1 : 0
+			await Promise.all(
+				moving.map((r, i) => tasks().update(r.id, { status: to, order: start + i })),
+			)
 		},
 
 		reorderProjects,

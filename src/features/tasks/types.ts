@@ -11,9 +11,18 @@ export type Project = {
 	ownerId?: string // user_id of the project creator
 	clientId?: string
 	hourlyRate?: number // overrides the client's rate when set
+	columns?: ProjectColumn[] // board columns in display order; DEFAULT_COLUMNS when empty
 }
 
-export type TaskStatus = "backlog" | "todo" | "in_progress" | "done"
+export type ProjectColumn = {
+	id: string
+	name: string
+	color: string
+	done?: boolean // tasks here count as completed
+}
+
+/** Id of the project column the task sits in. */
+export type TaskStatus = string
 
 export type TaskPriority = "low" | "medium" | "high" | "urgent"
 
@@ -38,12 +47,39 @@ export type Task = {
 
 export type ViewMode = "kanban" | "list"
 
-export const STATUS_COLUMNS: { key: TaskStatus; label: string; color: string }[] = [
-	{ key: "backlog", label: "Backlog", color: "#8A94A6" },
-	{ key: "todo", label: "To Do", color: "#60A5FA" },
-	{ key: "in_progress", label: "In Progress", color: "#FBBF24" },
-	{ key: "done", label: "Done", color: "#34D399" },
+export const DEFAULT_COLUMNS: ProjectColumn[] = [
+	{ id: "backlog", name: "Backlog", color: "#8A94A6" },
+	{ id: "todo", name: "To Do", color: "#60A5FA" },
+	{ id: "in_progress", name: "In Progress", color: "#FBBF24" },
+	{ id: "done", name: "Done", color: "#34D399", done: true },
 ]
+
+export function getColumns(project: Pick<Project, "columns"> | null | undefined): ProjectColumn[] {
+	return project?.columns?.length ? project.columns : DEFAULT_COLUMNS
+}
+
+export function doneStatuses(project: Pick<Project, "columns"> | null | undefined): Set<string> {
+	return new Set(
+		getColumns(project)
+			.filter((c) => c.done)
+			.map((c) => c.id),
+	)
+}
+
+/** Returns a check for whether a task sits in a done column of its project. */
+export function taskDoneChecker(projects: Project[]): (task: Task) => boolean {
+	const byProject = new Map(projects.map((p) => [p.id, doneStatuses(p)]))
+	return (task) => (byProject.get(task.projectId) ?? doneStatuses(null)).has(task.status)
+}
+
+/** Status for new tasks: "todo" when the project has it, otherwise its first column. */
+export function defaultStatus(columns: ProjectColumn[]): TaskStatus {
+	return columns.some((c) => c.id === "todo") ? "todo" : (columns[0]?.id ?? "todo")
+}
+
+export function newColumnId(): string {
+	return `c-${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`
+}
 
 export const PRIORITY_CONFIG: Record<
 	TaskPriority,

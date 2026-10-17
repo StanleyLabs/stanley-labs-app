@@ -7,8 +7,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useLocation } from "react-router-dom"
-import type { MemberRole, Project, Task, TaskStatus, ViewMode } from "../types"
-import { PROJECT_COLORS } from "../types"
+import type { MemberRole, Project, ProjectColumn, Task, TaskStatus, ViewMode } from "../types"
+import { PROJECT_COLORS, defaultStatus, doneStatuses, getColumns, newColumnId } from "../types"
 import { getUserRoles, leaveProject } from "../memberStorage"
 import { useDashboardRepo, useProjects, useTasks } from "../store"
 import { useAuth } from "../../../lib/auth"
@@ -37,6 +37,23 @@ interface TaskModalState {
 	mode: "create" | "edit"
 	task?: Task
 	defaultStatus?: TaskStatus
+}
+
+interface MoveTasksState {
+	column: ProjectColumn
+	taskCount: number
+	onConfirm: (targetId: string) => void
+}
+
+function isColumnList(value: unknown): value is ProjectColumn[] {
+	return (
+		Array.isArray(value) &&
+		value.length > 0 &&
+		value.every(
+			(c) =>
+				c && typeof c.id === "string" && typeof c.name === "string" && typeof c.color === "string",
+		)
+	)
 }
 
 function toAssignee(data: TaskFormValues): Task["assignee"] {
@@ -73,8 +90,12 @@ export function useTasksPage() {
 	const [projectModal, setProjectModal] = useState<ProjectModalState | null>(null)
 	const [taskModal, setTaskModal] = useState<TaskModalState | null>(null)
 	const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null)
+	const [moveTasksDialog, setMoveTasksDialog] = useState<MoveTasksState | null>(null)
 
 	const activeProject = projectsApi.projects?.find((p) => p.id === activeProjectId) ?? null
+	const columns = useMemo(() => getColumns(activeProject), [activeProject])
+	const doneColumnIds = useMemo(() => doneStatuses(activeProject), [activeProject])
+	const newTaskStatus = defaultStatus(columns)
 
 	// ── Roles & permissions ────────────────────────────────────────────────────
 
@@ -102,6 +123,7 @@ export function useTasksPage() {
 		},
 		[roleMap],
 	)
+	const canManageColumns = !!activeProjectId && canManageProject(activeProjectId)
 
 	// ── Data loading ───────────────────────────────────────────────────────────
 
@@ -138,7 +160,7 @@ export function useTasksPage() {
 	}, [tasksApi.tasks, search])
 
 	const totalTasks = tasksApi.tasks?.length ?? 0
-	const doneTasks = tasksApi.tasks?.filter((t) => t.status === "done").length ?? 0
+	const doneTasks = tasksApi.tasks?.filter((t) => doneColumnIds.has(t.status)).length ?? 0
 
 	// ── Assignees & tags ───────────────────────────────────────────────────────
 
@@ -225,18 +247,24 @@ export function useTasksPage() {
 				const text = await file.text()
 				const data = JSON.parse(text)
 				if (!data.project?.name) throw new Error("Invalid project file")
+				const importedColumns = isColumnList(data.project.columns)
+					? data.project.columns
+					: undefined
 				const p = await projectsApi.create({
 					name: data.project.name,
 					description: data.project.description || "",
 					color: data.project.color || PROJECT_COLORS[0],
+					columns: importedColumns,
 				})
+				const projectColumns = getColumns(p)
+				const columnIds = new Set(projectColumns.map((c) => c.id))
 				if (Array.isArray(data.tasks)) {
 					for (const t of data.tasks) {
 						await repo.createTask({
 							projectId: p.id,
 							title: t.title || "Untitled",
 							description: t.description || undefined,
-							status: t.status || "todo",
+							status: columnIds.has(t.status) ? t.status : projectColumns[0].id,
 							priority: t.priority || "medium",
 							assignee: t.assignee || undefined,
 							due: t.due || undefined,
@@ -304,6 +332,102 @@ export function useTasksPage() {
 			})
 		},
 		[projectsApi, activeProjectId],
+	)
+
+	// ── Column handlers ────────────────────────────────────────────────────────
+
+	const showError = useCallback((title: string, err: unknown) => {
+		setConfirmDialog({
+			title,
+			message: err instanceof Error ? err.message : "Something went wrong.",
+			confirmLabel: "OK",
+			tone: "info",
+			onConfirm: () => setConfirmDialog(null),
+		})
+	}, [])
+
+	const saveColumns = useCallback(
+		async (next: ProjectColumn[]) => {
+			if (!activeProjectId) return
+			try {
+				await projectsApi.setColumns(activeProjectId, next)
+			} catch (err) {
+				showError("Could not save columns", err)
+			}
+		},
+		[activeProjectId, projectsApi, showError],
+	)
+
+	/** Returns the new column's id. */
+	const addColumn = useCallback((): string => {
+		const used = new Set(columns.map((c) => c.color))
+		const color =
+			PROJECT_COLORS.find((c) => !used.has(c)) ??
+			PROJECT_COLORS[columns.length % PROJECT_COLORS.length]
+		const column: ProjectColumn = { id: newColumnId(), name: "New column", color }
+		void saveColumns([...columns, column])
+		return column.id
+	}, [columns, saveColumns])
+
+	const updateColumn = useCallback(
+		(id: string, patch: Partial<Omit<ProjectColumn, "id">>) => {
+			void saveColumns(columns.map((c) => (c.id === id ? { ...c, ...patch } : c)))
+		},
+		[columns, saveColumns],
+	)
+
+	const reorderColumns = useCallback(
+		(ids: string[]) => {
+			const byId = new Map(columns.map((c) => [c.id, c]))
+			void saveColumns(ids.map((id) => byId.get(id)).filter(Boolean) as ProjectColumn[])
+		},
+		[columns, saveColumns],
+	)
+
+	const removeColumn = useCallback(
+		(id: string) => {
+			const column = columns.find((c) => c.id === id)
+			if (!column) return
+			if (columns.length <= 1) {
+				setConfirmDialog({
+					title: "Can't delete column",
+					message: "A project needs at least one column.",
+					confirmLabel: "OK",
+					tone: "info",
+					onConfirm: () => setConfirmDialog(null),
+				})
+				return
+			}
+			const remaining = columns.filter((c) => c.id !== id)
+			const taskCount = (tasksApi.tasks ?? []).filter((t) => t.status === id).length
+			if (taskCount === 0) {
+				setConfirmDialog({
+					title: "Delete column",
+					message: `The "${column.name}" column will be removed.`,
+					confirmLabel: "Delete Column",
+					onConfirm: () => {
+						setConfirmDialog(null)
+						void saveColumns(remaining)
+					},
+				})
+				return
+			}
+			setMoveTasksDialog({
+				column,
+				taskCount,
+				onConfirm: async (targetId) => {
+					setMoveTasksDialog(null)
+					try {
+						await tasksApi.moveAll(id, targetId)
+					} catch (err) {
+						showError("Could not move tasks", err)
+						return
+					}
+					await saveColumns(remaining)
+				},
+			})
+		},
+		[columns, tasksApi, saveColumns, showError],
 	)
 
 	// ── Task handlers ──────────────────────────────────────────────────────────
@@ -388,6 +512,10 @@ export function useTasksPage() {
 		allTags,
 		canEdit,
 		canManageProject,
+		columns,
+		doneColumnIds,
+		newTaskStatus,
+		canManageColumns,
 
 		// Modals
 		projectModal,
@@ -396,6 +524,8 @@ export function useTasksPage() {
 		setTaskModal,
 		confirmDialog,
 		setConfirmDialog,
+		moveTasksDialog,
+		setMoveTasksDialog,
 
 		// Handlers
 		handleCreateProject,
@@ -408,5 +538,9 @@ export function useTasksPage() {
 		handleUpdateTask,
 		handleDeleteTask,
 		handleReorder: tasksApi.reorder,
+		addColumn,
+		updateColumn,
+		reorderColumns,
+		removeColumn,
 	}
 }

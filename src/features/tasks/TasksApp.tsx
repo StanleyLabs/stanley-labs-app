@@ -12,6 +12,7 @@ import { TaskTimeSection } from "../time/taskTime/TaskTimeSection"
 import { IconFolder, IconKanban, IconList, IconMenu, IconPlus, IconSearch } from "./icons"
 import { Sidebar } from "./sidebar/Sidebar"
 import { KanbanBoard } from "./kanban/KanbanBoard"
+import { MoveTasksDialog } from "./kanban/MoveTasksDialog"
 import { ListView } from "./list/ListView"
 import { TaskForm } from "./forms/TaskForm"
 import { ProjectMembers } from "./forms/ProjectMembers"
@@ -42,12 +43,17 @@ export default function App() {
 		allTags,
 		canEdit,
 		canManageProject,
+		columns,
+		newTaskStatus,
+		canManageColumns,
 		projectModal,
 		setProjectModal,
 		taskModal,
 		setTaskModal,
 		confirmDialog,
 		setConfirmDialog,
+		moveTasksDialog,
+		setMoveTasksDialog,
 		handleCreateProject,
 		handleUpdateProject,
 		handleExportProject,
@@ -58,6 +64,10 @@ export default function App() {
 		handleUpdateTask,
 		handleDeleteTask,
 		handleReorder,
+		addColumn,
+		updateColumn,
+		reorderColumns,
+		removeColumn,
 	} = useTasksPage()
 
 	const projects = projectsApi.projects ?? []
@@ -211,7 +221,7 @@ export default function App() {
 
 									{canEdit && activeProject && (
 										<button
-											onClick={() => setTaskModal({ mode: "create", defaultStatus: "todo" })}
+											onClick={() => setTaskModal({ mode: "create", defaultStatus: newTaskStatus })}
 											className={cn(btnPrimary, "h-8 px-2.5 py-0 text-xs sm:px-3")}
 										>
 											<IconPlus className="h-3.5 w-3.5" />
@@ -275,6 +285,8 @@ export default function App() {
 							) : view === "kanban" ? (
 								<KanbanBoard
 									tasks={filteredTasks}
+									columns={columns}
+									canManageColumns={canManageColumns}
 									onEditTask={canEdit ? (t) => setTaskModal({ mode: "edit", task: t }) : undefined}
 									onDeleteTask={canEdit ? handleDeleteTask : undefined}
 									onAddTask={
@@ -283,10 +295,15 @@ export default function App() {
 											: undefined
 									}
 									onReorder={canEdit ? handleReorder : undefined}
+									onAddColumn={addColumn}
+									onUpdateColumn={updateColumn}
+									onReorderColumns={reorderColumns}
+									onDeleteColumn={removeColumn}
 								/>
 							) : (
 								<ListView
 									tasks={filteredTasks}
+									columns={columns}
 									onEditTask={canEdit ? (t) => setTaskModal({ mode: "edit", task: t }) : undefined}
 									onDeleteTask={canEdit ? handleDeleteTask : undefined}
 									onReorder={canEdit ? handleReorder : undefined}
@@ -383,11 +400,12 @@ export default function App() {
 									title: taskModal.task?.title ?? "",
 									description: taskModal.task?.description ?? "",
 									priority: taskModal.task?.priority ?? "medium",
-									status: taskModal.task?.status ?? taskModal.defaultStatus ?? "todo",
+									status: taskModal.task?.status ?? taskModal.defaultStatus ?? newTaskStatus,
 									tags: taskModal.task?.tags ?? [],
 									assignee: taskModal.task?.assignee?.name ?? "",
 									assigneeColor: taskModal.task?.assignee?.color ?? "",
 								}}
+								columns={columns}
 								knownAssignees={allAssignees}
 								knownTags={allTags}
 								onSubmit={taskModal.mode === "create" ? handleCreateTask : handleUpdateTask}
@@ -410,6 +428,16 @@ export default function App() {
 						</>
 					)}
 				</Modal>
+
+				{moveTasksDialog && (
+					<MoveTasksDialog
+						column={moveTasksDialog.column}
+						taskCount={moveTasksDialog.taskCount}
+						columns={columns}
+						onConfirm={moveTasksDialog.onConfirm}
+						onCancel={() => setMoveTasksDialog(null)}
+					/>
+				)}
 
 				<ConfirmDialog
 					open={!!confirmDialog}
