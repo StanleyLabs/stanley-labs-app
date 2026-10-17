@@ -4,7 +4,7 @@ import { IconCheck, IconMore } from "../../../components/ui/icons"
 import { cn, iconBtn, input, label } from "../../../components/ui/styles"
 import { useDismiss } from "../../../components/ui/useDismiss"
 import type { ProjectColumn } from "../types"
-import { PROJECT_COLORS } from "../types"
+import { COLUMN_COLORS } from "../types"
 import { IconTrash } from "../icons"
 
 export function ColumnMenu({
@@ -24,9 +24,9 @@ export function ColumnMenu({
 	const panelRef = useRef<HTMLDivElement>(null)
 	const refs = useMemo(() => [triggerRef, panelRef], [])
 
-	const colors = PROJECT_COLORS.includes(column.color)
-		? PROJECT_COLORS
-		: [column.color, ...PROJECT_COLORS]
+	const colors = COLUMN_COLORS.includes(column.color)
+		? COLUMN_COLORS
+		: [column.color, ...COLUMN_COLORS]
 
 	const committedName = useRef(column.name)
 	function commitName() {

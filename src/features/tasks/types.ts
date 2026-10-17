@@ -47,6 +47,17 @@ export type Task = {
 
 export type ViewMode = "kanban" | "list"
 
+/** Board column palette: one clearly distinct hue each, plus grey. */
+export const COLUMN_COLORS = [
+	"#8A94A6", // grey
+	"#60A5FA", // blue
+	"#A78BFA", // violet
+	"#F472B6", // pink
+	"#F87171", // red
+	"#FBBF24", // amber
+	"#34D399", // green
+]
+
 export const DEFAULT_COLUMNS: ProjectColumn[] = [
 	{ id: "backlog", name: "Backlog", color: "#8A94A6" },
 	{ id: "todo", name: "To Do", color: "#60A5FA" },

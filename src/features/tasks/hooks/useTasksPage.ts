@@ -8,7 +8,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useLocation } from "react-router-dom"
 import type { MemberRole, Project, ProjectColumn, Task, TaskStatus, ViewMode } from "../types"
-import { PROJECT_COLORS, defaultStatus, doneStatuses, getColumns, newColumnId } from "../types"
+import {
+	COLUMN_COLORS,
+	PROJECT_COLORS,
+	defaultStatus,
+	doneStatuses,
+	getColumns,
+	newColumnId,
+} from "../types"
 import { getUserRoles, leaveProject } from "../memberStorage"
 import { useDashboardRepo, useProjects, useTasks } from "../store"
 import { useAuth } from "../../../lib/auth"
@@ -362,8 +369,8 @@ export function useTasksPage() {
 	const addColumn = useCallback((): string => {
 		const used = new Set(columns.map((c) => c.color))
 		const color =
-			PROJECT_COLORS.find((c) => !used.has(c)) ??
-			PROJECT_COLORS[columns.length % PROJECT_COLORS.length]
+			COLUMN_COLORS.find((c) => !used.has(c)) ??
+			COLUMN_COLORS[columns.length % COLUMN_COLORS.length]
 		const column: ProjectColumn = { id: newColumnId(), name: "New column", color }
 		void saveColumns([...columns, column])
 		return column.id
