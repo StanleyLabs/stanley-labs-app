@@ -5,7 +5,33 @@ import type { ProjectColumn, Task } from "../types"
 import { IconPlus } from "../icons"
 import { StatusLabel } from "../ui/StatusLabel"
 import { ColumnMenu } from "./ColumnMenu"
-import { SortableTaskCard } from "./TaskCard"
+import { SortableTaskCard, TaskCardInner } from "./TaskCard"
+
+/** Static copy of a column shown under the pointer while it's dragged. */
+export function KanbanColumnOverlay({ column, tasks }: { column: ProjectColumn; tasks: Task[] }) {
+	return (
+		<div
+			className={cn(
+				card,
+				"flex h-full min-w-0 cursor-grabbing flex-col border-electric/40 bg-graphite/95 shadow-2xl ring-2 ring-electric/30",
+			)}
+		>
+			<div className="flex items-center gap-2 px-3.5 pb-1 pt-3">
+				<StatusLabel label={column.name} color={column.color} count={tasks.length} />
+			</div>
+			<div className="min-h-[60px] flex-1 space-y-2 px-2 pb-2 pt-2">
+				{tasks.map((t) => (
+					<TaskCardInner key={t.id} task={t} done={column.done} />
+				))}
+				{tasks.length === 0 && (
+					<div className="flex h-16 items-center justify-center rounded-xl border border-dashed border-white/10 text-xs text-fog/30">
+						Drop tasks here
+					</div>
+				)}
+			</div>
+		</div>
+	)
+}
 
 export function KanbanColumn({
 	column,
@@ -55,14 +81,13 @@ export function KanbanColumn({
 		<div
 			ref={setNodeRef}
 			style={{ transform: CSS.Translate.toString(transform), transition }}
-			className={cn(className, isDragging && "relative z-10 opacity-80")}
+			className={cn(className, isDragging && "opacity-30")}
 		>
 			<div
 				className={cn(
 					card,
 					"flex h-full min-w-0 flex-1 flex-col transition-colors",
 					showDropHighlight && "border-electric/30 bg-white/[0.06]",
-					isDragging && "border-electric/40 shadow-2xl ring-2 ring-electric/30",
 				)}
 			>
 				<div

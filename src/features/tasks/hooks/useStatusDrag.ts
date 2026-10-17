@@ -45,6 +45,7 @@ export function useStatusDrag(
 
 	function onDragStart(event: DragStartEvent) {
 		document.body.classList.add("is-dragging")
+		window.getSelection()?.removeAllRanges()
 		lastOverIdRef.current = null
 		const task = tasks.find((t) => t.id === event.active.id)
 		setActiveTask(task ?? null)

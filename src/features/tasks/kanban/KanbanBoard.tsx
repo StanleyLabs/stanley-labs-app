@@ -14,14 +14,14 @@ import { SortableContext, arrayMove, horizontalListSortingStrategy } from "@dnd-
 import type { ProjectColumn, Task, TaskStatus } from "../types"
 import { useStatusDrag } from "../hooks/useStatusDrag"
 import { IconPlus } from "../icons"
-import { KanbanColumn } from "./KanbanColumn"
+import { KanbanColumn, KanbanColumnOverlay } from "./KanbanColumn"
 import { TaskCardInner } from "./TaskCard"
 import { CardMouseSensor, CardTouchSensor } from "./sensors"
 import { collisionDetection } from "../utils"
 
 const COLUMN_PREFIX = "column-"
 const columnWidth =
-	"w-[280px] min-w-[280px] shrink-0 snap-center first:snap-start last:snap-end lg:w-auto lg:min-w-0 lg:flex-1"
+	"w-[280px] min-w-[280px] shrink-0 snap-center first:snap-start last:snap-end lg:w-auto lg:min-w-[220px] lg:flex-1"
 
 const isColumnDrag = (data: { current?: Record<string, unknown> } | undefined) =>
 	data?.current?.type === "column"
@@ -67,6 +67,10 @@ export function KanbanBoard({
 		onReorder,
 	)
 	const [addedColumnId, setAddedColumnId] = useState<string | null>(null)
+	const [draggedColumn, setDraggedColumn] = useState<{ id: string; width: number } | null>(null)
+	const draggedColumnData = draggedColumn
+		? columns.find((c) => c.id === draggedColumn.id)
+		: undefined
 	const canManage = !!canManageColumns && !!onReorderColumns
 
 	const mouseSensor = useSensor(CardMouseSensor, { activationConstraint: { distance: 5 } })
@@ -82,6 +86,11 @@ export function KanbanBoard({
 	function onDragStart(event: DragStartEvent) {
 		if (isColumnDrag(event.active.data)) {
 			document.body.classList.add("is-dragging")
+			window.getSelection()?.removeAllRanges()
+			setDraggedColumn({
+				id: String(event.active.id).slice(COLUMN_PREFIX.length),
+				width: event.active.rect.current.initial?.width ?? 280,
+			})
 			return
 		}
 		if (onReorder) dndHandlers.onDragStart(event)
@@ -97,6 +106,7 @@ export function KanbanBoard({
 			return
 		}
 		document.body.classList.remove("is-dragging")
+		setDraggedColumn(null)
 		const { active, over } = event
 		if (!over || active.id === over.id) return
 		const ids = columns.map((c) => c.id)
@@ -107,6 +117,7 @@ export function KanbanBoard({
 	}
 
 	function onDragCancel() {
+		setDraggedColumn(null)
 		dndHandlers.onDragCancel()
 	}
 
@@ -166,6 +177,13 @@ export function KanbanBoard({
 							onEdit={() => {}}
 							onDelete={() => {}}
 							overlay
+						/>
+					</div>
+				) : draggedColumnData && draggedColumn ? (
+					<div style={{ width: draggedColumn.width }} className="h-full">
+						<KanbanColumnOverlay
+							column={draggedColumnData}
+							tasks={liveColumns[draggedColumnData.id] ?? []}
 						/>
 					</div>
 				) : null}

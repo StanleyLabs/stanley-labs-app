@@ -18,6 +18,18 @@ body {
 	background: #0b0d10;
 	color: #f2f4f7;
 	font-family: "Inter", system-ui, sans-serif;
+	/* App-like feel: no text selection or long-press callouts outside editable fields */
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-touch-callout: none;
+}
+input,
+textarea,
+[contenteditable]:not([contenteditable="false"]),
+[contenteditable]:not([contenteditable="false"]) * {
+	-webkit-user-select: text;
+	user-select: text;
+	-webkit-touch-callout: default;
 }
 
 ::selection {
