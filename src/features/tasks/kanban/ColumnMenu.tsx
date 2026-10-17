@@ -71,9 +71,10 @@ export function ColumnMenu({
 				width={240}
 				align="end"
 				maxHeight={400}
+				ignoreKeyboard
 			>
 				{/* Portaled, but React still bubbles its presses to the header's drag listeners. */}
-				<div data-no-drag className="space-y-3 p-3">
+				<div data-no-drag className="subtle-scroll space-y-3 overflow-y-auto p-3">
 					<label className="block">
 						<span className={label}>Name</span>
 						<input

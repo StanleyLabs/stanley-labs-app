@@ -36,6 +36,7 @@ export function FloatingPanel({
 	minWidth = 0,
 	align = "start",
 	maxHeight = 320,
+	ignoreKeyboard = false,
 	className,
 }: {
 	open: boolean
@@ -47,6 +48,8 @@ export function FloatingPanel({
 	minWidth?: number
 	align?: "start" | "end"
 	maxHeight?: number
+	/** Size against the full window so an on-screen keyboard opened from inside the panel doesn't shrink it. */
+	ignoreKeyboard?: boolean
 	className?: string
 }) {
 	const [pos, setPos] = useState<Position | null>(null)
@@ -62,7 +65,9 @@ export function FloatingPanel({
 			if (!anchor) return
 			const a = anchor.getBoundingClientRect()
 			const vw = document.documentElement.clientWidth
-			const vh = window.visualViewport?.height ?? window.innerHeight
+			const vh = ignoreKeyboard
+				? window.innerHeight
+				: (window.visualViewport?.height ?? window.innerHeight)
 
 			const desired = Math.max(minWidth, width === "anchor" ? a.width : width)
 			const w = Math.min(desired, vw - MARGIN * 2)
@@ -91,14 +96,14 @@ export function FloatingPanel({
 		update()
 		window.addEventListener("resize", schedule)
 		window.addEventListener("scroll", schedule, true)
-		window.visualViewport?.addEventListener("resize", schedule)
+		if (!ignoreKeyboard) window.visualViewport?.addEventListener("resize", schedule)
 		return () => {
 			cancelAnimationFrame(frame)
 			window.removeEventListener("resize", schedule)
 			window.removeEventListener("scroll", schedule, true)
 			window.visualViewport?.removeEventListener("resize", schedule)
 		}
-	}, [open, anchorRef, width, minWidth, align, maxHeight])
+	}, [open, anchorRef, width, minWidth, align, maxHeight, ignoreKeyboard])
 
 	if (!open || !pos) return null
 
