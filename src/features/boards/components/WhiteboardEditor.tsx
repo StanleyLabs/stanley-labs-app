@@ -4,7 +4,21 @@
  */
 
 import { useCallback, useEffect, useMemo } from "react"
-import { Tldraw, DefaultMenuPanel, useEditor, useToasts, type Editor } from "tldraw"
+import {
+	Tldraw,
+	DefaultMenuPanel,
+	defaultHandleExternalFileContent,
+	useEditor,
+	useToasts,
+	useTranslation,
+	type Editor,
+} from "tldraw"
+import {
+	ACCEPTED_IMAGE_TYPES,
+	ACCEPTED_VIDEO_TYPES,
+	MAX_ASSET_SIZE,
+	normalizeMediaFile,
+} from "../mediaFiles"
 import { HandTool } from "../handToolCursor"
 import { createPasteActionOverride } from "../pasteJson"
 import { ConnectionIndicator } from "../ConnectionIndicator"
@@ -180,6 +194,30 @@ function SharedPageUnavailableListener() {
 	return null
 }
 
+/** Overrides tldraw's default files handler so iPhone media passes type checks. */
+function MediaFilesHandler() {
+	const editor = useEditor()
+	const toasts = useToasts()
+	const msg = useTranslation()
+	useEffect(() => {
+		editor.registerExternalContentHandler("files", async (content) => {
+			const files = await Promise.all(content.files.map(normalizeMediaFile))
+			return defaultHandleExternalFileContent(
+				editor,
+				{ ...content, files },
+				{
+					acceptedImageMimeTypes: ACCEPTED_IMAGE_TYPES,
+					acceptedVideoMimeTypes: ACCEPTED_VIDEO_TYPES,
+					maxAssetSize: MAX_ASSET_SIZE,
+					toasts,
+					msg,
+				},
+			)
+		})
+	}, [editor, toasts, msg])
+	return null
+}
+
 function MenuPanelWithIndicator() {
 	return (
 		<div
@@ -249,8 +287,12 @@ export function WhiteboardEditor({ boards }: { boards: BoardsOrchestration }) {
 				tools={TOOLS}
 				overrides={overrides}
 				components={COMPONENTS}
+				acceptedImageMimeTypes={ACCEPTED_IMAGE_TYPES}
+				acceptedVideoMimeTypes={ACCEPTED_VIDEO_TYPES}
+				maxAssetSize={MAX_ASSET_SIZE}
 				onMount={onMount}
 			>
+				<MediaFilesHandler />
 				<SyncThemeToDocument />
 				<TouchContextMenuFix />
 				<SubmenuOverflowFix />

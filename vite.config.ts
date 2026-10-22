@@ -39,6 +39,8 @@ export default defineConfig({
 			workbox: {
 				navigateFallback: "/index.html",
 				navigateFallbackDenylist: [/^\/socket\.io/],
+				// HEIC converter is lazy-loaded only when a HEIC photo is added.
+				globIgnores: ["**/heic-to-*.js"],
 			},
 		}),
 	],
