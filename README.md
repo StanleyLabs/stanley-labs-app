@@ -88,3 +88,5 @@ The editor settings in `.vscode/` format on save. Install the Prettier and ESLin
 
 - **App:** static build (`npm run build`) on Vercel.
 - **PocketBase, sync server, signaling server:** run on the VPS. PocketBase setup is covered in [pocketbase/README.md](pocketbase/README.md).
+
+How to update each piece is in [DEPLOYMENT.md](DEPLOYMENT.md).
