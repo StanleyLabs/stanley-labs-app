@@ -27,6 +27,7 @@ import type { NewPageInfo } from "../MachineContext"
 import { useAuth } from "../../../lib/auth"
 import { buildSyncUri, isSyncServerConfigured } from "../sharePage"
 import { getSlugFromUrl } from "./boardsUtils"
+import { boardsAssetStore } from "../mediaFiles"
 
 // Sub-hooks
 import { useGuestPersistence } from "./useGuestPersistence"
@@ -61,7 +62,7 @@ export interface BoardsOrchestration {
 // ── Hook ───────────────────────────────────────────────────────────────────────
 
 export function useBoards(): BoardsOrchestration {
-	const store = useMemo(() => createTLStore(), [])
+	const store = useMemo(() => createTLStore({ assets: boardsAssetStore }), [])
 	const [state, send] = useMachine(boardsMachine)
 	const stateRef = useRef(state)
 	stateRef.current = state

@@ -72,12 +72,13 @@ export function importJsonFromText(editor: Editor, text: string): boolean {
 	}
 }
 
-/** Try to paste from clipboard; returns true if our JSON was pasted. */
-async function tryPasteJsonFromClipboard(editor: Editor): Promise<boolean> {
-	if (!navigator.clipboard?.readText) return false
+/** Returns true if the clipboard items held our JSON and it was pasted. */
+async function tryPasteJsonFromItems(editor: Editor, items: ClipboardItem[]): Promise<boolean> {
+	const item = items.find((i) => i.types.includes("text/plain"))
+	if (!item) return false
 	try {
-		const text = await navigator.clipboard.readText()
-		return importJsonFromText(editor, text)
+		const text = await (await item.getType("text/plain")).text()
+		return text.trimStart().startsWith("{") && importJsonFromText(editor, text)
 	} catch {
 		return false
 	}
@@ -98,24 +99,20 @@ export function createPasteActionOverride(): TLUiOverrides {
 			const newPasteAction = {
 				...pasteAction,
 				onSelect: (source: Parameters<typeof pasteAction.onSelect>[0]) => {
-					void (async () => {
-						try {
-							const handled = await tryPasteJsonFromClipboard(editor)
-							if (handled) return
-							if (!navigator.clipboard || typeof navigator.clipboard.read !== "function") {
-								showPasteError()
-								return
-							}
-							const clipboardItems = await navigator.clipboard.read()
-							await helpers.paste(
-								clipboardItems,
-								source,
-								source === "context-menu" ? editor.inputs.currentPagePoint : undefined,
-							)
-						} catch {
-							showPasteError()
-						}
-					})()
+					if (typeof navigator.clipboard?.read !== "function") {
+						showPasteError()
+						return
+					}
+					const point = source === "context-menu" ? editor.inputs.currentPagePoint : undefined
+					// Safari only allows one clipboard read per user gesture, and only
+					// before the first await, so read() must be called synchronously here.
+					navigator.clipboard
+						.read()
+						.then(async (items) => {
+							if (await tryPasteJsonFromItems(editor, items)) return
+							await helpers.paste(items, source, point)
+						})
+						.catch(showPasteError)
 				},
 			}
 			return { ...actions, paste: newPasteAction }

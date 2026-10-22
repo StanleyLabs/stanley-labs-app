@@ -6,8 +6,9 @@
 
 import { useEffect, useRef } from "react"
 import { useSync } from "@tldraw/sync"
-import { inlineBase64AssetStore, type TLStore } from "tldraw"
+import type { TLStore } from "tldraw"
 import type { BoardsEvent } from "./machine"
+import { boardsAssetStore } from "./mediaFiles"
 import { syncToPersist, persistToSync, type StoreSnapshot } from "./lib/serverSyncHelpers"
 
 const SERVER_RETRY_INTERVAL_MS = 10_000
@@ -36,7 +37,7 @@ export function ServerSyncBridge({
 	const pageIdRef = useRef(pageId)
 	pageIdRef.current = pageId
 
-	const storeWithStatus = useSync({ uri: syncUri, assets: inlineBase64AssetStore })
+	const storeWithStatus = useSync({ uri: syncUri, assets: boardsAssetStore })
 	const syncStore = storeWithStatus.status === "synced-remote" ? storeWithStatus.store : null
 
 	const connectionStatus =

@@ -5,7 +5,13 @@
  * and converted before tldraw's type checks run.
  */
 
-import { DEFAULT_SUPPORTED_IMAGE_TYPES, DEFAULT_SUPPORT_VIDEO_TYPES } from "tldraw"
+import {
+	DEFAULT_SUPPORTED_IMAGE_TYPES,
+	DEFAULT_SUPPORT_VIDEO_TYPES,
+	FileHelpers,
+	MediaHelpers,
+	type TLAssetStore,
+} from "tldraw"
 
 const HEIC_TYPES = ["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"]
 
@@ -77,6 +83,70 @@ async function heicToJpeg(file: File): Promise<File> {
 	}
 	const name = file.name.replace(/\.(heic|heif)$/i, "") + ".jpg"
 	return new File([blob], name, { type: "image/jpeg", lastModified: file.lastModified })
+}
+
+const VIDEO_SIZE_TIMEOUT_MS = 15_000
+const FALLBACK_VIDEO_SIZE = { w: 1280, h: 720 }
+
+/**
+ * tldraw waits for `loadeddata`, which iOS Safari never fires for a video that
+ * isn't playing, so adding a video hangs forever. Metadata is enough for size.
+ */
+function getVideoSize(blob: Blob): Promise<{ w: number; h: number }> {
+	return MediaHelpers.usingObjectURL(
+		blob,
+		(url) =>
+			new Promise((resolve, reject) => {
+				const video = document.createElement("video")
+				const timer = setTimeout(() => {
+					video.removeAttribute("src")
+					reject(new Error("Timed out reading video size"))
+				}, VIDEO_SIZE_TIMEOUT_MS)
+				video.onloadedmetadata = () => {
+					clearTimeout(timer)
+					const { videoWidth: w, videoHeight: h } = video
+					resolve(w && h ? { w, h } : FALLBACK_VIDEO_SIZE)
+				}
+				video.onerror = () => {
+					clearTimeout(timer)
+					reject(new Error("Could not load video"))
+				}
+				video.muted = true
+				video.playsInline = true
+				video.preload = "metadata"
+				video.src = url
+				video.load()
+			}),
+	)
+}
+
+MediaHelpers.getVideoSize = getVideoSize
+
+const videoBlobUrls = new Map<string, { src: string; url: Promise<string> }>()
+
+function videoBlobUrl(assetId: string, src: string): Promise<string> {
+	const cached = videoBlobUrls.get(assetId)
+	if (cached?.src === src) return cached.url
+	if (cached) void cached.url.then((u) => URL.revokeObjectURL(u))
+	const url = fetch(src)
+		.then((r) => r.blob())
+		.then((b) => URL.createObjectURL(b))
+	videoBlobUrls.set(assetId, { src, url })
+	return url
+}
+
+/**
+ * Stores assets inline as base64 data URLs. Videos are handed to the player as
+ * blob URLs because Safari won't reliably play large `data:` videos.
+ */
+export const boardsAssetStore: TLAssetStore = {
+	upload: async (_, file) => ({ src: await FileHelpers.blobToDataUrl(file) }),
+	resolve: (asset, ctx) => {
+		const src = asset.props.src
+		if (!src || asset.type !== "video" || ctx.shouldResolveToOriginal || !src.startsWith("data:"))
+			return src
+		return videoBlobUrl(asset.id, src).catch(() => src)
+	},
 }
 
 /** Returns a file tldraw will accept, or the original file if it can't be fixed up. */
