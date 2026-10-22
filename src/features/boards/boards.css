@@ -241,11 +241,17 @@ body {
 	color: var(--tl-color-text-1);
 }
 
-/* Lock icon after a locked page's name in the page menu */
+/* Lock icon left of the 3-dot menu, in the share button's slot (locked pages can't be shared) */
 .tlui-page-menu__item__lock {
-	display: inline-flex;
-	flex-shrink: 0;
-	margin-right: 28px; /* stays clear of the 3-dot menu button */
+	position: absolute;
+	right: 32px;
+	top: 0;
+	width: 32px;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
 	opacity: 0.6;
 }
 

@@ -111,7 +111,7 @@ export function useBoards(): BoardsOrchestration {
 
 	// ── Sub-hooks ──────────────────────────────────────────────────────────────
 
-	const locks = usePageLocks({ editorInstance, userId, tldrawToDb, hydratingRef })
+	const locks = usePageLocks({ editorInstance, userId, hydratingRef })
 	useLockVersion(locks)
 
 	useGuestPersistence({

@@ -13,6 +13,13 @@ export function useCurrentPageLock() {
 	const { user } = useAuth()
 	const tldrawId = useValue("currentPageId", () => editor.getCurrentPageId() as string, [editor])
 	const entry = state.context.pages.find((p) => p.tldrawId === tldrawId)
-	const gated = Boolean(user) && locks.isGated(entry?.dbId)
-	return { tldrawId, entry, gated, isCreator: Boolean(user) && entry?.ownerId === user?.id }
+	const dbId = entry?.dbId ?? locks.lockedDbIdFor(tldrawId)
+	const gated = Boolean(user) && locks.isGated(dbId)
+	return {
+		tldrawId,
+		dbId,
+		entry,
+		gated,
+		isCreator: Boolean(user) && entry?.ownerId === user?.id,
+	}
 }

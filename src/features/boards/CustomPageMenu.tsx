@@ -344,12 +344,12 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 									>
 										<TldrawUiButtonCheck checked={page.id === currentPage.id} />
 										<TldrawUiButtonLabel>{page.name}</TldrawUiButtonLabel>
-										{locks.isLocked(entry?.dbId) && (
-											<span className="tlui-page-menu__item__lock" title="Locked">
-												<TldrawUiButtonIcon icon="lock" small />
-											</span>
-										)}
 									</TldrawUiButton>
+									{locks.isLocked(entry?.dbId) && (
+										<span className="tlui-page-menu__item__lock" title="Locked">
+											<TldrawUiButtonIcon icon="lock" small />
+										</span>
+									)}
 									<SharePageButton pageId={page.id} entry={entry} />
 									{!isReadonlyMode && page.id === currentPageId && (
 										<div className="tlui-page_menu__item__submenu">

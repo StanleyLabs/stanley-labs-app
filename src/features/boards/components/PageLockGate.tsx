@@ -21,18 +21,13 @@ import { WrongPasswordError } from "../lib/pageCrypto"
 import { ChangePasswordDialog, LockMessage, PageLockLayout, PasswordField } from "./PageLockDialogs"
 
 export function PageLockGate() {
-	const { tldrawId, entry, gated, isCreator } = useCurrentPageLock()
-	if (!gated || !entry) return null
+	const { tldrawId, dbId, gated, isCreator } = useCurrentPageLock()
+	if (!gated || !dbId) return null
 
 	return (
 		<div className="page-lock-gate">
 			<div className="tlui-dialog__content">
-				<UnlockPanel
-					key={entry.dbId}
-					dbId={entry.dbId}
-					tldrawId={tldrawId}
-					canChangePassword={isCreator}
-				/>
+				<UnlockPanel key={dbId} dbId={dbId} tldrawId={tldrawId} canChangePassword={isCreator} />
 			</div>
 		</div>
 	)

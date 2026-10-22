@@ -13,14 +13,12 @@ import { PageLockController } from "../lib/pageLocks"
 interface UsePageLocksParams {
 	editorInstance: TldrawEditor | null
 	userId: string | null
-	tldrawToDb: React.MutableRefObject<Map<string, string>>
 	hydratingRef: React.MutableRefObject<boolean>
 }
 
 export function usePageLocks({
 	editorInstance,
 	userId,
-	tldrawToDb,
 	hydratingRef,
 }: UsePageLocksParams): PageLockController {
 	const locks = useMemo(() => new PageLockController(hydratingRef), [hydratingRef])
@@ -36,17 +34,14 @@ export function usePageLocks({
 			() => {
 				const cur = editor.getCurrentPageId() as string
 				if (cur === prev) return
-				const left = prev
 				prev = cur
-				const dbId = tldrawToDb.current.get(left)
-				if (!dbId || !locks.isUnlocked(dbId)) return
 				// Defer so the store isn't mutated from inside its own listener.
-				queueMicrotask(() => locks.evict(editor, dbId, left))
+				queueMicrotask(() => locks.evictOthers(editor, editor.getCurrentPageId() as string))
 			},
 			{ scope: "session" },
 		)
 		return () => unlisten()
-	}, [editorInstance, userId, tldrawToDb, locks])
+	}, [editorInstance, userId, locks])
 
 	// ── Evict on tab hide / logout ─────────────────────────────────────────────
 
@@ -54,20 +49,15 @@ export function usePageLocks({
 		const editor = editorInstance
 		if (!editor) return
 
-		const tldrawIdOf = (dbId: string) => {
-			for (const [tldrawId, id] of tldrawToDb.current) if (id === dbId) return tldrawId
-			return undefined
-		}
-
 		if (!userId) {
-			locks.evictAll(editor, tldrawIdOf, false)
+			locks.evictAll(editor, false)
 			return
 		}
 
-		const onHide = () => locks.evictAll(editor, tldrawIdOf, true)
+		const onHide = () => locks.evictAll(editor, true)
 		window.addEventListener("pagehide", onHide)
 		return () => window.removeEventListener("pagehide", onHide)
-	}, [editorInstance, userId, tldrawToDb, locks])
+	}, [editorInstance, userId, locks])
 
 	return locks
 }

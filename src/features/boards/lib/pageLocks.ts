@@ -13,7 +13,7 @@
 
 import type { Editor, TLAsset, TLBinding, TLPageId, TLRecord, TLShape } from "tldraw"
 import * as api from "../api"
-import { getContentAsJsonDocForPage } from "../sharePage"
+import { getContentAsJsonDocForPage, type ShareSnapshot } from "../sharePage"
 import {
 	createLock,
 	decryptBytes,
@@ -41,6 +41,7 @@ interface WriteJob {
 }
 
 interface Session {
+	tldrawId: string
 	key: CryptoKey
 	/** asset id -> page_vault_assets record id */
 	assets: Map<string, string>
@@ -85,6 +86,13 @@ function collectPageRecords(editor: Editor, pageId: string) {
 	return { all, shapes, shapeIds, bindings, assets }
 }
 
+/** getContentAsJsonDocForPage returns null for a page with no shapes. */
+function emptyPageDoc(editor: Editor, tldrawId: string): ShareSnapshot | null {
+	const page = editor.store.get(tldrawId as TLPageId)
+	if (!page) return null
+	return { document: { store: { [tldrawId]: page }, schema: editor.store.schema.serialize() } }
+}
+
 function srcOf(asset: TLAsset): string {
 	return (asset.props as { src?: string | null }).src ?? ""
 }
@@ -123,6 +131,7 @@ function bytesToDataUrl(bytes: Uint8Array, mime: string): Promise<string> {
 
 export class PageLockController {
 	private locked = new Set<string>()
+	private lockedByTldraw = new Map<string, string>()
 	private sessions = new Map<string, Session>()
 	private listeners = new Set<() => void>()
 	private version = 0
@@ -154,9 +163,16 @@ export class PageLockController {
 		return this.isLocked(dbId) && !this.isUnlocked(dbId)
 	}
 
+	/** Locked page shown under this tldraw page id, if any. */
+	lockedDbIdFor(tldrawId: string): string | undefined {
+		return this.lockedByTldraw.get(tldrawId)
+	}
+
 	/** Replace lock state with fresh DB data (page list load). */
-	syncLocked(pages: { dbId: string; locked: boolean }[]): void {
-		this.locked = new Set(pages.filter((p) => p.locked).map((p) => p.dbId))
+	syncLocked(pages: { dbId: string; tldrawId: string; locked: boolean }[]): void {
+		const locked = pages.filter((p) => p.locked)
+		this.locked = new Set(locked.map((p) => p.dbId))
+		this.lockedByTldraw = new Map(locked.map((p) => [p.tldrawId, p.dbId]))
 		for (const dbId of this.sessions.keys()) {
 			if (!this.locked.has(dbId)) this.sessions.delete(dbId)
 		}
@@ -240,10 +256,10 @@ export class PageLockController {
 	// ── Evicting ─────────────────────────────────────────────────────────────
 
 	/** Save, remove the decrypted records from the editor, clear undo history and forget the key. */
-	evict(editor: Editor, dbId: string, tldrawId: string, save = true): void {
+	evict(editor: Editor, dbId: string, save = true): void {
 		const session = this.sessions.get(dbId)
 		if (!session) return
-		const { all, shapes, shapeIds, bindings, assets } = collectPageRecords(editor, tldrawId)
+		const { all, shapes, shapeIds, bindings, assets } = collectPageRecords(editor, session.tldrawId)
 		if (save) {
 			void this.schedule(session, dbId, {
 				records: [...shapes, ...bindings, ...assets],
@@ -274,14 +290,16 @@ export class PageLockController {
 		this.emit()
 	}
 
-	/** Evict every unlocked page (tab hidden, logout). */
-	evictAll(editor: Editor, tldrawIdOf: (dbId: string) => string | undefined, save: boolean): void {
-		for (const dbId of [...this.sessions.keys()]) {
-			const tldrawId = tldrawIdOf(dbId)
-			if (tldrawId) this.evict(editor, dbId, tldrawId, save)
-			else this.sessions.delete(dbId)
+	/** Evict every unlocked page except the one being shown (page change). */
+	evictOthers(editor: Editor, currentTldrawId: string): void {
+		for (const [dbId, session] of [...this.sessions]) {
+			if (session.tldrawId !== currentTldrawId) this.evict(editor, dbId)
 		}
-		this.emit()
+	}
+
+	/** Evict every unlocked page (tab hidden, logout). */
+	evictAll(editor: Editor, save: boolean): void {
+		for (const dbId of [...this.sessions.keys()]) this.evict(editor, dbId, save)
 	}
 
 	// ── Lock lifecycle ───────────────────────────────────────────────────────
@@ -289,7 +307,7 @@ export class PageLockController {
 	/** Encrypt the open page and mark it locked. The page stays unlocked in this tab. */
 	async lock(editor: Editor, dbId: string, tldrawId: string, password: string): Promise<void> {
 		const { meta, key } = await createLock(password)
-		const session: Session = { key, assets: new Map(), pending: null, running: null }
+		const session: Session = { tldrawId, key, assets: new Map(), pending: null, running: null }
 		try {
 			await this.schedule(session, dbId, {
 				records: this.capture(editor, tldrawId),
@@ -303,6 +321,7 @@ export class PageLockController {
 		}
 
 		this.locked.add(dbId)
+		this.lockedByTldraw.set(tldrawId, dbId)
 		this.sessions.set(dbId, session)
 		this.emit()
 
@@ -365,6 +384,7 @@ export class PageLockController {
 		}
 
 		this.sessions.set(dbId, {
+			tldrawId,
 			key,
 			assets: new Map(rows.map((r) => [r.assetId, r.id])),
 			pending: null,
@@ -393,7 +413,10 @@ export class PageLockController {
 		if (meta) await unlockKey(meta, password)
 		await session.running?.catch(() => {})
 
-		const doc = await getContentAsJsonDocForPage(editor, tldrawId as TLPageId)
+		const doc =
+			editor.getPageShapeIds(tldrawId as TLPageId).size === 0
+				? emptyPageDoc(editor, tldrawId)
+				: await getContentAsJsonDocForPage(editor, tldrawId as TLPageId)
 		if (!doc) throw new Error("Couldn't read the page.")
 		if (JSON.stringify(doc).length > MAX_PLAIN_SNAPSHOT_CHARS) {
 			throw new Error("This page is over 50MB, so it can only be stored while locked.")
@@ -402,6 +425,7 @@ export class PageLockController {
 		await api.clearPageLock(dbId)
 
 		this.locked.delete(dbId)
+		this.lockedByTldraw.delete(tldrawId)
 		this.sessions.delete(dbId)
 		this.emit()
 
