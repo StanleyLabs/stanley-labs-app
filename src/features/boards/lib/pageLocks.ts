@@ -13,7 +13,7 @@
 
 import type { Editor, TLAsset, TLBinding, TLPageId, TLRecord, TLShape } from "tldraw"
 import * as api from "../api"
-import { getContentAsJsonDocForPage, type ShareSnapshot } from "../sharePage"
+import { getContentAsJsonDocForPage } from "../sharePage"
 import {
 	createLock,
 	decryptBytes,
@@ -84,13 +84,6 @@ function collectPageRecords(editor: Editor, pageId: string) {
 	const assets = all.filter((r): r is TLAsset => r.typeName === "asset" && usedAssets.has(r.id))
 
 	return { all, shapes, shapeIds, bindings, assets }
-}
-
-/** getContentAsJsonDocForPage returns null for a page with no shapes. */
-function emptyPageDoc(editor: Editor, tldrawId: string): ShareSnapshot | null {
-	const page = editor.store.get(tldrawId as TLPageId)
-	if (!page) return null
-	return { document: { store: { [tldrawId]: page }, schema: editor.store.schema.serialize() } }
 }
 
 function srcOf(asset: TLAsset): string {
@@ -418,10 +411,7 @@ export class PageLockController {
 		if (meta) await unlockKey(meta, password)
 		await session.running?.catch(() => {})
 
-		const doc =
-			editor.getPageShapeIds(tldrawId as TLPageId).size === 0
-				? emptyPageDoc(editor, tldrawId)
-				: await getContentAsJsonDocForPage(editor, tldrawId as TLPageId)
+		const doc = await getContentAsJsonDocForPage(editor, tldrawId as TLPageId)
 		if (!doc) throw new Error("Couldn't read the page.")
 		if (JSON.stringify(doc).length > MAX_PLAIN_SNAPSHOT_CHARS) {
 			throw new Error("This page is over 50MB, so it can only be stored while locked.")

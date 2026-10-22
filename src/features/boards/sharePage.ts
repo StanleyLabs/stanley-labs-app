@@ -151,17 +151,20 @@ export async function getContentAsJsonDoc(
 	shapeIds: Iterable<TLShapeId>,
 ): Promise<ShareSnapshot | null> {
 	const ids = Array.from(shapeIds)
+	const pageId = editor.getCurrentPageId()
+	const page = editor.store.get(pageId) as PageRecord | undefined
+	const store: Record<string, unknown> = {}
+	store[pageId] = page ?? { typeName: "page", id: pageId, name: "Page", index: "a0", meta: {} }
+	// An empty page is still saved, so deleting the last shape sticks.
+	if (ids.length === 0) return { document: { store, schema: editor.store.schema.serialize() } }
+
 	const content = editor.getContentFromCurrentPage(ids)
 	if (!content) return null
 	const resolved = await editor.resolveAssetsInContent(content)
 	if (!resolved) return null
-	const pageId = editor.getCurrentPageId()
-	const page = editor.store.get(pageId) as PageRecord | undefined
-	const store: Record<string, unknown> = {}
 	for (const s of resolved.shapes) store[s.id] = s
 	for (const b of resolved.bindings ?? []) store[b.id] = b
 	for (const a of resolved.assets ?? []) store[a.id] = a
-	store[pageId] = page ?? { typeName: "page", id: pageId, name: "Page", index: "a0", meta: {} }
 	return { document: { store, schema: resolved.schema } }
 }
 
