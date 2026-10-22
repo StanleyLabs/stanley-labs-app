@@ -132,6 +132,8 @@ function bytesToDataUrl(bytes: Uint8Array, mime: string): Promise<string> {
 export class PageLockController {
 	private locked = new Set<string>()
 	private lockedByTldraw = new Map<string, string>()
+	/** Save started when the page was left; unlocking waits for it so it never loads a stale copy. */
+	private leaveSaves = new Map<string, Promise<void>>()
 	private sessions = new Map<string, Session>()
 	private listeners = new Set<() => void>()
 	private version = 0
@@ -261,10 +263,11 @@ export class PageLockController {
 		if (!session) return
 		const { all, shapes, shapeIds, bindings, assets } = collectPageRecords(editor, session.tldrawId)
 		if (save) {
-			void this.schedule(session, dbId, {
+			const saving = this.schedule(session, dbId, {
 				records: [...shapes, ...bindings, ...assets],
 				clearDocument: true,
 			}).catch((err) => console.warn("[locks] save on leave failed", err))
+			this.leaveSaves.set(dbId, saving)
 		}
 		this.sessions.delete(dbId)
 
@@ -352,6 +355,8 @@ export class PageLockController {
 		if (!meta) throw new Error("This page is no longer locked. Reload to open it.")
 		const key = await unlockKey(meta, password)
 
+		await this.leaveSaves.get(dbId)
+		this.leaveSaves.delete(dbId)
 		const bytes = await api.loadVaultDrawing(dbId)
 		const drawing: Drawing = bytes ? await decryptJson<Drawing>(key, bytes) : { v: 1, records: [] }
 		const rows = await api.listVaultAssets(dbId)
