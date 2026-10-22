@@ -16,11 +16,13 @@ interface Props {
 
 export function SharePageButton({ pageId, entry }: Props) {
 	const toasts = useToasts()
-	const { state } = useBoardsMachine()
+	const { state, locks } = useBoardsMachine()
 
 	// For the active shared page (including guest viewing), use activeSlug from context
 	const isActivePage = state.context.activePageTldrawId === pageId
-	const slug = entry?.publicSlug ?? (isActivePage ? state.context.activeSlug : null)
+	const slug = locks.isLocked(entry?.dbId)
+		? null
+		: (entry?.publicSlug ?? (isActivePage ? state.context.activeSlug : null))
 
 	const handleCopyLink = useCallback(
 		(e: React.MouseEvent) => {

@@ -17,6 +17,7 @@ import {
 	setUrlToBoards,
 	hydrateFromDb,
 } from "./boardsUtils"
+import type { PageLockController } from "../lib/pageLocks"
 
 interface UseAuthedPagesParams {
 	userId: string | null
@@ -27,6 +28,7 @@ interface UseAuthedPagesParams {
 	tldrawToDb: React.MutableRefObject<Map<string, string>>
 	hydratingRef: React.MutableRefObject<boolean>
 	loadedRef: React.MutableRefObject<boolean>
+	locks: PageLockController
 }
 
 export function useAuthedPages({
@@ -38,6 +40,7 @@ export function useAuthedPages({
 	tldrawToDb,
 	hydratingRef,
 	loadedRef,
+	locks,
 }: UseAuthedPagesParams): void {
 	const isInLoadingState = state.matches({ authed: "loading" })
 
@@ -80,7 +83,10 @@ export function useAuthedPages({
 				publicAccess: r.page.public_access,
 				sortIndex: r.page.sort_index,
 				role: r.role,
+				ownerId: r.page.owner_id,
+				locked: r.page.locked,
 			}))
+			locks.syncLocked(entries)
 
 			const map = new Map<string, string>()
 
@@ -173,7 +179,7 @@ export function useAuthedPages({
 			// Hydrate active page snapshot
 			const activeTldraw = editor.getCurrentPageId() as string
 			const activeDb = map.get(activeTldraw)
-			if (activeDb) {
+			if (activeDb && !locks.isLocked(activeDb)) {
 				await hydrateFromDb(editor, activeDb, activeTldraw, hydratingRef)
 			}
 		}
@@ -182,7 +188,7 @@ export function useAuthedPages({
 		return () => {
 			cancelled = true
 		}
-	}, [userId, isInLoadingState, send, editorInstance, tldrawToDb, hydratingRef, loadedRef])
+	}, [userId, isInLoadingState, send, editorInstance, tldrawToDb, hydratingRef, loadedRef, locks])
 
 	// ── Track page changes ─────────────────────────────────────────────────────
 
@@ -223,13 +229,13 @@ export function useAuthedPages({
 				setUrlToBoards()
 			}
 
-			void hydrateFromDb(editor, dbId, cur, hydratingRef)
+			if (!locks.isLocked(dbId)) void hydrateFromDb(editor, dbId, cur, hydratingRef)
 		}
 
 		const unlisten = editor.store.listen(onChange, { scope: "session" })
 		onChange()
 		return () => unlisten()
-	}, [editorInstance, userId, send, stateRef, tldrawToDb, hydratingRef, loadedRef])
+	}, [editorInstance, userId, send, stateRef, tldrawToDb, hydratingRef, loadedRef, locks])
 
 	// ── Sync page renames and reorders to DB ───────────────────────────────────
 

@@ -5,6 +5,7 @@
 import { createContext, useContext } from "react"
 import type { PageVisibility, PublicAccess } from "./api"
 import type { MachineState, BoardsEvent } from "./machine"
+import type { PageLockController } from "./lib/pageLocks"
 
 export interface NewPageInfo {
 	dbId: string
@@ -21,6 +22,7 @@ interface MachineCtxValue {
 	removeSharedPage: () => void
 	/** Register a newly created page in the machine + tldrawToDb map */
 	registerPage: (page: NewPageInfo) => void
+	locks: PageLockController
 }
 
 export const MachineCtx = createContext<MachineCtxValue>(null!)

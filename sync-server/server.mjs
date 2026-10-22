@@ -127,9 +127,36 @@ async function loadSnapshot(roomId) {
 
 const lastSaveLog = new Map()
 
+const LOCK_CHECK_TTL_MS = 2000
+const lockChecks = new Map()
+
+/**
+ * Password-locked pages are stored encrypted by the client; a room left open
+ * from before the page was locked must not write plaintext back.
+ */
+async function isPageLocked(pb, roomId) {
+	const cached = lockChecks.get(roomId)
+	if (cached && Date.now() - cached.at < LOCK_CHECK_TTL_MS) return cached.locked
+	let locked = false
+	try {
+		const page = await pb.collection("pages").getOne(roomId, { fields: "locked" })
+		locked = Boolean(page?.locked)
+	} catch (err) {
+		if (err?.status !== 404) throw err
+	}
+	lockChecks.set(roomId, { locked, at: Date.now() })
+	return locked
+}
+
 async function saveSnapshot(roomId, snapshot) {
 	const pb = await getPocketBase()
 	if (!pb) return
+	try {
+		if (await isPageLocked(pb, roomId)) return
+	} catch (err) {
+		console.warn("[sync] Lock check failed room=%s error=%s", roomId, err?.message)
+		return
+	}
 	const now = Date.now()
 	const last = lastSaveLog.get(roomId) ?? 0
 	if (now - last > 5000) {

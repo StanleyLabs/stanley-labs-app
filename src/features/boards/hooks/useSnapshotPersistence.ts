@@ -11,6 +11,7 @@ import type { MachineState } from "../machine"
 import * as api from "../api"
 import { getContentAsJsonDocForPage } from "../sharePage"
 import { throttle } from "./boardsUtils"
+import type { PageLockController } from "../lib/pageLocks"
 
 const SAVE_THROTTLE_MS = 2000
 
@@ -22,11 +23,18 @@ interface UseSnapshotPersistenceParams {
 	tldrawToDb: React.MutableRefObject<Map<string, string>>
 	stateRef: React.MutableRefObject<MachineState>
 	isGuestViewingShared: boolean
+	locks: PageLockController
 }
 
-function savePageSnapshot(editor: TldrawEditor, tldrawId: string, dbId: string): void {
+function savePageSnapshot(
+	editor: TldrawEditor,
+	tldrawId: string,
+	dbId: string,
+	locks?: PageLockController,
+): void {
 	void getContentAsJsonDocForPage(editor, tldrawId as TLPageId).then((doc) => {
-		if (doc) void api.saveSnapshot(dbId, doc)
+		// The page may have been locked while the snapshot was being built.
+		if (doc && !locks?.isLocked(dbId)) void api.saveSnapshot(dbId, doc)
 	})
 }
 
@@ -48,6 +56,7 @@ export function useSnapshotPersistence({
 	tldrawToDb,
 	stateRef,
 	isGuestViewingShared,
+	locks,
 }: UseSnapshotPersistenceParams): void {
 	// ── Authed: persist snapshots on edits ──────────────────────────────────────
 
@@ -59,9 +68,17 @@ export function useSnapshotPersistence({
 			if (hydratingRef.current || !loadedRef.current) return
 			const tldrawId = editor.getCurrentPageId() as string
 			const dbId = tldrawToDb.current.get(tldrawId)
-			if (dbId) savePageSnapshot(editor, tldrawId, dbId)
+			if (!dbId) return
+			// Locked pages are only ever written encrypted (and not at all while gated).
+			if (locks.isLocked(dbId)) {
+				locks.save(editor, dbId, tldrawId).catch((err) => {
+					console.warn("[boards] encrypted save failed", err)
+				})
+				return
+			}
+			savePageSnapshot(editor, tldrawId, dbId, locks)
 		})
-	}, [editorInstance, userId, hydratingRef, loadedRef, tldrawToDb])
+	}, [editorInstance, userId, hydratingRef, loadedRef, tldrawToDb, locks])
 
 	// ── Guest: persist shared page snapshots to PocketBase ─────────────────────
 

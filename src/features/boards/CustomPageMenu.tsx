@@ -55,7 +55,7 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 	const msg = useTranslation()
 	const breakpoint = useBreakpoint()
 	const { user } = useAuth()
-	const { state, registerPage } = useBoardsMachine()
+	const { state, registerPage, locks } = useBoardsMachine()
 
 	const [isEditing, setIsEditing] = useState(false)
 	const handleOpenChange = useCallback(() => setIsEditing(false), [])
@@ -344,6 +344,11 @@ export const CustomPageMenu = memo(function CustomPageMenu() {
 									>
 										<TldrawUiButtonCheck checked={page.id === currentPage.id} />
 										<TldrawUiButtonLabel>{page.name}</TldrawUiButtonLabel>
+										{locks.isLocked(entry?.dbId) && (
+											<span className="tlui-page-menu__item__lock" title="Locked">
+												<TldrawUiButtonIcon icon="lock" small />
+											</span>
+										)}
 									</TldrawUiButton>
 									<SharePageButton pageId={page.id} entry={entry} />
 									{!isReadonlyMode && page.id === currentPageId && (

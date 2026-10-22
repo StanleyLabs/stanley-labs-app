@@ -15,10 +15,10 @@ import { WhiteboardEditor } from "./components/WhiteboardEditor"
 
 function App() {
 	const boards = useBoards()
-	const { state, send, removeSharedPage, registerPage } = boards
+	const { state, send, removeSharedPage, registerPage, locks } = boards
 
 	return (
-		<MachineCtx.Provider value={{ state, send, removeSharedPage, registerPage }}>
+		<MachineCtx.Provider value={{ state, send, removeSharedPage, registerPage, locks }}>
 			{boards.needsServerBridge && (
 				<ServerSyncBridge
 					key={`${state.context.activePageDbId}-${boards.serverRetryKey}`}

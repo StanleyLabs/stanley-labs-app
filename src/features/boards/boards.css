@@ -176,3 +176,90 @@ body {
 .delete-page-dialog__actions .tlui-button__danger::after {
 	background-color: color-mix(in srgb, var(--tl-color-danger) 25%, transparent);
 }
+
+/* Page lock dialogs: same layout as the delete dialog, plus password fields */
+.page-lock-dialog {
+	width: 360px;
+	max-width: 100%;
+}
+
+.page-lock-dialog__fields {
+	display: flex;
+	flex-direction: column;
+	gap: var(--tl-space-3, 8px);
+	margin-top: var(--tl-space-5, 16px);
+	text-align: left;
+}
+
+.page-lock-dialog__label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--tl-color-text);
+}
+
+.page-lock-dialog__input {
+	padding: 6px 10px;
+	font-size: 16px; /* 16px prevents iOS auto-zoom on focus */
+	font-family: inherit;
+	border: 1px solid var(--tl-color-divider);
+	border-radius: 6px;
+	background: var(--tl-color-background);
+	color: var(--tl-color-text);
+	outline: none;
+}
+
+.page-lock-dialog__input:focus {
+	border-color: var(--tl-color-selected);
+}
+
+.page-lock-dialog__message {
+	margin: var(--tl-space-3, 8px) 0 0;
+	font-size: 12px;
+	color: var(--tl-color-text-3);
+}
+
+.page-lock-dialog__message[data-error="true"] {
+	color: var(--tl-color-danger);
+}
+
+.page-lock-dialog__link {
+	margin-top: var(--tl-space-4, 12px);
+	padding: 0;
+	border: none;
+	background: none;
+	font-family: inherit;
+	font-size: 12px;
+	color: var(--tl-color-text-3);
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+.page-lock-dialog__link:hover {
+	color: var(--tl-color-text-1);
+}
+
+/* Lock icon after a locked page's name in the page menu */
+.tlui-page-menu__item__lock {
+	display: inline-flex;
+	flex-shrink: 0;
+	margin-right: 28px; /* stays clear of the 3-dot menu button */
+	opacity: 0.6;
+}
+
+/* Unlock gate: covers the canvas (below the menus) until the password is entered */
+.page-lock-gate {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	padding: 0 var(--tl-space-3, 8px);
+	background-color: var(--tl-color-background);
+	pointer-events: all;
+}
+
+.page-lock-gate .tlui-dialog__content {
+	max-height: none;
+}

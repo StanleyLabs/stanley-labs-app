@@ -5,6 +5,8 @@
  *   Guest: instant local delete (tldraw only)
  *   Authed + owner: confirm dialog, permanently deletes from DB
  *   Authed + non-owner: removes from "my pages" (leaves the page for others)
+ *
+ * Password lock (page creator only): lock, change password, remove lock.
  */
 
 import { useCallback } from "react"
@@ -26,6 +28,7 @@ import {
 } from "tldraw"
 import { ConfirmDeleteDialog } from "../../ConfirmDeleteDialog"
 import { PageSettingsDialog } from "../PageSettingsDialog"
+import { ChangePasswordDialog, LockPageDialog, RemoveLockDialog } from "../PageLockDialogs"
 import { useAuth } from "../../../../lib/auth"
 import { useBoardsMachine } from "../../MachineContext"
 import * as api from "../../api"
@@ -56,9 +59,11 @@ export function CustomPageItemSubmenu({
 	const dialogs = useDialogs()
 	const toasts = useToasts()
 	const { user } = useAuth()
-	const { state, removeSharedPage } = useBoardsMachine()
+	const { state, removeSharedPage, locks } = useBoardsMachine()
 	const isLoggedIn = Boolean(user)
 	const isOwner = entry?.role === "owner"
+	const isCreator = isLoggedIn && Boolean(entry) && entry?.ownerId === user?.id
+	const isLocked = locks.isLocked(entry?.dbId)
 	const isGuestSharedPage = !isLoggedIn && Boolean(state.context.activeSlug)
 
 	const onDuplicate = useCallback(() => {
@@ -83,11 +88,61 @@ export function CustomPageItemSubmenu({
 				<PageSettingsDialog
 					onClose={dProps.onClose}
 					entry={entry}
+					locked={isLocked}
 					onUpdated={() => window.dispatchEvent(new Event("v2-pages-changed"))}
 				/>
 			),
 		})
-	}, [entry, dialogs])
+	}, [entry, dialogs, isLocked])
+
+	const onLock = useCallback(() => {
+		if (!entry) return
+		dialogs.addDialog({
+			component: (dProps: { onClose: () => void }) => (
+				<LockPageDialog
+					onClose={dProps.onClose}
+					pageName={item.name}
+					onLock={async (password) => {
+						await locks.lock(editor, entry.dbId, item.id, password)
+						window.dispatchEvent(new Event("v2-pages-changed"))
+						toasts.addToast({ title: "Page locked.", severity: "success" })
+					}}
+				/>
+			),
+		})
+	}, [entry, dialogs, item, locks, editor, toasts])
+
+	const onChangePassword = useCallback(() => {
+		if (!entry) return
+		dialogs.addDialog({
+			component: (dProps: { onClose: () => void }) => (
+				<ChangePasswordDialog
+					onClose={dProps.onClose}
+					onChangePassword={async (current, next) => {
+						await locks.changePassword(entry.dbId, current, next)
+						toasts.addToast({ title: "Password changed.", severity: "success" })
+					}}
+				/>
+			),
+		})
+	}, [entry, dialogs, locks, toasts])
+
+	const onRemoveLock = useCallback(() => {
+		if (!entry) return
+		dialogs.addDialog({
+			component: (dProps: { onClose: () => void }) => (
+				<RemoveLockDialog
+					onClose={dProps.onClose}
+					pageName={item.name}
+					onRemove={async (password) => {
+						await locks.removeLock(editor, entry.dbId, item.id, password)
+						window.dispatchEvent(new Event("v2-pages-changed"))
+						toasts.addToast({ title: "Lock removed.", severity: "success" })
+					}}
+				/>
+			),
+		})
+	}, [entry, dialogs, item, locks, editor, toasts])
 
 	const performDelete = useCallback(async () => {
 		// Guest viewing a shared page: clean navigate (tldraw sync fights in-place removal)
@@ -157,12 +212,15 @@ export function CustomPageItemSubmenu({
 						{onRename && (
 							<TldrawUiMenuItem id="rename" label="page-menu.submenu.rename" onSelect={onRename} />
 						)}
-						<TldrawUiMenuItem
-							id="duplicate"
-							label="page-menu.submenu.duplicate-page"
-							onSelect={onDuplicate}
-							disabled={pages.length >= editor.options.maxPages}
-						/>
+						{/* Duplicating would create an unencrypted copy */}
+						{!isLocked && (
+							<TldrawUiMenuItem
+								id="duplicate"
+								label="page-menu.submenu.duplicate-page"
+								onSelect={onDuplicate}
+								disabled={pages.length >= editor.options.maxPages}
+							/>
+						)}
 						{index > 0 && (
 							<TldrawUiMenuItem
 								id="move-up"
@@ -183,6 +241,28 @@ export function CustomPageItemSubmenu({
 					{isLoggedIn && entry && (
 						<TldrawUiMenuGroup id="settings">
 							<TldrawUiMenuItem id="page-settings" label="Settings" onSelect={onOpenSettings} />
+						</TldrawUiMenuGroup>
+					)}
+
+					{/* Password lock (page creator only) */}
+					{isCreator && (
+						<TldrawUiMenuGroup id="lock">
+							{isLocked ? (
+								<>
+									<TldrawUiMenuItem
+										id="change-page-password"
+										label="Change password"
+										onSelect={onChangePassword}
+									/>
+									<TldrawUiMenuItem
+										id="remove-page-lock"
+										label="Remove lock"
+										onSelect={onRemoveLock}
+									/>
+								</>
+							) : (
+								<TldrawUiMenuItem id="lock-page" label="Lock page" onSelect={onLock} />
+							)}
 						</TldrawUiMenuGroup>
 					)}
 

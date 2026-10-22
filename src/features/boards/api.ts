@@ -5,6 +5,7 @@
  *   pages           — canonical page records (owner, title, visibility, slug)
  *   page_members    — other users' roles on a page (owner/editor/viewer); the creator has no row
  *   page_snapshots  — tldraw document snapshots (one per page, record id = page id)
+ *   page_vault_assets — encrypted photos/videos of password-locked pages
  */
 
 import type { RecordModel } from "pocketbase"
@@ -32,8 +33,24 @@ export interface PageRow {
 	public_slug: string | null
 	public_access: PublicAccess | null
 	sort_index: string | null
+	locked: boolean
 	created_at: string
 	updated_at: string
+}
+
+/** Key metadata of a locked page. The data key is stored only wrapped by the password key. */
+export interface PageLockMeta {
+	v: 1
+	salt: string
+	iterations: number
+	iv: string
+	wrappedKey: string
+}
+
+export interface VaultAssetRow {
+	id: string
+	assetId: string
+	record: RecordModel
 }
 
 export interface PageMemberRow {
@@ -67,6 +84,7 @@ export interface PageMemberWithEmail {
 const pages = () => pb.collection("pages")
 const pageMembers = () => pb.collection("page_members")
 const pageSnapshots = () => pb.collection("page_snapshots")
+const vaultAssets = () => pb.collection("page_vault_assets")
 
 /** PocketBase stores empty optional values as ''; the app expects null. */
 function toPageRow(r: RecordModel): PageRow {
@@ -79,6 +97,7 @@ function toPageRow(r: RecordModel): PageRow {
 		public_slug: r.public_slug || null,
 		public_access: r.public_access || null,
 		sort_index: r.sort_index || null,
+		locked: Boolean(r.locked),
 		created_at: r.created_at,
 		updated_at: r.updated_at,
 	}
@@ -369,4 +388,135 @@ export async function saveSnapshot(pageId: string, document: unknown): Promise<b
 		console.warn("[api] saveSnapshot failed:", errorMessage(err))
 		return false
 	}
+}
+
+// ── Page locks ─────────────────────────────────────────────────────────────────
+// These throw with a user-facing message; callers show it in the lock dialogs.
+
+function fail(err: unknown): never {
+	throw new Error(errorMessage(err))
+}
+
+/** Fetch the current lock metadata (always fresh, the password may have changed on another device). */
+export async function getPageLock(pageId: string): Promise<PageLockMeta | null> {
+	const r = await pages().getOne(pageId, { fields: "locked,lock" }).catch(fail)
+	return r.locked && r.lock ? (r.lock as PageLockMeta) : null
+}
+
+/** Mark a page locked and make it private (clears the public link). */
+export async function setPageLock(pageId: string, lock: PageLockMeta): Promise<void> {
+	await pages()
+		.update(pageId, {
+			locked: true,
+			lock,
+			visibility: "private",
+			public_slug: "",
+			public_access: "",
+		})
+		.catch(fail)
+}
+
+export async function updatePageLock(pageId: string, lock: PageLockMeta): Promise<void> {
+	await pages().update(pageId, { lock }).catch(fail)
+}
+
+export async function clearPageLock(pageId: string): Promise<void> {
+	await pages().update(pageId, { locked: false, lock: null }).catch(fail)
+}
+
+function binaryFile(bytes: Uint8Array, name: string): File {
+	return new File([bytes as BlobPart], name, { type: "application/octet-stream" })
+}
+
+let cachedFileToken: { token: string; at: number } | null = null
+
+/** Short-lived token for protected files; reused for a minute to avoid one request per file. */
+async function fileToken(): Promise<string> {
+	if (cachedFileToken && Date.now() - cachedFileToken.at < 60_000) return cachedFileToken.token
+	const token = await pb.files.getToken().catch(fail)
+	cachedFileToken = { token, at: Date.now() }
+	return token
+}
+
+async function downloadFile(record: RecordModel, filename: string): Promise<Uint8Array> {
+	const url = pb.files.getURL(record, filename, { token: await fileToken() })
+	const res = await fetch(url)
+	if (!res.ok) throw new Error(`Download failed (${res.status}).`)
+	return new Uint8Array(await res.arrayBuffer())
+}
+
+/**
+ * Store the encrypted drawing of a locked page. `clearDocument` removes the
+ * plaintext snapshot; it is skipped only during the first lock, before the
+ * page is marked locked.
+ */
+export async function saveVaultDrawing(
+	pageId: string,
+	bytes: Uint8Array,
+	clearDocument = true,
+): Promise<void> {
+	await upsertById("page_snapshots", pageId, {
+		page_id: pageId,
+		vault: binaryFile(bytes, "drawing.bin"),
+		...(clearDocument ? { document: null } : {}),
+	}).catch(fail)
+}
+
+export async function clearSnapshotDocument(pageId: string): Promise<void> {
+	await pageSnapshots().update(pageId, { document: null }).catch(fail)
+}
+
+/** Encrypted drawing of a locked page, or null if none was saved yet. */
+export async function loadVaultDrawing(pageId: string): Promise<Uint8Array | null> {
+	let record: RecordModel
+	try {
+		record = await pageSnapshots().getOne(pageId, {
+			fields: "id,collectionId,collectionName,vault",
+		})
+	} catch {
+		return null
+	}
+	if (!record.vault) return null
+	return downloadFile(record, record.vault)
+}
+
+export async function clearVaultDrawing(pageId: string): Promise<void> {
+	await pageSnapshots().update(pageId, { vault: null }).catch(fail)
+}
+
+export async function listVaultAssets(pageId: string): Promise<VaultAssetRow[]> {
+	const rows = await vaultAssets()
+		.getFullList({ filter: pb.filter("page_id = {:p}", { p: pageId }) })
+		.catch(fail)
+	return rows.map((r) => ({ id: r.id, assetId: r.asset_id, record: r }))
+}
+
+/** Upload one encrypted asset. Returns its record id (existing one if already uploaded). */
+export async function uploadVaultAsset(
+	pageId: string,
+	assetId: string,
+	bytes: Uint8Array,
+): Promise<string> {
+	try {
+		const r = await vaultAssets().create({
+			page_id: pageId,
+			asset_id: assetId,
+			file: binaryFile(bytes, "asset.bin"),
+		})
+		return r.id
+	} catch (err) {
+		if (!isUniqueViolation(err)) fail(err)
+		const existing = await vaultAssets()
+			.getFirstListItem(pb.filter("page_id = {:p} && asset_id = {:a}", { p: pageId, a: assetId }))
+			.catch(fail)
+		return existing.id
+	}
+}
+
+export async function downloadVaultAsset(row: VaultAssetRow): Promise<Uint8Array> {
+	return downloadFile(row.record, row.record.file)
+}
+
+export async function deleteVaultAsset(recordId: string): Promise<void> {
+	await vaultAssets().delete(recordId).catch(fail)
 }

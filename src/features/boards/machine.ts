@@ -41,6 +41,10 @@ export interface PageEntry {
 	publicAccess: PublicAccess | null
 	sortIndex: string | null
 	role: PageRole
+	/** pages.owner_id (the creator). Only the creator can lock a page. */
+	ownerId: string
+	/** Content is encrypted with a password. */
+	locked: boolean
 }
 
 export interface BoardsContext {

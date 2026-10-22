@@ -6,6 +6,7 @@
  *   - useSharedLink: shared URL resolution, removal, broadcast listeners
  *   - useAuthedPages: PocketBase page loading, page tracking, rename sync
  *   - useSnapshotPersistence: throttled snapshot saves for authed + guest
+ *   - usePageLocks: password-locked pages (key lifetime, eviction)
  *
  * The UI layer consumes the returned state and callbacks.
  */
@@ -32,6 +33,8 @@ import { useGuestPersistence } from "./useGuestPersistence"
 import { useSharedLink } from "./useSharedLink"
 import { useAuthedPages } from "./useAuthedPages"
 import { useSnapshotPersistence } from "./useSnapshotPersistence"
+import { useLockVersion, usePageLocks } from "./usePageLocks"
+import type { PageLockController } from "../lib/pageLocks"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -52,6 +55,7 @@ export interface BoardsOrchestration {
 	onEditorMount: (editor: TldrawEditor) => () => void
 	removeSharedPage: () => void
 	registerPage: (page: NewPageInfo) => void
+	locks: PageLockController
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
@@ -107,6 +111,9 @@ export function useBoards(): BoardsOrchestration {
 
 	// ── Sub-hooks ──────────────────────────────────────────────────────────────
 
+	const locks = usePageLocks({ editorInstance, userId, tldrawToDb, hydratingRef })
+	useLockVersion(locks)
+
 	useGuestPersistence({
 		store,
 		userId,
@@ -135,6 +142,7 @@ export function useBoards(): BoardsOrchestration {
 		tldrawToDb,
 		hydratingRef,
 		loadedRef,
+		locks,
 	})
 
 	useSnapshotPersistence({
@@ -145,10 +153,12 @@ export function useBoards(): BoardsOrchestration {
 		tldrawToDb,
 		stateRef,
 		isGuestViewingShared,
+		locks,
 	})
 
 	// ── Derived state ──────────────────────────────────────────────────────────
 
+	const activePageDbId = state.context.activePageDbId
 	const editable = isEditable(state)
 	const serverSynced = isServerSynced(state)
 	const activePageShared = isActivePageShared(state)
@@ -156,8 +166,9 @@ export function useBoards(): BoardsOrchestration {
 	const needsServerBridge =
 		isSyncServerConfigured() &&
 		shouldAttemptSync(state) &&
-		Boolean(state.context.activePageDbId) &&
-		activePageShared
+		Boolean(activePageDbId) &&
+		activePageShared &&
+		!locks.isLocked(activePageDbId)
 
 	const syncUri = state.context.activePageDbId ? buildSyncUri(state.context.activePageDbId) : ""
 
@@ -180,10 +191,12 @@ export function useBoards(): BoardsOrchestration {
 					publicAccess: page.publicAccess ?? null,
 					sortIndex: null,
 					role: "owner",
+					ownerId: userId ?? "",
+					locked: false,
 				},
 			})
 		},
-		[send],
+		[send, userId],
 	)
 
 	return {
@@ -203,5 +216,6 @@ export function useBoards(): BoardsOrchestration {
 		onEditorMount: handleEditorMount,
 		removeSharedPage,
 		registerPage,
+		locks,
 	}
 }

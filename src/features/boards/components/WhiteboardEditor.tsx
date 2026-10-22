@@ -12,6 +12,8 @@ import { SyncThemeToDocument } from "../SyncThemeToDocument"
 import { CustomContextMenu, CustomMainMenu } from "../ExportMenu"
 import { CustomPageMenu } from "../CustomPageMenu"
 import { createEditorOnMount } from "../setupEditorMount"
+import { PageLockGate } from "./PageLockGate"
+import { useCurrentPageLock } from "../hooks/useCurrentPageLock"
 import type { BoardsOrchestration } from "../hooks/useBoards"
 
 const licenseKey = import.meta.env.VITE_TLDRAW_LICENSE_KEY
@@ -19,9 +21,11 @@ const SYNC_APPLY_IDLE_MS = 400
 
 function ReadonlyTracker({ editable }: { editable: boolean }) {
 	const editor = useEditor()
+	const { gated } = useCurrentPageLock()
+	const readonly = !editable || gated
 	useEffect(() => {
-		editor.updateInstanceState({ isReadonly: !editable })
-	}, [editor, editable])
+		editor.updateInstanceState({ isReadonly: readonly })
+	}, [editor, readonly])
 	return null
 }
 
@@ -209,6 +213,7 @@ const COMPONENTS = {
 	PageMenu: CustomPageMenu,
 	MenuPanel: MenuPanelWithIndicator,
 	SharePanel: null,
+	InFrontOfTheCanvas: PageLockGate,
 }
 
 export function WhiteboardEditor({ boards }: { boards: BoardsOrchestration }) {

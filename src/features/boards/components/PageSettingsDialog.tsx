@@ -82,6 +82,8 @@ function rolePillStyle(role: PageRole): React.CSSProperties {
 interface PageSettingsDialogProps extends TLUiDialogProps {
 	entry: PageEntry
 	onUpdated: () => void
+	/** Password-locked pages are always private; sharing is unavailable. */
+	locked?: boolean
 }
 
 export function PageSettingsDialog(props: PageSettingsDialogProps) {
@@ -273,6 +275,35 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 		outline: "none",
 	}
 
+	const titleSection = (
+		<div style={sectionStyle}>
+			<span style={labelStyle}>Page name</span>
+			<div style={{ fontSize: 14, fontWeight: 500, color: "var(--tl-color-text)" }}>
+				{entry.title}
+			</div>
+		</div>
+	)
+
+	if (props.locked) {
+		return (
+			<div style={{ minWidth: 360, maxWidth: 480 }}>
+				<TldrawUiDialogHeader>
+					<TldrawUiDialogTitle>Page settings</TldrawUiDialogTitle>
+					<TldrawUiDialogCloseButton />
+				</TldrawUiDialogHeader>
+				<TldrawUiDialogBody>
+					{titleSection}
+					<div style={{ padding: "12px 16px" }}>
+						<span style={labelStyle}>Visibility</span>
+						<p style={{ fontSize: 11, color: "var(--tl-color-text-3)" }}>
+							Locked pages are private to you. Remove the lock to share this page.
+						</p>
+					</div>
+				</TldrawUiDialogBody>
+			</div>
+		)
+	}
+
 	return (
 		<div style={{ minWidth: 360, maxWidth: 480 }}>
 			<TldrawUiDialogHeader>
@@ -280,13 +311,7 @@ export function PageSettingsDialog(props: PageSettingsDialogProps) {
 				<TldrawUiDialogCloseButton />
 			</TldrawUiDialogHeader>
 			<TldrawUiDialogBody>
-				{/* Title */}
-				<div style={sectionStyle}>
-					<span style={labelStyle}>Page name</span>
-					<div style={{ fontSize: 14, fontWeight: 500, color: "var(--tl-color-text)" }}>
-						{entry.title}
-					</div>
-				</div>
+				{titleSection}
 
 				{/* Visibility */}
 				<div style={sectionStyle}>
